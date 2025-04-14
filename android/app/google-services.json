@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "616385244627",
+    "firebase_url": "https://speaky-chat0-default-rtdb.firebaseio.com",
+    "project_id": "speaky-chat0",
+    "storage_bucket": "speaky-chat0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616385244627:android:ae9bbdbd6a2e63758b9326",
+        "android_client_info": {
+          "package_name": "com.example.bird"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC13FXK4WsRFmcg-FXzOz-yeBOqLZTgbNM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616385244627:android:29988ce934d7fc4b8b9326",
+        "android_client_info": {
+          "package_name": "com.mycompany.speakychat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC13FXK4WsRFmcg-FXzOz-yeBOqLZTgbNM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

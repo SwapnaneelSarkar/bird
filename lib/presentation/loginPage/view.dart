@@ -72,14 +72,14 @@ class _LoginPageState extends State<LoginPage> {
                   if (state is LoginLoadingState) {
                     return Center(
                       child: CircularProgressIndicator(
-                        color: ColorConstants.primary,
+                        color: ColorManager.primary,
                       ),
                     );
                   }
 
                   return ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: ColorConstants.primary, // Button color
+                      backgroundColor: ColorManager.primary, // Button color
                       padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -132,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         'Terms of Service & Privacy Policy',
                         style: TextStyle(
-                            color: ColorConstants.primary, fontSize: 12),
+                            color: ColorManager.primary, fontSize: 12),
                       ),
                     ),
                   ],

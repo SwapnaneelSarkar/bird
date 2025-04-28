@@ -1,37 +1,44 @@
+import 'package:bird/presentation/complete%20profile/view.dart';
 import 'package:flutter/material.dart';
-import '../../presentation/DeliveryAddressPage/view.dart';
-import '../../presentation/loginPage/view.dart';
-import '../../presentation/otpPage/view.dart';
 
-class AppRouter {
-  static Route<dynamic> generateRoute(RouteSettings settings) {
-    switch (settings.name) {
-      case '/':
+import '../../presentation/loginPage/view.dart';
+
+class Routes {
+  static const String splash = '/splash';
+  static const String LandingPage = '/land';
+  static const String login = '/login';
+  static const String profileView = '/profileView';
+  static const String ConfirmLocation = '/ConfirmLocation';
+ 
+
+
+  static const String blank = '/blank';
+}
+
+class RouteGenerator {
+  static Route<dynamic> getRoute(RouteSettings routeSettings) {
+    switch (routeSettings.name) {
+
+
+      case Routes.login:
         return MaterialPageRoute(builder: (_) => LoginPage());
-      case '/otp':
-        // Safely handle the arguments
-        if (settings.arguments != null) {
-          final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-              builder: (_) => OtpScreen(
-                    phoneNumber:
-                        args['phoneNumber'] ?? '', // Use null-safe operator
-                    verificationId: args['verificationId'] ?? '',
-                  ));
-        } else {
-          // Provide a fallback or error route when arguments are missing
-          return MaterialPageRoute(
-            builder: (_) => Scaffold(
-              body: Center(
-                child: Text('Missing required parameters for OTP screen'),
-              ),
-            ),
-          );
-        }
-      case '/address':
-        return MaterialPageRoute(builder: (_) => AddressScreen());
+
+      case Routes.profileView:
+        return MaterialPageRoute(builder: (_) => const CompleteProfileView());
+
+
       default:
-        return MaterialPageRoute(builder: (_) => LoginPage());
+        return unDefinedRoute();
     }
+  }
+
+  static Route<dynamic> unDefinedRoute() {
+    return MaterialPageRoute(
+        builder: (_) => const Scaffold(
+                body: SizedBox(
+              child: Center(
+                child: Text("Page Not Found"),
+              ),
+            )));
   }
 }

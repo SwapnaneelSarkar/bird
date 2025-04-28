@@ -72,11 +72,11 @@ class _OtpScreenState extends State<OtpScreen> {
                     Image.asset(
                       'assets/logo.png',
                       height: 60,
-                      color: ColorConstants.primary,
+                      color: ColorManager.primary,
                     ),
                     SizedBox(height: 40),
                     Text(
-                      'Enter 6-digit OTP', // Updated to 6-digit
+                      'Enter 6-digit OTP',
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: 22.0,
@@ -153,7 +153,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8.0),
                                   borderSide: BorderSide(
-                                    color: ColorConstants.primary,
+                                    color: ColorManager.primary,
                                     width: 1,
                                   ),
                                 ),
@@ -186,13 +186,13 @@ class _OtpScreenState extends State<OtpScreen> {
                         if (state is OtpVerificationLoadingState) {
                           return Center(
                             child: CircularProgressIndicator(
-                              color: ColorConstants.primary,
+                              color: ColorManager.primary,
                             ),
                           );
                         }
                         return ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: ColorConstants.primary,
+                            backgroundColor: ColorManager.primary,
                             padding: EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -248,7 +248,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           child: Text(
                             'Resend',
                             style: TextStyle(
-                              color: ColorConstants.primary,
+                              color: ColorManager.primary,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),

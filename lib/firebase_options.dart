@@ -50,21 +50,24 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC13FXK4WsRFmcg-FXzOz-yeBOqLZTgbNM',
-    appId: '1:616385244627:android:ae9bbdbd6a2e63758b9326',
-    messagingSenderId: '616385244627',
-    projectId: 'speaky-chat0',
-    databaseURL: 'https://speaky-chat0-default-rtdb.firebaseio.com',
-    storageBucket: 'speaky-chat0.appspot.com',
+    apiKey: 'AIzaSyAlUitAQ_hDTk_EhmmAP1-fbn8h6KRr8Jo',
+    appId: '1:1062805760329:android:b7669183355d3fd55e9298',
+    messagingSenderId: '1062805760329',
+    projectId: 'bird-2a331',
+    databaseURL: 'https://bird-2a331-default-rtdb.firebaseio.com',
+    storageBucket: 'bird-2a331.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAORqBX-9qt_g2NBETQWaU-JFHa7hEpTyA',
-    appId: '1:616385244627:ios:2aba487118faca5e8b9326',
-    messagingSenderId: '616385244627',
-    projectId: 'speaky-chat0',
-    databaseURL: 'https://speaky-chat0-default-rtdb.firebaseio.com',
-    storageBucket: 'speaky-chat0.appspot.com',
+    apiKey: 'AIzaSyBx1K8vzcXZHxOP0jm_qFQPg8iTnDK93gY',
+    appId: '1:1062805760329:ios:d394b3a929c713c05e9298',
+    messagingSenderId: '1062805760329',
+    projectId: 'bird-2a331',
+    databaseURL: 'https://bird-2a331-default-rtdb.firebaseio.com',
+    storageBucket: 'bird-2a331.firebasestorage.app',
+    androidClientId: '1062805760329-21h3vboi0kei20bljdrhj2lv9u2ps173.apps.googleusercontent.com',
+    iosClientId: '1062805760329-v51f65u75u8tnml2sauphurvkc4fu4o6.apps.googleusercontent.com',
     iosBundleId: 'com.example.bird',
   );
+
 }

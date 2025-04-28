@@ -59,7 +59,7 @@ class _AddressScreenState extends State<AddressScreen> {
                         child: Image.asset(
                           'assets/logo.png',
                           height: 54,
-                          color: ColorConstants.primary,
+                          color: ColorManager.primary,
                         ),
                       ),
                       // SizedBox(height: 8),
@@ -105,7 +105,7 @@ class _AddressScreenState extends State<AddressScreen> {
                                   child: Icon(
                                     Icons.keyboard,
                                     color:
-                                        ColorConstants.primary, // Orange icon
+                                        ColorManager.primary, // Orange icon
                                     size: 20,
                                   ),
                                 ),
@@ -137,7 +137,7 @@ class _AddressScreenState extends State<AddressScreen> {
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                          color: ColorConstants.primary,
+                                          color: ColorManager.primary,
                                           width: 1,
                                         ),
                                       ),
@@ -152,7 +152,7 @@ class _AddressScreenState extends State<AddressScreen> {
                             // Continue button
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: ColorConstants
+                                backgroundColor: ColorManager
                                     .primary, // Orange button color
                                 padding: EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(

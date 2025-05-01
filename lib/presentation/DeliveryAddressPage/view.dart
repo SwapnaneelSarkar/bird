@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
+import '../../widgets/custom_button_large.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -150,40 +151,17 @@ class _AddressScreenState extends State<AddressScreen> {
                             ),
                             SizedBox(height: 16),
                             // Continue button
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: ColorManager
-                                    .primary, // Orange button color
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                minimumSize: Size(
-                                    double.infinity, 50), // Full width button
-                              ),
-                              onPressed: () {
-                                final address = addressController.text;
-                                if (address.isNotEmpty) {
-                                  context.read<AddressBloc>().add(
-                                        SubmitAddressEvent(address: address),
-                                      );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content:
-                                            Text("Please enter an address")),
-                                  );
-                                }
-                              },
-                              child: Text(
-                                'Continue',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                            CustomLargeButton(
+  text: 'Continue',
+  onPressed: () {
+  Navigator.of(context).pushNamedAndRemoveUntil(
+    '/profileView', // 🔁 Replace with your actual next page route
+    (route) => false,
+  );
+},
+
+),
+
                           ],
                         ),
                       ),

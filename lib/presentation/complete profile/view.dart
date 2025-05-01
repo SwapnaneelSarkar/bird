@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/custom_button_large.dart';
 import '../../widgets/text_field2.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -155,7 +156,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                         padding: EdgeInsets.all(avatarDim * .07),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: ColorManager.orangeAcc,
+                          color: ColorManager.primary,
                         ),
                         child: Icon(
                           Icons.camera_alt,
@@ -201,7 +202,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
               BlocConsumer<CompleteProfileBloc, CompleteProfileState>(
                 listener: (context, state) {
                   if (state is ProfileSuccess) {
-                    Navigator.of(context).pushReplacementNamed('/home');
+                    Navigator.of(context).pushReplacementNamed('/address');
                   } else if (state is ProfileFailure) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(state.error)),
@@ -211,20 +212,19 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                 builder: (context, state) {
                   return SizedBox(
                     width: double.infinity,
-                    height: 50,
-                    child: CustomButton(
-                      label: 'Continue',
-                      isLoading: state is ProfileSubmitting,
-                      onPressed: () {
-                        context.read<CompleteProfileBloc>().add(
-                              SubmitProfile(
-                                name: _nameCtrl.text.trim(),
-                                email: _emailCtrl.text.trim(),
-                                avatar: _avatarFile,
-                              ),
-                            );
-                      },
-                    ),
+                    child:  CustomLargeButton(
+    text: 'Continue',
+    onPressed: () {
+      context.read<CompleteProfileBloc>().add(
+            SubmitProfile(
+              name: _nameCtrl.text.trim(),
+              email: _emailCtrl.text.trim(),
+              avatar: _avatarFile,
+            ),
+          );
+    },
+  ),
+
                   );
                 },
               ),

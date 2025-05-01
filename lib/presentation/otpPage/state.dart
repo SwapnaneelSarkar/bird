@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+// lib/presentation/screens/otp/state.dart
 
 abstract class OtpState {}
 
@@ -13,8 +13,7 @@ class OtpVerificationLoadingState extends OtpState {}
 
 class OtpVerificationSuccessState extends OtpState {
   final String otp;
-  final UserCredential? userCredential;
-  OtpVerificationSuccessState({required this.otp, this.userCredential});
+  OtpVerificationSuccessState({required this.otp});
 }
 
 class OtpVerificationFailureState extends OtpState {

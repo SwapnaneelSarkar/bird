@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,
         ),
-        initialRoute: Routes.profileView,
+        initialRoute: Routes.login,
         onGenerateRoute: (RouteSettings settings) {
           final Route<dynamic> route = RouteGenerator.getRoute(settings);
           // const bottomNavRoutes = {

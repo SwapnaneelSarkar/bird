@@ -4,7 +4,7 @@
             "outputFile": "com.example.bird.app-mergeReleaseResources-33:/values-km/values-km.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\e436391d4eabda697fceffbdd6837f99\\transformed\\jetified-credentials-1.2.0-rc01\\res\\values-km\\values-km.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/9c119dd63c437872369cc71260dcc208/transformed/jetified-credentials-1.2.0-rc01/res/values-km/values-km.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",
@@ -14,7 +14,24 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\3e4fa42964ec6369b3a52ce840a46646\\transformed\\core-1.13.1\\res\\values-km\\values-km.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/2819cb09699dc6309d54bffdb996a48f/transformed/browser-1.4.0/res/values-km/values-km.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,152,249,382",
+                        "endColumns": "96,96,132,99",
+                        "endOffsets": "147,244,377,477"
+                    },
+                    "to": {
+                        "startLines": "29,30,31,32",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "3230,3327,3424,3557",
+                        "endColumns": "96,96,132,99",
+                        "endOffsets": "3322,3419,3552,3652"
+                    }
+                },
+                {
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/689de4f73bd6ac03c3fb82d862eefab9/transformed/core-1.13.1/res/values-km/values-km.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -31,7 +48,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\814b5e239732735f2c6fd9e01cbdb5de\\transformed\\jetified-play-services-basement-18.4.0\\res\\values-km\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/1b9281cbe7aa732d148ef4bc650436f5/transformed/jetified-play-services-basement-18.4.0/res/values-km/values.xml",
                     "from": {
                         "startLines": "4",
                         "startColumns": "0",
@@ -48,7 +65,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\34655fc2264f052daceb888fd11fb13f\\transformed\\jetified-play-services-base-18.3.0\\res\\values-km\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/b3b373a53596673a253cc980fb52cb2c/transformed/jetified-play-services-base-18.3.0/res/values-km/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -62,23 +79,6 @@
                         "startOffsets": "1009,1111,1266,1387,1492,1654,1778,1899,2157,2315,2432,2603,2728,2873,3031,3095,3153",
                         "endColumns": "101,154,120,104,161,123,120,108,157,116,170,124,144,157,63,57,76",
                         "endOffsets": "1106,1261,1382,1487,1649,1773,1894,2003,2310,2427,2598,2723,2868,3026,3090,3148,3225"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\ea5a6b8d05c88ff4bf6e759ddab4a001\\transformed\\browser-1.4.0\\res\\values-km\\values-km.xml",
-                    "from": {
-                        "startLines": "2,3,4,5",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "55,152,249,382",
-                        "endColumns": "96,96,132,99",
-                        "endOffsets": "147,244,377,477"
-                    },
-                    "to": {
-                        "startLines": "29,30,31,32",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "3230,3327,3424,3557",
-                        "endColumns": "96,96,132,99",
-                        "endOffsets": "3322,3419,3552,3652"
                     }
                 }
             ]

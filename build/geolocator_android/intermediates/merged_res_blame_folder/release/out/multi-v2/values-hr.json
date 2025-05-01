@@ -4,7 +4,7 @@
             "outputFile": "com.baseflow.geolocator.geolocator_android-merged_res-27:/values-hr/values-hr.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\cc35c6482aba9c15c3250c08d6b8ae27\\transformed\\jetified-play-services-basement-18.3.0\\res\\values-hr\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/be1f0117ea047fbeb3191b308fdd788d/transformed/jetified-play-services-basement-18.3.0/res/values-hr/values.xml",
                     "from": {
                         "startLines": "4",
                         "startColumns": "0",
@@ -21,24 +21,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\3e4fa42964ec6369b3a52ce840a46646\\transformed\\core-1.13.1\\res\\values-hr\\values-hr.xml",
-                    "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,260,357,456,560,664,781",
-                        "endColumns": "97,106,96,98,103,103,116,100",
-                        "endOffsets": "148,255,352,451,555,659,776,877"
-                    },
-                    "to": {
-                        "startLines": "2,3,4,5,6,7,8,27",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,260,357,456,560,664,2968",
-                        "endColumns": "97,106,96,98,103,103,116,100",
-                        "endOffsets": "148,255,352,451,555,659,776,3064"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\34655fc2264f052daceb888fd11fb13f\\transformed\\jetified-play-services-base-18.3.0\\res\\values-hr\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/b3b373a53596673a253cc980fb52cb2c/transformed/jetified-play-services-base-18.3.0/res/values-hr/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -52,6 +35,23 @@
                         "startOffsets": "781,887,1044,1174,1284,1441,1571,1686,1925,2075,2182,2339,2467,2614,2757,2825,2887",
                         "endColumns": "105,156,129,109,156,129,114,106,149,106,156,127,146,142,67,61,80",
                         "endOffsets": "882,1039,1169,1279,1436,1566,1681,1788,2070,2177,2334,2462,2609,2752,2820,2882,2963"
+                    }
+                },
+                {
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/689de4f73bd6ac03c3fb82d862eefab9/transformed/core-1.13.1/res/values-hr/values-hr.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,260,357,456,560,664,781",
+                        "endColumns": "97,106,96,98,103,103,116,100",
+                        "endOffsets": "148,255,352,451,555,659,776,877"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,27",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,260,357,456,560,664,2968",
+                        "endColumns": "97,106,96,98,103,103,116,100",
+                        "endOffsets": "148,255,352,451,555,659,776,3064"
                     }
                 }
             ]
@@ -60,7 +60,7 @@
             "outputFile": "com.baseflow.geolocator.geolocator_android-mergeReleaseResources-25:/values-hr/values-hr.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\cc35c6482aba9c15c3250c08d6b8ae27\\transformed\\jetified-play-services-basement-18.3.0\\res\\values-hr\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/be1f0117ea047fbeb3191b308fdd788d/transformed/jetified-play-services-basement-18.3.0/res/values-hr/values.xml",
                     "from": {
                         "startLines": "4",
                         "startColumns": "0",
@@ -77,24 +77,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\3e4fa42964ec6369b3a52ce840a46646\\transformed\\core-1.13.1\\res\\values-hr\\values-hr.xml",
-                    "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,260,357,456,560,664,781",
-                        "endColumns": "97,106,96,98,103,103,116,100",
-                        "endOffsets": "148,255,352,451,555,659,776,877"
-                    },
-                    "to": {
-                        "startLines": "2,3,4,5,6,7,8,27",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,260,357,456,560,664,2968",
-                        "endColumns": "97,106,96,98,103,103,116,100",
-                        "endOffsets": "148,255,352,451,555,659,776,3064"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\34655fc2264f052daceb888fd11fb13f\\transformed\\jetified-play-services-base-18.3.0\\res\\values-hr\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/b3b373a53596673a253cc980fb52cb2c/transformed/jetified-play-services-base-18.3.0/res/values-hr/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -108,6 +91,23 @@
                         "startOffsets": "781,887,1044,1174,1284,1441,1571,1686,1925,2075,2182,2339,2467,2614,2757,2825,2887",
                         "endColumns": "105,156,129,109,156,129,114,106,149,106,156,127,146,142,67,61,80",
                         "endOffsets": "882,1039,1169,1279,1436,1566,1681,1788,2070,2177,2334,2462,2609,2752,2820,2882,2963"
+                    }
+                },
+                {
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/689de4f73bd6ac03c3fb82d862eefab9/transformed/core-1.13.1/res/values-hr/values-hr.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,260,357,456,560,664,781",
+                        "endColumns": "97,106,96,98,103,103,116,100",
+                        "endOffsets": "148,255,352,451,555,659,776,877"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,27",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,260,357,456,560,664,2968",
+                        "endColumns": "97,106,96,98,103,103,116,100",
+                        "endOffsets": "148,255,352,451,555,659,776,3064"
                     }
                 }
             ]

@@ -4,17 +4,24 @@
             "outputFile": "com.example.bird.app-mergeReleaseResources-33:/values-bg/values-bg.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\e436391d4eabda697fceffbdd6837f99\\transformed\\jetified-credentials-1.2.0-rc01\\res\\values-bg\\values-bg.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/2819cb09699dc6309d54bffdb996a48f/transformed/browser-1.4.0/res/values-bg/values-bg.xml",
                     "from": {
-                        "startLines": "2,3",
-                        "startColumns": "4,4",
-                        "startOffsets": "55,165",
-                        "endColumns": "109,119",
-                        "endOffsets": "160,280"
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,166,274,386",
+                        "endColumns": "110,107,111,109",
+                        "endOffsets": "161,269,381,491"
+                    },
+                    "to": {
+                        "startLines": "29,30,31,32",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "3333,3444,3552,3664",
+                        "endColumns": "110,107,111,109",
+                        "endOffsets": "3439,3547,3659,3769"
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\34655fc2264f052daceb888fd11fb13f\\transformed\\jetified-play-services-base-18.3.0\\res\\values-bg\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/b3b373a53596673a253cc980fb52cb2c/transformed/jetified-play-services-base-18.3.0/res/values-bg/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -31,7 +38,17 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\3e4fa42964ec6369b3a52ce840a46646\\transformed\\core-1.13.1\\res\\values-bg\\values-bg.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/9c119dd63c437872369cc71260dcc208/transformed/jetified-credentials-1.2.0-rc01/res/values-bg/values-bg.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,165",
+                        "endColumns": "109,119",
+                        "endOffsets": "160,280"
+                    }
+                },
+                {
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/689de4f73bd6ac03c3fb82d862eefab9/transformed/core-1.13.1/res/values-bg/values-bg.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -48,7 +65,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\814b5e239732735f2c6fd9e01cbdb5de\\transformed\\jetified-play-services-basement-18.4.0\\res\\values-bg\\values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/1b9281cbe7aa732d148ef4bc650436f5/transformed/jetified-play-services-basement-18.4.0/res/values-bg/values.xml",
                     "from": {
                         "startLines": "4",
                         "startColumns": "0",
@@ -62,23 +79,6 @@
                         "startOffsets": "2076",
                         "endColumns": "137",
                         "endOffsets": "2209"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\Swapnaneel Sarkar\\.gradle\\caches\\transforms-3\\ea5a6b8d05c88ff4bf6e759ddab4a001\\transformed\\browser-1.4.0\\res\\values-bg\\values-bg.xml",
-                    "from": {
-                        "startLines": "2,3,4,5",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "55,166,274,386",
-                        "endColumns": "110,107,111,109",
-                        "endOffsets": "161,269,381,491"
-                    },
-                    "to": {
-                        "startLines": "29,30,31,32",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "3333,3444,3552,3664",
-                        "endColumns": "110,107,111,109",
-                        "endOffsets": "3439,3547,3659,3769"
                     }
                 }
             ]

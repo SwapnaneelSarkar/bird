@@ -5,7 +5,7 @@ class ColorManager {
    static Color textWhite = HexColor.fromHex("#E7E7E7");
   static Color black = HexColor.fromHex('#000000');
   static Color signUpRed = Color.fromARGB(191, 245, 88, 54);
-  static Color orangeAcc = HexColor.fromHex('#F55636');
+  static Color otpField = HexColor.fromHex('#F3F4F6');
   static Color yellowAcc = HexColor.fromHex('#F5A936');
   static Color cardGrey = HexColor.fromHex('#D9D9D9');
   static Color faqCardGrey = HexColor.fromHex('##272727');

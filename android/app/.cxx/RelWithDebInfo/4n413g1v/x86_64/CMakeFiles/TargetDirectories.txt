@@ -1,0 +1,2 @@
+/Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/.cxx/RelWithDebInfo/4n413g1v/x86_64/CMakeFiles/edit_cache.dir
+/Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/.cxx/RelWithDebInfo/4n413g1v/x86_64/CMakeFiles/rebuild_cache.dir

@@ -26,14 +26,14 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
     
-    - name: Build APK
-      run: flutter build apk --debug
+    - name: Build Release APK
+      run: flutter build apk --release
     
     - name: Upload APK to Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: app-debug
-        path: build/app/outputs/flutter-apk/app-debug.apk
+        name: app-release
+        path: build/app/outputs/flutter-apk/app-release.apk
         
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -45,6 +45,6 @@ jobs:
           Automated release from CI/CD pipeline.
           
           Download the APK from the assets below.
-        files: build/app/outputs/flutter-apk/app-debug.apk
+        files: build/app/outputs/flutter-apk/app-release.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

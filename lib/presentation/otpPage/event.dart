@@ -1,5 +1,3 @@
-// lib/presentation/screens/otp/event.dart
-
 abstract class OtpEvent {}
 
 class OtpChangedEvent extends OtpEvent {
@@ -10,7 +8,11 @@ class OtpChangedEvent extends OtpEvent {
 class VerifyOtpEvent extends OtpEvent {
   final String otp;
   final String verificationId;
-  VerifyOtpEvent({required this.otp, required this.verificationId});
+  
+  VerifyOtpEvent({
+    required this.otp,
+    required this.verificationId,
+  });
 }
 
 class ResendOtpEvent extends OtpEvent {

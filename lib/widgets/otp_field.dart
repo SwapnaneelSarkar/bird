@@ -14,7 +14,7 @@ class OtpBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double boxSize = MediaQuery.of(context).size.width * 0.14;
+    double boxSize = MediaQuery.of(context).size.width * 0.13;
 
     return Container(
       width: boxSize,

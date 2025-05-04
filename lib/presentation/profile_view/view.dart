@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../widgets/profile_tile.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -22,7 +23,7 @@ class ProfileView extends StatelessWidget {
     final w = MediaQuery.of(context).size.width;
 
     return BlocProvider(
-      create: (_) => ProfileBloc(),
+      create: (_) => ProfileBloc()..add(LoadProfile()),
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F8F8),
         appBar: AppBar(
@@ -32,147 +33,411 @@ class ProfileView extends StatelessWidget {
           title: const Text('Profile', style: TextStyle(color: Colors.black)),
           leading: const BackButton(color: Colors.black),
         ),
-        body: BlocListener<ProfileBloc, ProfileState>(
+        body: BlocConsumer<ProfileBloc, ProfileState>(
           listener: (context, state) {
             if (state is ProfileLoggedOut) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/login',
+                (route) => false,
+              );
+            }
+            if (state is ProfileError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                ),
+              );
             }
           },
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              children: [
-                // Profile Header Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: softBoxShadow,
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: w * 0.11,
-                        backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=68',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Michael Anderson',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'michael.anderson@email.com',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
+          builder: (context, state) {
+            if (state is ProfileLoading || state is ProfileInitial) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Column(
+                  children: [
+                    // Profile Header Card Shimmer
+                    _buildProfileHeaderShimmer(w),
+                    const SizedBox(height: 20),
+                    // Orders Card Shimmer
+                    _buildOrdersCardShimmer(),
+                    const SizedBox(height: 24),
+                    // Info Cards Shimmer
+                    _buildInfoCardsShimmer(),
+                    const SizedBox(height: 24),
+                    // Logout Button Shimmer
+                    _buildLogoutButtonShimmer(),
+                  ],
                 ),
-
-                const SizedBox(height: 20),
-
-                // Orders Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: softBoxShadow,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              );
+            }
+            
+            if (state is ProfileLoaded) {
+              final userData = state.userData;
+              
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Column(
+                  children: [
+                    // Profile Header Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: softBoxShadow,
+                      ),
+                      child: Row(
                         children: [
-                          const Text(
-                            'Your Orders',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
+                          CircleAvatar(
+                            radius: w * 0.11,
+                            backgroundImage: userData['image'] != null
+                                ? NetworkImage(userData['image'])
+                                : const NetworkImage('https://i.pravatar.cc/150?img=68'),
+                            onBackgroundImageError: (error, stackTrace) {
+                              // Handle image loading error
+                              debugPrint('Error loading profile image: $error');
+                            },
                           ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              'View All',
-                              style: TextStyle(
-                                color: Color(0xFFE67E22),
-                                fontWeight: FontWeight.w600,
-                              ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  userData['username'] ?? 'User',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  userData['email'] ?? 'No email',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
                           )
                         ],
                       ),
-                      const _OrderTile(
-                        image: 'assets/images/burger.jpg',
-                        title: 'Burger Combo',
-                        date: 'Apr 25, 2025',
-                        price: '\$24.99',
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Orders Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: softBoxShadow,
                       ),
-                      const _OrderTile(
-                        image: 'assets/images/pizza.jpg',
-                        title: 'Margherita Pizza',
-                        date: 'Apr 24, 2025',
-                        price: '\$18.99',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Your Orders',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: () {},
+                                child: const Text(
+                                  'View All',
+                                  style: TextStyle(
+                                    color: Color(0xFFE67E22),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                          const _OrderTile(
+                            image: 'assets/images/burger.jpg',
+                            title: 'Burger Combo',
+                            date: 'Apr 25, 2025',
+                            price: '\$24.99',
+                          ),
+                          const _OrderTile(
+                            image: 'assets/images/pizza.jpg',
+                            title: 'Margherita Pizza',
+                            date: 'Apr 24, 2025',
+                            price: '\$18.99',
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Info Cards
+                    ProfileCardTile(
+                      leadingIcon: const Icon(Icons.description, size: 20, color: Color(0xFFE67E22)),
+                      title: 'Terms & Conditions',
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 12),
+                    ProfileCardTile(
+                      leadingIcon: const Icon(Icons.privacy_tip, size: 20, color: Color(0xFFE67E22)),
+                      title: 'Privacy Policy',
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 12),
+                    ProfileCardTile(
+                      leadingIcon: const Icon(Icons.share, size: 20, color: Color(0xFFE67E22)),
+                      title: 'Share App',
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 12),
+                    ProfileCardTile(
+                      leadingIcon: const Icon(Icons.settings, size: 20, color: Color(0xFFE67E22)),
+                      title: 'Settings',
+                      onTap: () {},
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Logout Button
+                    _LogoutButton(
+                      onPressed: () {
+                        context.read<ProfileBloc>().add(LogoutRequested());
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            // Error State UI
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text('Something went wrong'),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      context.read<ProfileBloc>().add(LoadProfile());
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeaderShimmer(double width) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: softBoxShadow,
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: width * 0.11,
+              backgroundColor: Colors.white,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 150,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 200,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrdersCardShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: softBoxShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 100,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-
-                const SizedBox(height: 24),
-
-                // Info Cards
-                ProfileCardTile(
-                  leadingIcon: const Icon(Icons.description, size: 20, color: Color(0xFFE67E22)),
-                  title: 'Terms & Conditions',
-                  onTap: () {},
-                ),
-                const SizedBox(height: 12),
-                ProfileCardTile(
-                  leadingIcon: const Icon(Icons.privacy_tip, size: 20, color: Color(0xFFE67E22)),
-                  title: 'Privacy Policy',
-                  onTap: () {},
-                ),
-                const SizedBox(height: 12),
-                ProfileCardTile(
-                  leadingIcon: const Icon(Icons.share, size: 20, color: Color(0xFFE67E22)),
-                  title: 'Share App',
-                  onTap: () {},
-                ),
-                const SizedBox(height: 12),
-                ProfileCardTile(
-                  leadingIcon: const Icon(Icons.settings, size: 20, color: Color(0xFFE67E22)),
-                  title: 'Settings',
-                  onTap: () {},
-                ),
-
-                const SizedBox(height: 24),
-
-                // Logout Button
-                _LogoutButton(
-                  onPressed: () {
-                    context.read<ProfileBloc>().add(LogoutRequested());
-                  },
+                const Spacer(),
+                Container(
+                  width: 60,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            _buildOrderTileShimmer(),
+            _buildOrderTileShimmer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderTileShimmer() {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      title: Container(
+        width: 120,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      subtitle: Container(
+        width: 150,
+        height: 14,
+        margin: const EdgeInsets.only(top: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      trailing: Container(
+        width: 50,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCardsShimmer() {
+    return Column(
+      children: List.generate(
+        4,
+        (index) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Shimmer.fromColors(
+            baseColor: Colors.grey[300]!,
+            highlightColor: Colors.grey[100]!,
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: softBoxShadow,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    width: 150,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutButtonShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: softBoxShadow,
+        ),
+        child: Center(
+          child: Container(
+            width: 100,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
         ),

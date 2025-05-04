@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
+import '../../constants/router/router.dart';
 import '../../widgets/custom_button_large.dart';
 import '../../widgets/otp_field.dart';
 import 'bloc.dart';
@@ -49,10 +50,42 @@ class _OtpScreenState extends State<OtpScreen> {
         child: BlocConsumer<OtpBloc, OtpState>(
           listener: (context, state) {
             if (state is OtpVerificationSuccessState) {
-              Navigator.of(context).pushReplacementNamed('/profileComplete');
+              debugPrint('OTP Verification Successful');
+              debugPrint('Is Login: ${state.isLogin}');
+              debugPrint('User Data: ${state.userData}');
+              debugPrint('Token: ${state.token}');
+              
+              if (state.isLogin) {
+                // User is logging in, navigate to home page
+                Navigator.pushReplacementNamed(
+                  context,
+                  Routes.home,
+                  arguments: {
+                    'userData': state.userData,
+                    'token': state.token,
+                  },
+                );
+              } else {
+                // User is signing up, navigate to profile complete page
+                Navigator.pushReplacementNamed(
+                  context,
+                  Routes.profileComplete,
+                  arguments: {
+                    'userData': state.userData,
+                    'token': state.token,
+                  },
+                );
+              }
             } else if (state is OtpResentState) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("OTP Resent")),
+              );
+            } else if (state is OtpVerificationFailureState) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
           },
@@ -92,15 +125,18 @@ class _OtpScreenState extends State<OtpScreen> {
                           ),
                           SizedBox(height: MediaQuery.of(context).size.height * 0.04),
                           Wrap(
-                            spacing: MediaQuery.of(context).size.width * 0.04,
+                            spacing: MediaQuery.of(context).size.width * 0.015,
                             alignment: WrapAlignment.center,
-                            children: List.generate(4, (index) {
+                            children: List.generate(6, (index) {
                               return OtpBox(
                                 controller: otpControllers[index],
                                 focusNode: focusNodes[index],
                                 onChanged: (val) {
-                                  if (val.length == 1 && index < 3) {
+                                  if (val.length == 1 && index < 5) {
                                     focusNodes[index + 1].requestFocus();
+                                  }
+                                  if (val.isEmpty && index > 0) {
+                                    focusNodes[index - 1].requestFocus();
                                   }
                                   context.read<OtpBloc>().add(
                                       OtpChangedEvent(otp: completeOtp));
@@ -114,14 +150,16 @@ class _OtpScreenState extends State<OtpScreen> {
                           else
                             CustomLargeButton(
                               text: 'Verify',
-                              onPressed: () {
-                                context.read<OtpBloc>().add(
-                                      VerifyOtpEvent(
-                                        otp: completeOtp,
-                                        verificationId: widget.verificationId,
-                                      ),
-                                    );
-                              },
+                              onPressed: completeOtp.length == 6
+                                  ? () {
+                                      context.read<OtpBloc>().add(
+                                            VerifyOtpEvent(
+                                              otp: completeOtp,
+                                              verificationId: widget.verificationId,
+                                            ),
+                                          );
+                                    }
+                                  : () {}, // Empty function when disabled
                             ),
                           const SizedBox(height: 24),
                           Row(
@@ -135,15 +173,19 @@ class _OtpScreenState extends State<OtpScreen> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () {
-                                  context.read<OtpBloc>().add(
-                                      ResendOtpEvent(
-                                          phoneNumber: widget.phoneNumber));
-                                },
+                                onTap: state is OtpVerificationLoadingState
+                                    ? null
+                                    : () {
+                                        context.read<OtpBloc>().add(
+                                            ResendOtpEvent(
+                                                phoneNumber: widget.phoneNumber));
+                                      },
                                 child: Text(
                                   'Resend',
                                   style: TextStyle(
-                                    color: ColorManager.primary,
+                                    color: state is OtpVerificationLoadingState
+                                        ? Colors.grey
+                                        : ColorManager.primary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),

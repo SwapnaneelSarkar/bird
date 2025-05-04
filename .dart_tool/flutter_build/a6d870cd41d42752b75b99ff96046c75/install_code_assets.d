@@ -1,0 +1,1 @@
+ /Users/swapnaneelsarkar/Documents/GitHub/bird/.dart_tool/flutter_build/a6d870cd41d42752b75b99ff96046c75/native_assets.json: 

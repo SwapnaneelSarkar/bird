@@ -1,5 +1,3 @@
-// lib/presentation/screens/otp/state.dart
-
 abstract class OtpState {}
 
 class OtpInitialState extends OtpState {}
@@ -13,7 +11,16 @@ class OtpVerificationLoadingState extends OtpState {}
 
 class OtpVerificationSuccessState extends OtpState {
   final String otp;
-  OtpVerificationSuccessState({required this.otp});
+  final bool isLogin;
+  final Map<String, dynamic>? userData;
+  final String? token;
+  
+  OtpVerificationSuccessState({
+    required this.otp,
+    this.isLogin = false,
+    this.userData,
+    this.token,
+  });
 }
 
 class OtpVerificationFailureState extends OtpState {

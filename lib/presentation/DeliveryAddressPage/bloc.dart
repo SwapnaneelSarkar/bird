@@ -1,74 +1,119 @@
+import 'dart:io';
+import 'package:bird/service/location_services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
+import '../../service/update_user_service.dart';
+import '../../service/token_service.dart';
+import '../../service/profile_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'event.dart';
 import 'state.dart';
-import 'package:geolocator/geolocator.dart';
-import 'dart:developer' as developer;
 
 class AddressBloc extends Bloc<AddressEvent, AddressState> {
+  final LocationService _locationService = LocationService();
+  final UpdateUserService _updateUserService = UpdateUserService();
+
   AddressBloc() : super(AddressInitialState()) {
     on<SubmitAddressEvent>(_onSubmitAddress);
     on<DetectLocationEvent>(_onDetectLocation);
   }
 
-  void _onSubmitAddress(
+  Future<void> _onSubmitAddress(
       SubmitAddressEvent event, Emitter<AddressState> emit) async {
     try {
-      developer.log('Submitting address: ${event.address}');
+      debugPrint('AddressBloc: Starting address submission...');
       emit(AddressLoadingState());
 
-      // Here you would typically make an API call to validate or process the address
-      // For this example, we'll just simulate a delay
-      await Future.delayed(Duration(seconds: 1));
+      // Get saved data
+      final token = await TokenService.getToken();
+      final profileData = await ProfileService.getProfileData();
+      final prefs = await SharedPreferences.getInstance();
+      final mobile = prefs.getString('user_phone');
 
-      // Success state
-      developer.log('Address submitted successfully: ${event.address}');
-      emit(AddressSubmittedState(address: event.address));
-    } catch (e) {
-      developer.log('Error submitting address: ${e.toString()}', error: e);
-      emit(AddressErrorState(error: e.toString()));
-    }
-  }
+      debugPrint('Retrieved token: ${token != null ? "Found" : "Not found"}');
+      debugPrint('Retrieved mobile: $mobile');
+      debugPrint('Retrieved profile data: $profileData');
 
-  void _onDetectLocation(
-      DetectLocationEvent event, Emitter<AddressState> emit) async {
-    try {
-      developer.log('Detecting current location');
-      emit(AddressLoadingState());
-
-      // Request location permission
-      developer.log('Checking location permission');
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        developer.log('Location permission denied, requesting permission');
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          developer.log('Location permission denied after request');
-          emit(AddressErrorState(error: 'Location permissions are denied'));
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        developer.log('Location permission permanently denied');
-        emit(AddressErrorState(
-            error:
-                'Location permissions are permanently denied, we cannot request permissions.'));
+      if (token == null || mobile == null) {
+        debugPrint('Missing required data: token or mobile');
+        emit(AddressErrorState(error: 'Please login again'));
         return;
       }
 
-      // Get current position
-      developer.log('Getting current position');
-      Position position = await Geolocator.getCurrentPosition();
-      String locationString = "${position.latitude}, ${position.longitude}";
-      developer.log('Current location detected: $locationString');
+      // Clean up mobile number (remove country code if present)
+      String cleanMobile = mobile;
+      if (cleanMobile.startsWith('+91')) {
+        cleanMobile = cleanMobile.substring(3);
+      } else if (cleanMobile.startsWith('+')) {
+        // Remove any country code
+        cleanMobile = cleanMobile.substring(cleanMobile.length - 10);
+      }
 
-      // Here you would typically use a geocoding service to convert coordinates to address
-      // For this example, we'll just use the coordinates
+      // Get name and email from profile data
+      final name = profileData['name'] ?? '';
+      final email = profileData['email'] ?? '';
+      final photoFile = profileData['photo'] as File?;
 
-      emit(LocationDetectedState(location: locationString));
+      debugPrint('Submitting profile update with:');
+      debugPrint('Name: $name');
+      debugPrint('Email: $email');
+      debugPrint('Mobile: $cleanMobile');
+      debugPrint('Address: ${event.address}');
+      debugPrint('Latitude: ${event.latitude}');
+      debugPrint('Longitude: ${event.longitude}');
+      debugPrint('Has photo: ${photoFile != null}');
+
+      // Call update user API
+      final result = await _updateUserService.updateUserProfile(
+        token: token,
+        mobile: cleanMobile,
+        username: name,
+        email: email,
+        address: event.address,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        imageFile: photoFile,
+      );
+
+      if (result['success'] == true) {
+        debugPrint('Address submission successful');
+        emit(AddressSubmittedState(address: event.address));
+      } else {
+        debugPrint('Address submission failed: ${result['message']}');
+        emit(AddressErrorState(error: 'Something went wrong. Please try again.'));
+      }
     } catch (e) {
-      developer.log('Error detecting location: ${e.toString()}', error: e);
-      emit(AddressErrorState(error: e.toString()));
+      debugPrint('Error submitting address: $e');
+      emit(AddressErrorState(error: 'Something went wrong. Please try again.'));
+    }
+  }
+
+  Future<void> _onDetectLocation(
+      DetectLocationEvent event, Emitter<AddressState> emit) async {
+    try {
+      debugPrint('AddressBloc: Detecting current location...');
+      emit(AddressLoadingState());
+
+      final locationData = await _locationService.getCurrentLocationAndAddress();
+
+      if (locationData != null) {
+        debugPrint('Location detected successfully');
+        debugPrint('Latitude: ${locationData['latitude']}');
+        debugPrint('Longitude: ${locationData['longitude']}');
+        debugPrint('Address: ${locationData['address']}');
+
+        emit(LocationDetectedState(
+          location: locationData['address'],
+          latitude: locationData['latitude'],
+          longitude: locationData['longitude'],
+        ));
+      } else {
+        debugPrint('Failed to detect location');
+        emit(AddressErrorState(error: 'Could not detect location. Please enable location services.'));
+      }
+    } catch (e) {
+      debugPrint('Error detecting location: $e');
+      emit(AddressErrorState(error: 'Error detecting location. Please try again.'));
     }
   }
 }

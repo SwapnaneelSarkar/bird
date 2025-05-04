@@ -8,89 +8,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:6a218b004375c4c55e9298",
-        "android_client_info": {
-          "package_name": "com.bird.customer.android"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "1062805760329-indk1afg69hvsg6eih48kc3es9fgj495.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.bird.customer.android",
-            "certificate_hash": "2af64092f921a87db2d2211c1e1e6fca4f9ed280"
-          }
-        },
-        {
-          "client_id": "1062805760329-t7q3fl6uqd19lmrdb1ul4c3fkt1nt0ga.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.bird.customer.android",
-            "certificate_hash": "3b2bf5029f7469929693dbc76c979a0bdf089d06"
-          }
-        },
-        {
-          "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAlUitAQ_hDTk_EhmmAP1-fbn8h6KRr8Jo"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:7761430d29bfc4bd5e9298",
-        "android_client_info": {
-          "package_name": "com.bird.restaurant.android"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "1062805760329-21h3vboi0kei20bljdrhj2lv9u2ps173.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.bird.restaurant.android",
-            "certificate_hash": "3b2bf5029f7469929693dbc76c979a0bdf089d06"
-          }
-        },
-        {
-          "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAlUitAQ_hDTk_EhmmAP1-fbn8h6KRr8Jo"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:b7669183355d3fd55e9298",
+        "mobilesdk_app_id": "1:1062805760329:android:6842df4603b2fdf75e9298",
         "android_client_info": {
           "package_name": "com.example.bird"
         }
@@ -112,6 +30,57 @@
             {
               "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "1062805760329-e3f3o71jefv2g3ktuokg1lobue1dmr81.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.birdPartnerApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1062805760329:android:1b668a206362c8345e9298",
+        "android_client_info": {
+          "package_name": "com.example.bird_partner_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1062805760329-ahv20chvtn4l0dkrnu5cq3eut5htckj0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bird_partner_app",
+            "certificate_hash": "fc014aa3ef928ef31264171abe08071766428648"
+          }
+        },
+        {
+          "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlUitAQ_hDTk_EhmmAP1-fbn8h6KRr8Jo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1062805760329-e3f3o71jefv2g3ktuokg1lobue1dmr81.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.birdPartnerApp"
+              }
             }
           ]
         }

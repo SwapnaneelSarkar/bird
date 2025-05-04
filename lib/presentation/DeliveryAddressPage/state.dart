@@ -12,8 +12,14 @@ class AddressSubmittedState extends AddressState {
 
 class LocationDetectedState extends AddressState {
   final String location;
+  final double latitude;
+  final double longitude;
 
-  LocationDetectedState({required this.location});
+  LocationDetectedState({
+    required this.location,
+    required this.latitude,
+    required this.longitude,
+  });
 }
 
 class AddressErrorState extends AddressState {

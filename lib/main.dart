@@ -1,12 +1,24 @@
-
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/presentation/loginPage/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'presentation/splash_screen/view.dart';
 
-void main() {
-    svg.cacheColorFilterOverride = false;
+
+void main() async {
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Your existing SVG configuration
+  svg.cacheColorFilterOverride = false;
 
   runApp(const MyApp());
 }
@@ -20,41 +32,14 @@ class MyApp extends StatelessWidget {
       create: (_) => LoginBloc(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Meet & more',
+        title: 'Bird',
         theme: ThemeData(
           scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,
         ),
-        initialRoute: Routes.login,
+        home: const SplashScreen(), // Start with splash screen instead of login
         onGenerateRoute: (RouteSettings settings) {
           final Route<dynamic> route = RouteGenerator.getRoute(settings);
-          // const bottomNavRoutes = {
-          //   Routes.homePage,
-          //   Routes.notification,
-          //   // Routes.chat,
-          //   // Routes.profile,
-          // };
-
-          // if (bottomNavRoutes.contains(settings.name) &&
-          //     route is MaterialPageRoute) {
-          //   final WidgetBuilder builder = route.builder;
-
-          //   return PageRouteBuilder(
-          //     settings: settings,
-          //     pageBuilder: (ctx, animation, secondary) =>
-          //         builder(ctx),
-          //     transitionDuration: const Duration(milliseconds: 300),
-          //     reverseTransitionDuration: const Duration(milliseconds: 300),
-          //     transitionsBuilder:
-          //         (ctx, Animation<double> anim, _, Widget child) {
-          //       return FadeTransition(
-          //         opacity: anim,
-          //         child: child,
-          //       );
-          //     },
-          //   );
-          // }
-
           return route;
         },
       ),

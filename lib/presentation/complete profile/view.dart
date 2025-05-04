@@ -1,5 +1,3 @@
-// lib/presentation/screens/profile/complete_profile/complete_profile_view.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
+import '../../service/profile_service.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_button_large.dart';
 import '../../widgets/text_field2.dart';
@@ -16,7 +15,14 @@ import 'event.dart';
 import 'state.dart';
 
 class CompleteProfileView extends StatefulWidget {
-  const CompleteProfileView({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  final String? token;
+  
+  const CompleteProfileView({
+    Key? key,
+    this.userData,
+    this.token,
+  }) : super(key: key);
 
   @override
   _CompleteProfileViewState createState() => _CompleteProfileViewState();
@@ -27,6 +33,40 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
   final _emailCtrl = TextEditingController();
   File? _avatarFile;
   final _picker = ImagePicker();
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingData();
+  }
+
+  Future<void> _loadExistingData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Load existing profile data if available
+      final profileData = await ProfileService.getProfileData();
+      
+      if (profileData['name'] != null) {
+        _nameCtrl.text = profileData['name'];
+      }
+      
+      if (profileData['email'] != null) {
+        _emailCtrl.text = profileData['email'];
+      }
+      
+      if (profileData['photo'] != null) {
+        setState(() {
+          _avatarFile = profileData['photo'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading existing data: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +79,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
     final cornerRad = avatarDim * .4; // rounded-corner box
 
     return BlocProvider(
-      create: (_) => CompleteProfileBloc(), // stubbed
+      create: (_) => CompleteProfileBloc(),
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -55,7 +95,9 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
             ),
           ),
         ),
-        body: SingleChildScrollView(
+        body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
           padding: EdgeInsets.symmetric(
             horizontal: hPad,
             vertical: hPad * .8,
@@ -101,7 +143,6 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                       height: avatarDim,
                       color: ColorManager.black.withOpacity(0.05),
                       child: _avatarFile != null
-                          // when you plug in your backend, you'll supply the file here
                           ? Image.file(
                               _avatarFile!,
                               fit: BoxFit.cover,
@@ -202,29 +243,40 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
               BlocConsumer<CompleteProfileBloc, CompleteProfileState>(
                 listener: (context, state) {
                   if (state is ProfileSuccess) {
-                    Navigator.of(context).pushReplacementNamed('/address');
+                    Navigator.of(context).pushReplacementNamed('/address', arguments: {
+                      'name': _nameCtrl.text.trim(),
+                      'email': _emailCtrl.text.trim(),
+                      'photoPath': _avatarFile?.path,
+                      'userData': widget.userData,
+                      'token': widget.token,
+                    });
                   } else if (state is ProfileFailure) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(state.error)),
+                      SnackBar(
+                        content: Text(state.error),
+                        backgroundColor: Colors.red,
+                      ),
                     );
                   }
                 },
                 builder: (context, state) {
+                  final isLoading = state is ProfileSubmitting;
+                  
                   return SizedBox(
                     width: double.infinity,
-                    child:  CustomLargeButton(
-    text: 'Continue',
-    onPressed: () {
-      context.read<CompleteProfileBloc>().add(
-            SubmitProfile(
-              name: _nameCtrl.text.trim(),
-              email: _emailCtrl.text.trim(),
-              avatar: _avatarFile,
-            ),
-          );
-    },
-  ),
-
+                    child: CustomLargeButton(
+                      text: isLoading ? 'Saving...' : 'Continue',
+                      onPressed: isLoading ? () {} : () {
+                        FocusScope.of(context).unfocus(); // Hide keyboard
+                        context.read<CompleteProfileBloc>().add(
+                              SubmitProfile(
+                                name: _nameCtrl.text.trim(),
+                                email: _emailCtrl.text.trim(),
+                                avatar: _avatarFile,
+                              ),
+                            );
+                      },
+                    ),
                   );
                 },
               ),
@@ -250,11 +302,80 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
       );
 
   Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (picked != null) setState(() => _avatarFile = File(picked.path));
+    try {
+      // Show dialog to choose between camera and gallery
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (BuildContext context) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: SafeArea(
+              child: Wrap(
+                children: <Widget>[
+                  ListTile(
+                    leading: const Icon(Icons.photo_camera),
+                    title: const Text('Take Photo'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _getImage(ImageSource.camera);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.photo_library),
+                    title: const Text('Choose from Gallery'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _getImage(ImageSource.gallery);
+                    },
+                  ),
+                  if (_avatarFile != null)
+                    ListTile(
+                      leading: const Icon(Icons.delete),
+                      title: const Text('Remove Photo'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        setState(() => _avatarFile = null);
+                      },
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Error showing image picker options: $e');
+    }
+  }
+
+  Future<void> _getImage(ImageSource source) async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+      
+      if (picked != null) {
+        setState(() => _avatarFile = File(picked.path));
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to pick image. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override

@@ -7,12 +7,29 @@ import 'event.dart';
 import 'state.dart';
 
 class AddressScreen extends StatefulWidget {
+  final String? name;
+  final String? email;
+  final String? photoPath;
+  final Map<String, dynamic>? userData;
+  final String? token;
+
+  const AddressScreen({
+    Key? key,
+    this.name,
+    this.email,
+    this.photoPath,
+    this.userData,
+    this.token,
+  }) : super(key: key);
+
   @override
   State<AddressScreen> createState() => _AddressScreenState();
 }
 
 class _AddressScreenState extends State<AddressScreen> {
   final TextEditingController addressController = TextEditingController();
+  double? _latitude;
+  double? _longitude;
 
   @override
   void dispose() {
@@ -29,20 +46,34 @@ class _AddressScreenState extends State<AddressScreen> {
         child: BlocConsumer<AddressBloc, AddressState>(
           listener: (context, state) {
             if (state is AddressSubmittedState) {
-              // Navigate to next screen or show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Address submitted successfully")),
+              // Navigate to next screen
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/home',
+                (route) => false,
               );
             }
             if (state is LocationDetectedState) {
-              // Handle detected location
+              // Update text field with detected address
+              addressController.text = state.location;
+              // Store coordinates for later use
+              _latitude = state.latitude;
+              _longitude = state.longitude;
+              
+              debugPrint('Location detected:');
+              debugPrint('Address: ${state.location}');
+              debugPrint('Latitude: ${state.latitude}');
+              debugPrint('Longitude: ${state.longitude}');
+              
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Location detected: ${state.location}")),
+                SnackBar(content: Text("Location detected successfully")),
               );
             }
             if (state is AddressErrorState) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error)),
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
           },
@@ -63,7 +94,6 @@ class _AddressScreenState extends State<AddressScreen> {
                           color: ColorManager.primary,
                         ),
                       ),
-                      // SizedBox(height: 8),
                       // Title
                       Text(
                         'Choose Delivery Address',
@@ -99,14 +129,12 @@ class _AddressScreenState extends State<AddressScreen> {
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: Color(
-                                        0xFFFCE4D6), // Light orange background
+                                    color: Color(0xFFFCE4D6),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(
                                     Icons.keyboard,
-                                    color:
-                                        ColorManager.primary, // Orange icon
+                                    color: ColorManager.primary,
                                     size: 20,
                                   ),
                                 ),
@@ -120,6 +148,13 @@ class _AddressScreenState extends State<AddressScreen> {
                                       hintStyle: TextStyle(
                                         color: Colors.grey[400],
                                         fontSize: 14,
+                                      ),
+                                      helperText: _latitude != null && _longitude != null 
+                                          ? 'Location: $_latitude, $_longitude' 
+                                          : null,
+                                      helperStyle: TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 12,
                                       ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
@@ -151,17 +186,36 @@ class _AddressScreenState extends State<AddressScreen> {
                             ),
                             SizedBox(height: 16),
                             // Continue button
+                            // Continue button
                             CustomLargeButton(
-  text: 'Continue',
-  onPressed: () {
-  Navigator.of(context).pushNamedAndRemoveUntil(
-    '/profileView', // 🔁 Replace with your actual next page route
-    (route) => false,
-  );
-},
-
-),
-
+                              text: state is AddressLoadingState ? 'Loading...' : 'Continue',
+                              onPressed: state is AddressLoadingState ? () {} : () {
+                                final address = addressController.text.trim();
+                                if (address.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please enter an address'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                
+                                double latitude = _latitude ?? 0.0;
+                                double longitude = _longitude ?? 0.0;
+                                
+                                debugPrint('Submitting address: $address');
+                                debugPrint('With coordinates: $latitude, $longitude');
+                                
+                                context.read<AddressBloc>().add(
+                                  SubmitAddressEvent(
+                                    address: address,
+                                    latitude: latitude,
+                                    longitude: longitude,
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -202,10 +256,8 @@ class _AddressScreenState extends State<AddressScreen> {
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              context
-                                  .read<AddressBloc>()
-                                  .add(DetectLocationEvent());
+                            onTap: state is AddressLoadingState ? null : () {
+                              context.read<AddressBloc>().add(DetectLocationEvent());
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
@@ -216,13 +268,12 @@ class _AddressScreenState extends State<AddressScreen> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: Color(
-                                          0xFFFCE4D6), // Light orange background
+                                      color: Color(0xFFFCE4D6),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Icon(
                                       Icons.location_on,
-                                      color: Color(0xFFE67E22), // Orange icon
+                                      color: Color(0xFFE67E22),
                                       size: 20,
                                     ),
                                   ),
@@ -230,8 +281,7 @@ class _AddressScreenState extends State<AddressScreen> {
                                   // Text content
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Use My Current Location',
@@ -252,10 +302,19 @@ class _AddressScreenState extends State<AddressScreen> {
                                       ],
                                     ),
                                   ),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    color: Colors.grey[400],
-                                  ),
+                                  if (state is AddressLoadingState)
+                                    const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      Icons.chevron_right,
+                                      color: Colors.grey[400],
+                                    ),
                                 ],
                               ),
                             ),

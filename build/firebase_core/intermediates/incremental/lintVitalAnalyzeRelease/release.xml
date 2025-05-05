@@ -4,9 +4,9 @@
     minSdkVersion="21"
     targetSdkVersion="21"
     mergedManifest="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/intermediates/merged_manifest/release/AndroidManifest.xml"
-    proguardFiles="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/intermediates/default_proguard_files/global/proguard-android.txt-8.2.2"
+    proguardFiles="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/intermediates/default_proguard_files/global/proguard-android.txt-8.2.1"
     partialResultsDir="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/intermediates/lint_vital_partial_results/release/out"
-    desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/d77bab54bb151403c66c8199509f0130/transformed/D8BackportedDesugaredMethods.txt">
+    desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/80f5b7f267fd39ba05c81bdf373fe8fa/transformed/D8BackportedDesugaredMethods.txt">
   <buildFeatures
       namespacing="REQUIRED"/>
   <sourceProviders>
@@ -26,6 +26,6 @@
       applicationId="io.flutter.plugins.firebase.core"
       generatedSourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/generated/ap_generated_sources/release/out:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/generated/source/buildConfig/release"
       generatedResourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/generated/res/resValues/release"
-      desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/d77bab54bb151403c66c8199509f0130/transformed/D8BackportedDesugaredMethods.txt">
+      desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/80f5b7f267fd39ba05c81bdf373fe8fa/transformed/D8BackportedDesugaredMethods.txt">
   </artifact>
 </variant>

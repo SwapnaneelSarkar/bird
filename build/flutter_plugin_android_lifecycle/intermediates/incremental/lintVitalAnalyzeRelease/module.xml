@@ -4,7 +4,7 @@
     name=":flutter_plugin_android_lifecycle"
     type="LIBRARY"
     maven="io.flutter.plugins.flutter_plugin_android_lifecycle:flutter_plugin_android_lifecycle:"
-    agpVersion="8.2.2"
+    agpVersion="8.2.1"
     buildFolder="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle"
     bootClassPath="/Users/swapnaneelsarkar/Library/Android/sdk/platforms/android-35/android.jar:/Users/swapnaneelsarkar/Library/Android/sdk/build-tools/34.0.0/core-lambda-stubs.jar"
     javaSourceLevel="11"

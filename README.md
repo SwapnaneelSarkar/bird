@@ -1,16 +1,17 @@
-# bird
+# Bird App
 
-A new Flutter project.
+## Download Latest APK
 
-## Getting Started
+### From Actions (Current Method)
+1. Go to the [Actions](../../actions) tab
+2. Click on the latest successful workflow run
+3. Under "Artifacts" section, download `app-release`
+4. Extract the downloaded zip to get the APK
 
-This project is a starting point for a Flutter application.
+### Direct Link
+[View Latest Builds](../../actions)
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Installation
+1. Download the APK
+2. Enable "Unknown sources" in your Android settings
+3. Install the APK

@@ -117,6 +117,7 @@ MERGED from [com.google.android.gms:play-services-measurement-impl:22.4.0] /User
 MERGED from [com.google.android.gms:play-services-base:18.5.0] /Users/swapnaneelsarkar/.gradle/caches/transforms-3/3905a8ac5dc5e86f66ce55e7c9502d3f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.browser:browser:1.8.0] /Users/swapnaneelsarkar/.gradle/caches/transforms-3/05ff925cae21cccbb40dfa4c362f22af/transformed/browser-1.8.0/AndroidManifest.xml:2:1-7:12
 MERGED from [:flutter_plugin_android_lifecycle] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/merged_manifest/debug/AndroidManifest.xml:2:1-7:12
+MERGED from [:geocoding_android] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/geocoding_android/intermediates/merged_manifest/debug/AndroidManifest.xml:2:1-7:12
 MERGED from [:path_provider_android] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/path_provider_android/intermediates/merged_manifest/debug/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.preference:preference:1.2.1] /Users/swapnaneelsarkar/.gradle/caches/transforms-3/ddfb1ac010a99026d9be2b3a1af5da55/transformed/preference-1.2.1/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.appcompat:appcompat:1.1.0] /Users/swapnaneelsarkar/.gradle/caches/transforms-3/e0250b458166cba00a461726860f5b98/transformed/appcompat-1.1.0/AndroidManifest.xml:17:1-24:12
@@ -336,6 +337,8 @@ MERGED from [androidx.browser:browser:1.8.0] /Users/swapnaneelsarkar/.gradle/cac
 MERGED from [androidx.browser:browser:1.8.0] /Users/swapnaneelsarkar/.gradle/caches/transforms-3/05ff925cae21cccbb40dfa4c362f22af/transformed/browser-1.8.0/AndroidManifest.xml:5:5-44
 MERGED from [:flutter_plugin_android_lifecycle] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/merged_manifest/debug/AndroidManifest.xml:5:5-44
 MERGED from [:flutter_plugin_android_lifecycle] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/merged_manifest/debug/AndroidManifest.xml:5:5-44
+MERGED from [:geocoding_android] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/geocoding_android/intermediates/merged_manifest/debug/AndroidManifest.xml:5:5-44
+MERGED from [:geocoding_android] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/geocoding_android/intermediates/merged_manifest/debug/AndroidManifest.xml:5:5-44
 MERGED from [:path_provider_android] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/path_provider_android/intermediates/merged_manifest/debug/AndroidManifest.xml:5:5-44
 MERGED from [:path_provider_android] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/path_provider_android/intermediates/merged_manifest/debug/AndroidManifest.xml:5:5-44
 MERGED from [androidx.preference:preference:1.2.1] /Users/swapnaneelsarkar/.gradle/caches/transforms-3/ddfb1ac010a99026d9be2b3a1af5da55/transformed/preference-1.2.1/AndroidManifest.xml:20:5-22:41

@@ -4,24 +4,24 @@
             "outputFile": "com.baseflow.geolocator.geolocator_android-merged_res-27:/values-hi/values-hi.xml",
             "map": [
                 {
-                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/be1f0117ea047fbeb3191b308fdd788d/transformed/jetified-play-services-basement-18.3.0/res/values-hi/values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/1cf34cac3bed2888d1c32311f353c992/transformed/core-1.13.1/res/values-hi/values-hi.xml",
                     "from": {
-                        "startLines": "4",
-                        "startColumns": "0",
-                        "startOffsets": "195",
-                        "endColumns": "141",
-                        "endOffsets": "336"
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,256,361,462,575,681,808",
+                        "endColumns": "97,102,104,100,112,105,126,100",
+                        "endOffsets": "148,251,356,457,570,676,803,904"
                     },
                     "to": {
-                        "startLines": "17",
-                        "startColumns": "4",
-                        "startOffsets": "1819",
-                        "endColumns": "145",
-                        "endOffsets": "1960"
+                        "startLines": "2,3,4,5,6,7,8,27",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,256,361,462,575,681,3039",
+                        "endColumns": "97,102,104,100,112,105,126,100",
+                        "endOffsets": "148,251,356,457,570,676,803,3135"
                     }
                 },
                 {
-                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/b3b373a53596673a253cc980fb52cb2c/transformed/jetified-play-services-base-18.3.0/res/values-hi/values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/5b77f512e2a37bc42cfc5dea903dbe3e/transformed/jetified-play-services-base-18.3.0/res/values-hi/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -38,20 +38,20 @@
                     }
                 },
                 {
-                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/689de4f73bd6ac03c3fb82d862eefab9/transformed/core-1.13.1/res/values-hi/values-hi.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/a6cc02f8cd5ffd6d11fb23b47e20454f/transformed/jetified-play-services-basement-18.3.0/res/values-hi/values.xml",
                     "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,256,361,462,575,681,808",
-                        "endColumns": "97,102,104,100,112,105,126,100",
-                        "endOffsets": "148,251,356,457,570,676,803,904"
+                        "startLines": "4",
+                        "startColumns": "0",
+                        "startOffsets": "195",
+                        "endColumns": "141",
+                        "endOffsets": "336"
                     },
                     "to": {
-                        "startLines": "2,3,4,5,6,7,8,27",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,256,361,462,575,681,3039",
-                        "endColumns": "97,102,104,100,112,105,126,100",
-                        "endOffsets": "148,251,356,457,570,676,803,3135"
+                        "startLines": "17",
+                        "startColumns": "4",
+                        "startOffsets": "1819",
+                        "endColumns": "145",
+                        "endOffsets": "1960"
                     }
                 }
             ]
@@ -60,24 +60,24 @@
             "outputFile": "com.baseflow.geolocator.geolocator_android-mergeReleaseResources-25:/values-hi/values-hi.xml",
             "map": [
                 {
-                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/be1f0117ea047fbeb3191b308fdd788d/transformed/jetified-play-services-basement-18.3.0/res/values-hi/values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/1cf34cac3bed2888d1c32311f353c992/transformed/core-1.13.1/res/values-hi/values-hi.xml",
                     "from": {
-                        "startLines": "4",
-                        "startColumns": "0",
-                        "startOffsets": "195",
-                        "endColumns": "141",
-                        "endOffsets": "336"
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,256,361,462,575,681,808",
+                        "endColumns": "97,102,104,100,112,105,126,100",
+                        "endOffsets": "148,251,356,457,570,676,803,904"
                     },
                     "to": {
-                        "startLines": "17",
-                        "startColumns": "4",
-                        "startOffsets": "1819",
-                        "endColumns": "145",
-                        "endOffsets": "1960"
+                        "startLines": "2,3,4,5,6,7,8,27",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,153,256,361,462,575,681,3039",
+                        "endColumns": "97,102,104,100,112,105,126,100",
+                        "endOffsets": "148,251,356,457,570,676,803,3135"
                     }
                 },
                 {
-                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/b3b373a53596673a253cc980fb52cb2c/transformed/jetified-play-services-base-18.3.0/res/values-hi/values.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/5b77f512e2a37bc42cfc5dea903dbe3e/transformed/jetified-play-services-base-18.3.0/res/values-hi/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -94,20 +94,20 @@
                     }
                 },
                 {
-                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/689de4f73bd6ac03c3fb82d862eefab9/transformed/core-1.13.1/res/values-hi/values-hi.xml",
+                    "source": "/Users/swapnaneelsarkar/.gradle/caches/transforms-3/a6cc02f8cd5ffd6d11fb23b47e20454f/transformed/jetified-play-services-basement-18.3.0/res/values-hi/values.xml",
                     "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,256,361,462,575,681,808",
-                        "endColumns": "97,102,104,100,112,105,126,100",
-                        "endOffsets": "148,251,356,457,570,676,803,904"
+                        "startLines": "4",
+                        "startColumns": "0",
+                        "startOffsets": "195",
+                        "endColumns": "141",
+                        "endOffsets": "336"
                     },
                     "to": {
-                        "startLines": "2,3,4,5,6,7,8,27",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,153,256,361,462,575,681,3039",
-                        "endColumns": "97,102,104,100,112,105,126,100",
-                        "endOffsets": "148,251,356,457,570,676,803,3135"
+                        "startLines": "17",
+                        "startColumns": "4",
+                        "startOffsets": "1819",
+                        "endColumns": "145",
+                        "endOffsets": "1960"
                     }
                 }
             ]

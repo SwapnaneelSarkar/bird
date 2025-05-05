@@ -8,6 +8,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "archive",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/archive-4.0.7",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "args",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/args-2.7.0",
       "packageUri": "lib/",
@@ -34,6 +40,18 @@
     {
       "name": "characters",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/characters-1.4.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
+      "name": "checked_yaml",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/checked_yaml-2.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "2.19"
+    },
+    {
+      "name": "cli_util",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/cli_util-0.4.2",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
@@ -182,6 +200,12 @@
       "languageVersion": "2.14"
     },
     {
+      "name": "flutter_launcher_icons",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/flutter_launcher_icons-0.14.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "flutter_lints",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/flutter_lints-5.0.0",
       "packageUri": "lib/",
@@ -290,6 +314,12 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "image",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/image-4.5.4",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "image_picker",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/image_picker-1.1.2",
       "packageUri": "lib/",
@@ -336,6 +366,12 @@
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.1+1",
       "packageUri": "lib/",
       "languageVersion": "2.19"
+    },
+    {
+      "name": "json_annotation",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/json_annotation-4.9.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
     },
     {
       "name": "leak_tracker",
@@ -454,6 +490,12 @@
     {
       "name": "plugin_platform_interface",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/plugin_platform_interface-2.1.8",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "posix",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/posix-6.0.2",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },
@@ -620,13 +662,19 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "yaml",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/yaml-3.1.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "bird",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.6"
     }
   ],
-  "generated": "2025-05-04T23:41:58.596099Z",
+  "generated": "2025-05-05T00:06:38.890944Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.29.3/flutter",

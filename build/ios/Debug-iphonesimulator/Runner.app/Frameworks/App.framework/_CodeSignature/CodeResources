@@ -10,11 +10,11 @@
 		</data>
 		<key>flutter_assets/AssetManifest.bin</key>
 		<data>
-		DFk4A3Vb5c2bwMdzA3BYXekZN6o=
+		Tch5XBFHVny78EAY567qZHMB7MM=
 		</data>
 		<key>flutter_assets/AssetManifest.json</key>
 		<data>
-		KA/uNDva/Huy48Bhcj/nKxjJwhE=
+		vde8A4G0oF3vyubrfBSeL/b4foE=
 		</data>
 		<key>flutter_assets/FontManifest.json</key>
 		<data>
@@ -22,11 +22,15 @@
 		</data>
 		<key>flutter_assets/NOTICES.Z</key>
 		<data>
-		aTNLavEqXOF06hLiAKGG63DFexI=
+		fvUw+FGQflTYf6Vy9YqsKrRCkWs=
 		</data>
 		<key>flutter_assets/NativeAssetsManifest.json</key>
 		<data>
 		re4p7E8rPLLsN+wzaPN/+AVpXTY=
+		</data>
+		<key>flutter_assets/assets/images/bird.png</key>
+		<data>
+		2qckwRqVuR1LNAS8y7mFp7mWSi4=
 		</data>
 		<key>flutter_assets/assets/images/burger.jpg</key>
 		<data>
@@ -50,7 +54,7 @@
 		</data>
 		<key>flutter_assets/kernel_blob.bin</key>
 		<data>
-		WEXeKWphuluAPCbj0W9ALMe2RFs=
+		8yT915/USDbHavf2ovuDqMFy7tE=
 		</data>
 		<key>flutter_assets/packages/country_code_picker/flags/ad.png</key>
 		<data>
@@ -1371,14 +1375,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			4Cb6ZKWP/S0t8lkF5BO8d6NYjTQQub6Z0OfzC0Pd5nw=
+			vACAl4pFpuVY6AvuGHrknCByC0zNYGDJ3NpOOWdcHyU=
 			</data>
 		</dict>
 		<key>flutter_assets/AssetManifest.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Ab6qhrXy8adrc7bkGYe1pOeZV3VWAvNcST6GtpYmMSY=
+			eIPvDl5t+zB/uFR1wo3qezJzLn1oGERfaZE7PsVsAeA=
 			</data>
 		</dict>
 		<key>flutter_assets/FontManifest.json</key>
@@ -1392,7 +1396,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			nZIokYnh/AZhx0xfktTzITaQTt6duq6NQ3Ffh2YvIys=
+			3kLZ4/bIbmGHnuhmmMX6UEv/Sjzm6MesloOGiqIKpyA=
 			</data>
 		</dict>
 		<key>flutter_assets/NativeAssetsManifest.json</key>
@@ -1400,6 +1404,13 @@
 			<key>hash2</key>
 			<data>
 			lUijHkoEgTXB2U+Rkyi/tirix7s8q5ZVfHlB2ql3dss=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/bird.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			2QAlJ2+90G+KLLbWBR1g4FBxGdivCwAmbiUKFRQe9H8=
 			</data>
 		</dict>
 		<key>flutter_assets/assets/images/burger.jpg</key>
@@ -1441,7 +1452,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			C40IimcADZqLbV7dgtvq9Th27b2fKEpFONJcSI4UxJI=
+			7RVXtvUV/gv2QKeoTo+Siuu02KVhYXoe4WNqqd7Vteg=
 			</data>
 		</dict>
 		<key>flutter_assets/packages/country_code_picker/flags/ad.png</key>

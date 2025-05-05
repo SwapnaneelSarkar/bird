@@ -4,10 +4,10 @@
     minSdkVersion="21"
     targetSdkVersion="21"
     mergedManifest="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/merged_manifest/release/AndroidManifest.xml"
-    proguardFiles="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/default_proguard_files/global/proguard-android.txt-8.2.2"
+    proguardFiles="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/default_proguard_files/global/proguard-android.txt-8.2.1"
     consumerProguardFiles="proguard.txt"
     partialResultsDir="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/lint_vital_partial_results/release/out"
-    desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/d77bab54bb151403c66c8199509f0130/transformed/D8BackportedDesugaredMethods.txt">
+    desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/80f5b7f267fd39ba05c81bdf373fe8fa/transformed/D8BackportedDesugaredMethods.txt">
   <buildFeatures
       namespacing="REQUIRED"/>
   <sourceProviders>
@@ -25,8 +25,8 @@
       classOutputs="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/javac/release/classes:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/compile_r_class_jar/release/R.jar"
       type="MAIN"
       applicationId="io.flutter.plugins.flutter_plugin_android_lifecycle"
-      generatedSourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/generated/ap_generated_sources/release/out"
+      generatedSourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/generated/ap_generated_sources/release/out:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/generated/source/buildConfig/release"
       generatedResourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/generated/res/resValues/release"
-      desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/d77bab54bb151403c66c8199509f0130/transformed/D8BackportedDesugaredMethods.txt">
+      desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/80f5b7f267fd39ba05c81bdf373fe8fa/transformed/D8BackportedDesugaredMethods.txt">
   </artifact>
 </variant>

@@ -4,7 +4,7 @@
     name=":firebase_core"
     type="LIBRARY"
     maven="io.flutter.plugins.firebase.core:firebase_core:"
-    agpVersion="8.2.2"
+    agpVersion="8.2.1"
     buildFolder="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core"
     bootClassPath="/Users/swapnaneelsarkar/Library/Android/sdk/platforms/android-34/android.jar:/Users/swapnaneelsarkar/Library/Android/sdk/build-tools/34.0.0/core-lambda-stubs.jar"
     javaSourceLevel="1.8"

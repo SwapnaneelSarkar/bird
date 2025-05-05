@@ -2,12 +2,11 @@
     name="release"
     package="com.example.bird"
     minSdkVersion="23"
-    targetSdkVersion="35"
-    shrinking="true"
+    targetSdkVersion="34"
     mergedManifest="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/merged_manifest/release/AndroidManifest.xml"
-    proguardFiles="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/default_proguard_files/global/proguard-android-optimize.txt-8.2.2:/opt/homebrew/Caskroom/flutter/3.29.3/flutter/packages/flutter_tools/gradle/flutter_proguard_rules.pro:proguard-rules.pro"
+    proguardFiles="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/default_proguard_files/global/proguard-android-optimize.txt-8.2.1:/opt/homebrew/Caskroom/flutter/3.29.3/flutter/packages/flutter_tools/gradle/flutter_proguard_rules.pro:proguard-rules.pro:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/default_proguard_files/global/proguard-android-optimize.txt-8.2.1:proguard-rules.pro"
     partialResultsDir="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/lint_vital_partial_results/release/out"
-    desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/d77bab54bb151403c66c8199509f0130/transformed/D8BackportedDesugaredMethods.txt">
+    desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/80f5b7f267fd39ba05c81bdf373fe8fa/transformed/D8BackportedDesugaredMethods.txt">
   <buildFeatures
       namespacing="REQUIRED"/>
   <sourceProviders>
@@ -30,8 +29,8 @@
       classOutputs="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/javac/release/classes:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/tmp/kotlin-classes/release:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/kotlinToolingMetadata:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/intermediates/compile_and_runtime_not_namespaced_r_class_jar/release/R.jar"
       type="MAIN"
       applicationId="com.example.bird"
-      generatedSourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/generated/ap_generated_sources/release/out"
-      generatedResourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/generated/res/google-services/release:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/generated/res/resValues/release"
-      desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/d77bab54bb151403c66c8199509f0130/transformed/D8BackportedDesugaredMethods.txt">
+      generatedSourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/generated/ap_generated_sources/release/out:/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/generated/source/buildConfig/release"
+      generatedResourceFolders="/Users/swapnaneelsarkar/Documents/GitHub/bird/build/app/generated/res/resValues/release"
+      desugaredMethodsFiles="/Users/swapnaneelsarkar/.gradle/caches/transforms-3/80f5b7f267fd39ba05c81bdf373fe8fa/transformed/D8BackportedDesugaredMethods.txt">
   </artifact>
 </variant>

@@ -53,7 +53,8 @@ com.example.bird.app-merged_res-51 /Users/swapnaneelsarkar/Documents/GitHub/bird
 com.example.bird.app-packaged_res-52 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_auth/intermediates/packaged_res/debug
 com.example.bird.app-packaged_res-53 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_core/intermediates/packaged_res/debug
 com.example.bird.app-packaged_res-54 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/flutter_plugin_android_lifecycle/intermediates/packaged_res/debug
-com.example.bird.app-packaged_res-55 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/geolocator_android/intermediates/packaged_res/debug
-com.example.bird.app-packaged_res-56 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/image_picker_android/intermediates/packaged_res/debug
-com.example.bird.app-packaged_res-57 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/path_provider_android/intermediates/packaged_res/debug
-com.example.bird.app-packaged_res-58 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/shared_preferences_android/intermediates/packaged_res/debug
+com.example.bird.app-packaged_res-55 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/geocoding_android/intermediates/packaged_res/debug
+com.example.bird.app-packaged_res-56 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/geolocator_android/intermediates/packaged_res/debug
+com.example.bird.app-packaged_res-57 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/image_picker_android/intermediates/packaged_res/debug
+com.example.bird.app-packaged_res-58 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/path_provider_android/intermediates/packaged_res/debug
+com.example.bird.app-packaged_res-59 /Users/swapnaneelsarkar/Documents/GitHub/bird/build/shared_preferences_android/intermediates/packaged_res/debug

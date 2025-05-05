@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../constants/router/router.dart';
 import '../../widgets/profile_tile.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -203,7 +204,10 @@ class ProfileView extends StatelessWidget {
                     ProfileCardTile(
                       leadingIcon: const Icon(Icons.settings, size: 20, color: Color(0xFFE67E22)),
                       title: 'Settings',
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.pushNamed(context, Routes.settings);
+
+                      },
                     ),
 
                     const SizedBox(height: 24),

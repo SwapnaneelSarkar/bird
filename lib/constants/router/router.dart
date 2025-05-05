@@ -2,6 +2,7 @@ import 'package:bird/presentation/DeliveryAddressPage/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
 import 'package:bird/presentation/profile_view/view.dart';
+import 'package:bird/presentation/settings%20page/view.dart';
 import 'package:flutter/material.dart';
 
 import '../../presentation/home page/view.dart';
@@ -16,6 +17,8 @@ class Routes {
   static const String address = '/address';
   static const String profileView = '/profileView';
   static const String home = '/home';
+    static const String settings = '/settings';
+
   static const String blank = '/blank';
 }
 
@@ -108,6 +111,9 @@ class RouteGenerator {
 
       case Routes.profileView:
         return MaterialPageRoute(builder: (_) => const ProfileView());
+
+      case Routes.settings:
+        return MaterialPageRoute(builder: (_) => const SettingsView());
 
       default:
         return unDefinedRoute();

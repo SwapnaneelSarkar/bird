@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class LocationService {
+  final String _placesApiKey = 'AIzaSyBmRJ1-tX0oWD3FFKAuV8NB7Hg9h6NQXeU';
+
   // Get current position
   Future<Position?> getCurrentPosition() async {
     try {
@@ -47,11 +49,56 @@ class LocationService {
       return null;
     }
   }
+  
+  // Get coordinates for a place ID from Google Places API
+  Future<Map<String, dynamic>?> getCoordinatesFromPlace(String placeId) async {
+    try {
+      debugPrint('LocationService: Getting coordinates for place ID: $placeId');
+      
+      // Construct the URL for the Google Places API Details request
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=formatted_address,geometry&key=$_placesApiKey'
+      );
+      
+      debugPrint('LocationService: Sending request to Places API: ${url.toString()}');
+      
+      // Make the API request
+      final response = await http.get(url);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        debugPrint('LocationService: Places API response: ${response.body}');
+        
+        if (data['status'] == 'OK' && data['result'] != null) {
+          final result = data['result'];
+          final geometry = result['geometry'];
+          final location = geometry['location'];
+          
+          debugPrint('LocationService: Coordinates retrieved - Lat: ${location['lat']}, Lng: ${location['lng']}');
+          
+          return {
+            'address': result['formatted_address'] ?? '',
+            'latitude': location['lat'] ?? 0.0,
+            'longitude': location['lng'] ?? 0.0,
+          };
+        } else {
+          debugPrint('LocationService: Place details API error: ${data['status']}');
+        }
+      } else {
+        debugPrint('LocationService: Place details API error: ${response.statusCode}');
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('LocationService: Error getting place coordinates: $e');
+      return null;
+    }
+  }
 
   // Convert coordinates to address using Geocoding plugin
   Future<String?> getAddressFromCoordinates(double latitude, double longitude) async {
     try {
-      debugPrint('Converting coordinates to address using Geocoding: $latitude, $longitude');
+      debugPrint('LocationService: Converting coordinates to address: $latitude, $longitude');
       
       List<Placemark> placemarks = await placemarkFromCoordinates(
         latitude,
@@ -87,14 +134,14 @@ class LocationService {
         }
 
         String address = addressParts.join(', ');
-        debugPrint('Converted address: $address');
+        debugPrint('LocationService: Converted address: $address');
         return address;
       }
       
-      debugPrint('No placemarks found for coordinates');
+      debugPrint('LocationService: No placemarks found for coordinates');
       return null;
     } catch (e) {
-      debugPrint('Error converting coordinates to address with Geocoding: $e');
+      debugPrint('LocationService: Error converting coordinates to address: $e');
       // Fallback to OpenStreetMap Nominatim API
       return await getAddressFromNominatim(latitude, longitude);
     }
@@ -103,7 +150,7 @@ class LocationService {
   // Alternative: Use OpenStreetMap Nominatim API for reverse geocoding
   Future<String?> getAddressFromNominatim(double latitude, double longitude) async {
     try {
-      debugPrint('Using Nominatim for reverse geocoding: $latitude, $longitude');
+      debugPrint('LocationService: Using Nominatim for reverse geocoding: $latitude, $longitude');
       
       final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?format=json&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1'
@@ -121,7 +168,7 @@ class LocationService {
         
         if (data['display_name'] != null) {
           String address = data['display_name'];
-          debugPrint('Nominatim address: $address');
+          debugPrint('LocationService: Nominatim address: $address');
           return address;
         }
         
@@ -140,15 +187,15 @@ class LocationService {
           if (addressData['country'] != null) addressParts.add(addressData['country']);
           
           String address = addressParts.join(', ');
-          debugPrint('Built address from components: $address');
+          debugPrint('LocationService: Built address from components: $address');
           return address;
         }
       }
       
-      debugPrint('Nominatim API failed with status: ${response.statusCode}');
+      debugPrint('LocationService: Nominatim API failed with status: ${response.statusCode}');
       return null;
     } catch (e) {
-      debugPrint('Error with Nominatim API: $e');
+      debugPrint('LocationService: Error with Nominatim API: $e');
       return null;
     }
   }
@@ -156,9 +203,10 @@ class LocationService {
   // Get current location and address
   Future<Map<String, dynamic>?> getCurrentLocationAndAddress() async {
     try {
+      debugPrint('LocationService: Getting current location and address');
       Position? position = await getCurrentPosition();
       if (position == null) {
-        debugPrint('Failed to get current position');
+        debugPrint('LocationService: Failed to get current position');
         return null;
       }
 
@@ -170,7 +218,7 @@ class LocationService {
       if (address == null || address.isEmpty) {
         // If geocoding fails, use a more user-friendly format
         address = "Near ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
-        debugPrint('Using fallback address format: $address');
+        debugPrint('LocationService: Using fallback address format: $address');
       }
 
       final result = {
@@ -179,14 +227,14 @@ class LocationService {
         'address': address,
       };
       
-      debugPrint('Location service result:');
-      debugPrint('Latitude: ${result['latitude']}');
-      debugPrint('Longitude: ${result['longitude']}');
-      debugPrint('Address: ${result['address']}');
+      debugPrint('LocationService: Location and address obtained successfully');
+      debugPrint('LocationService: Latitude: ${result['latitude']}');
+      debugPrint('LocationService: Longitude: ${result['longitude']}');
+      debugPrint('LocationService: Address: ${result['address']}');
       
       return result;
     } catch (e) {
-      debugPrint('Error getting location and address: $e');
+      debugPrint('LocationService: Error getting location and address: $e');
       return null;
     }
   }

@@ -16,12 +16,17 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
   AddressBloc() : super(AddressInitialState()) {
     on<SubmitAddressEvent>(_onSubmitAddress);
     on<DetectLocationEvent>(_onDetectLocation);
+    on<SelectPlaceEvent>(_onSelectPlace);
   }
 
   Future<void> _onSubmitAddress(
       SubmitAddressEvent event, Emitter<AddressState> emit) async {
     try {
       debugPrint('AddressBloc: Starting address submission...');
+      debugPrint('AddressBloc: Address: ${event.address}');
+      debugPrint('AddressBloc: Latitude: ${event.latitude}');
+      debugPrint('AddressBloc: Longitude: ${event.longitude}');
+      
       emit(AddressLoadingState());
 
       // Get saved data
@@ -30,12 +35,12 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
       final prefs = await SharedPreferences.getInstance();
       final mobile = prefs.getString('user_phone');
 
-      debugPrint('Retrieved token: ${token != null ? "Found" : "Not found"}');
-      debugPrint('Retrieved mobile: $mobile');
-      debugPrint('Retrieved profile data: $profileData');
+      debugPrint('AddressBloc: Retrieved token: ${token != null ? "Found" : "Not found"}');
+      debugPrint('AddressBloc: Retrieved mobile: $mobile');
+      debugPrint('AddressBloc: Retrieved profile data: $profileData');
 
       if (token == null || mobile == null) {
-        debugPrint('Missing required data: token or mobile');
+        debugPrint('AddressBloc: Missing required data: token or mobile');
         emit(AddressErrorState(error: 'Please login again'));
         return;
       }
@@ -54,14 +59,14 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
       final email = profileData['email'] ?? '';
       final photoFile = profileData['photo'] as File?;
 
-      debugPrint('Submitting profile update with:');
-      debugPrint('Name: $name');
-      debugPrint('Email: $email');
-      debugPrint('Mobile: $cleanMobile');
-      debugPrint('Address: ${event.address}');
-      debugPrint('Latitude: ${event.latitude}');
-      debugPrint('Longitude: ${event.longitude}');
-      debugPrint('Has photo: ${photoFile != null}');
+      debugPrint('AddressBloc: Submitting profile update with:');
+      debugPrint('AddressBloc: Name: $name');
+      debugPrint('AddressBloc: Email: $email');
+      debugPrint('AddressBloc: Mobile: $cleanMobile');
+      debugPrint('AddressBloc: Address: ${event.address}');
+      debugPrint('AddressBloc: Latitude: ${event.latitude}');
+      debugPrint('AddressBloc: Longitude: ${event.longitude}');
+      debugPrint('AddressBloc: Has photo: ${photoFile != null}');
 
       // Call update user API
       final result = await _updateUserService.updateUserProfile(
@@ -76,14 +81,25 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
       );
 
       if (result['success'] == true) {
-        debugPrint('Address submission successful');
+        debugPrint('AddressBloc: Address submission successful');
+        
+        // Also save the address to local storage for future use
+        await ProfileService.saveProfileData(
+          name: name,
+          email: email,
+          photo: photoFile,
+          address: event.address,
+          latitude: event.latitude,
+          longitude: event.longitude,
+        );
+        
         emit(AddressSubmittedState(address: event.address));
       } else {
-        debugPrint('Address submission failed: ${result['message']}');
+        debugPrint('AddressBloc: Address submission failed: ${result['message']}');
         emit(AddressErrorState(error: 'Something went wrong. Please try again.'));
       }
     } catch (e) {
-      debugPrint('Error submitting address: $e');
+      debugPrint('AddressBloc: Error submitting address: $e');
       emit(AddressErrorState(error: 'Something went wrong. Please try again.'));
     }
   }
@@ -97,10 +113,10 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
       final locationData = await _locationService.getCurrentLocationAndAddress();
 
       if (locationData != null) {
-        debugPrint('Location detected successfully');
-        debugPrint('Latitude: ${locationData['latitude']}');
-        debugPrint('Longitude: ${locationData['longitude']}');
-        debugPrint('Address: ${locationData['address']}');
+        debugPrint('AddressBloc: Location detected successfully');
+        debugPrint('AddressBloc: Latitude: ${locationData['latitude']}');
+        debugPrint('AddressBloc: Longitude: ${locationData['longitude']}');
+        debugPrint('AddressBloc: Address: ${locationData['address']}');
 
         emit(LocationDetectedState(
           location: locationData['address'],
@@ -108,12 +124,42 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
           longitude: locationData['longitude'],
         ));
       } else {
-        debugPrint('Failed to detect location');
+        debugPrint('AddressBloc: Failed to detect location');
         emit(AddressErrorState(error: 'Could not detect location. Please enable location services.'));
       }
     } catch (e) {
-      debugPrint('Error detecting location: $e');
+      debugPrint('AddressBloc: Error detecting location: $e');
       emit(AddressErrorState(error: 'Error detecting location. Please try again.'));
+    }
+  }
+  
+  Future<void> _onSelectPlace(
+      SelectPlaceEvent event, Emitter<AddressState> emit) async {
+    try {
+      debugPrint('AddressBloc: Getting coordinates for place ID: ${event.placeId}');
+      emit(AddressLoadingState());
+      
+      // Get coordinates from the Google Places API
+      final placeData = await _locationService.getCoordinatesFromPlace(event.placeId);
+      
+      if (placeData != null) {
+        debugPrint('AddressBloc: Place coordinates retrieved successfully');
+        debugPrint('AddressBloc: Latitude: ${placeData['latitude']}');
+        debugPrint('AddressBloc: Longitude: ${placeData['longitude']}');
+        debugPrint('AddressBloc: Address: ${placeData['address']}');
+        
+        emit(LocationDetectedState(
+          location: placeData['address'],
+          latitude: placeData['latitude'],
+          longitude: placeData['longitude'],
+        ));
+      } else {
+        debugPrint('AddressBloc: Failed to get place coordinates');
+        emit(AddressErrorState(error: 'Could not get coordinates for the selected place.'));
+      }
+    } catch (e) {
+      debugPrint('AddressBloc: Error getting place coordinates: $e');
+      emit(AddressErrorState(error: 'Error getting coordinates. Please try again.'));
     }
   }
 }

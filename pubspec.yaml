@@ -46,6 +46,8 @@ dependencies:
   shared_preferences: ^2.5.3
   geocoding: ^3.0.0
   shimmer: ^3.0.0
+  lottie: ^3.3.1
+  dio: ^5.8.0+1
 
 # Add this section to your existing pubspec.yaml file
 
@@ -74,6 +76,7 @@ flutter:
   assets:
       - assets/logo.png
       - assets/images/
+      - assets/lottie/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

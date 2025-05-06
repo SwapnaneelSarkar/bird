@@ -1,5 +1,3 @@
-// lib/presentation/screens/profile/complete_profile/bloc/complete_profile_state.dart
-
 import 'package:equatable/equatable.dart';
 
 abstract class CompleteProfileState extends Equatable {
@@ -21,4 +19,19 @@ class ProfileFailure extends CompleteProfileState {
 
   @override
   List<Object?> get props => [error];
+}
+
+class PlaceSelected extends CompleteProfileState {
+  final String address;
+  final double latitude;
+  final double longitude;
+  
+  const PlaceSelected({
+    required this.address,
+    required this.latitude,
+    required this.longitude,
+  });
+  
+  @override
+  List<Object?> get props => [address, latitude, longitude];
 }

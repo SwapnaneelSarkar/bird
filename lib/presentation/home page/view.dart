@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/constants/color/colorConstant.dart';
 import '../../service/token_service.dart';
-import '../../service/profile_get_service.dart';
+import '../../widgets/restaurant_card.dart';
+import '../address bottomSheet/view.dart';
+import 'bloc.dart';
+import 'event.dart';
+import 'state.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   final Map<String, dynamic>? userData;
   final String? token;
 
@@ -15,305 +20,351 @@ class HomePage extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => HomeBloc()..add(const LoadHomeData()),
+      child: _HomeContent(
+        userData: userData,
+        token: token,
+      ),
+    );
+  }
 }
 
-class _HomePageState extends State<HomePage> {
-  bool vegOnly = false;
-  String _userAddress = '';
-  bool _isAddressLoading = true;
+class _HomeContent extends StatelessWidget {
+  final Map<String, dynamic>? userData;
+  final String? token;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserAddress();
-  }
-
-  Future<void> _loadUserAddress() async {
-    setState(() {
-      _isAddressLoading = true;
-    });
-
-    try {
-      // Get user ID and token
-      final userId = await TokenService.getUserId();
-      final token = await TokenService.getToken();
-
-      if (userId != null && token != null) {
-        // Create an instance of ProfileApiService
-        final profileService = ProfileApiService();
-        
-        // Fetch user profile data
-        final result = await profileService.getUserProfile(
-          token: token,
-          userId: userId,
-        );
-
-        if (result['success'] == true) {
-          final userData = result['data'] as Map<String, dynamic>;
-          
-          setState(() {
-            _userAddress = userData['address'] ?? 'Add delivery address';
-            _isAddressLoading = false;
-          });
-          
-          debugPrint('User address loaded: $_userAddress');
-        } else {
-          setState(() {
-            _userAddress = 'Add delivery address';
-            _isAddressLoading = false;
-          });
-          debugPrint('Failed to load address: ${result['message']}');
-        }
-      } else {
-        setState(() {
-          _userAddress = 'Add delivery address';
-          _isAddressLoading = false;
-        });
-        debugPrint('User ID or token is null');
-      }
-    } catch (e) {
-      setState(() {
-        _userAddress = 'Add delivery address';
-        _isAddressLoading = false;
-      });
-      debugPrint('Error loading user address: $e');
-    }
-  }
+  const _HomeContent({
+    Key? key,
+    this.userData,
+    this.token,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('HomePage - User Data: ${widget.userData}');
-    debugPrint('HomePage - Token: ${widget.token}');
+    debugPrint('HomePage - User Data: $userData');
+    debugPrint('HomePage - Token: $token');
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Address Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    color: ColorManager.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Deliver to',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            _isAddressLoading
-                            ? SizedBox(
-                                width: 100,
-                                child: Text(
-                                  'Loading...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              )
-                            : Expanded(
-                                child: Text(
-                                  _userAddress,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              color: Colors.grey[600],
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ],
+        child: BlocConsumer<HomeBloc, HomeState>(
+          listener: (context, state) {
+            if (state is AddressUpdateSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Address updated to: ${state.address}'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else if (state is AddressUpdateFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is HomeLoading) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            } else if (state is HomeLoaded) {
+              return _buildHomeContent(context, state);
+            } else if (state is HomeError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      state.message,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.red,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.account_circle_outlined),
-                    color: Colors.black87,
-                    iconSize: 26,
-                    onPressed: () {
-                      Navigator.pushNamed(context, Routes.profileView);
-                    },
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<HomeBloc>().add(const LoadHomeData());
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            } else if (state is AddressUpdating) {
+              return Stack(
+                children: [
+                  _buildHomeContentPlaceholder(),
+                  Container(
+                    color: Colors.black.withOpacity(0.3),
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
                   ),
                 ],
-              ),
-            ),
+              );
+            }
+            
+            // Initial state
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          },
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildHomeContentPlaceholder() {
+    return Column(
+      children: [
+        Container(
+          height: 80,
+          color: Colors.grey[200],
+        ),
+        Expanded(
+          child: Container(
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
 
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
+  Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
+    return Column(
+      children: [
+        // Address Bar
+        _buildAddressBar(context, state),
+
+        // Search Bar
+        _buildSearchBar(context, state),
+
+        // Main Content
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Popular Categories
+                _buildCategoriesSection(context, state),
+                
+                // All Restaurants
+                _buildRestaurantsSection(context, state),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildAddressBar(BuildContext context, HomeLoaded state) {
+    return InkWell(
+      onTap: () => _showAddressPicker(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_on,
+              color: ColorManager.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.search,
-                            color: Colors.grey[500],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              decoration: InputDecoration(
-                                hintText: 'Search restaurants...',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 14,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  Text(
+                    'Deliver to',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
                     ),
                   ),
-                  const SizedBox(width: 12),
                   Row(
                     children: [
-                      Switch(
-                        value: vegOnly,
-                        onChanged: (value) {
-                          setState(() {
-                            vegOnly = value;
-                          });
-                        },
-                        activeColor: Colors.green,
-                        activeTrackColor: Colors.green.withOpacity(0.5),
-                      ),
-                      const Text(
-                        'Veg Only',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          state.userAddress,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.grey[600],
+                        size: 16,
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-
-            // Main Content
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Popular Categories
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
-                      child: Text(
-                        'Popular Categories',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 100,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        children: [
-                          _buildCategoryItem('Pizza', 'assets/pizza.png'),
-                          _buildCategoryItem('Burger', 'assets/burger.png'),
-                          _buildCategoryItem('Sushi', 'assets/sushi.png'),
-                          _buildCategoryItem('Desserts', 'assets/desserts.png'),
-                          _buildCategoryItem('Drinks', 'assets/drinks.png'),
-                        ],
-                      ),
-                    ),
-                    
-                    // All Restaurants
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'All Restaurants',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Icon(
-                            Icons.filter_list,
-                            color: Colors.black87,
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Restaurant List
-                    _buildRestaurantCard(
-                      name: 'The Gourmet Kitchen',
-                      imageUrl: 'assets/restaurant1.jpg',
-                      cuisine: 'Italian, Continental',
-                      rating: 4.8,
-                      price: '₹200 for two',
-                      deliveryTime: '20-25 mins',
-                    ),
-                    _buildRestaurantCard(
-                      name: 'Cafe Bistro',
-                      imageUrl: 'assets/restaurant2.jpg',
-                      cuisine: 'Cafe, Continental',
-                      rating: 4.5,
-                      price: '₹150 for two',
-                      deliveryTime: '15-20 mins',
-                    ),
-                    _buildRestaurantCard(
-                      name: 'Sushi Master',
-                      imageUrl: 'assets/restaurant3.jpg',
-                      cuisine: 'Japanese, Asian',
-                      rating: 4.7,
-                      price: '₹300 for two',
-                      deliveryTime: '25-30 mins',
-                    ),
-                  ],
-                ),
-              ),
+            IconButton(
+              icon: const Icon(Icons.account_circle_outlined),
+              color: Colors.black87,
+              iconSize: 26,
+              onPressed: () {
+                Navigator.pushNamed(context, Routes.profileView);
+              },
             ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildCategoryItem(String title, String imagePath) {
+  
+  Widget _buildSearchBar(BuildContext context, HomeLoaded state) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search,
+                    color: Colors.grey[500],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search restaurants...',
+                        hintStyle: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Row(
+            children: [
+              Switch(
+                value: state.vegOnly,
+                onChanged: (value) {
+                  context.read<HomeBloc>().add(ToggleVegOnly(value));
+                },
+                activeColor: Colors.green,
+                activeTrackColor: Colors.green.withOpacity(0.5),
+              ),
+              const Text(
+                'Veg Only',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+          child: Text(
+            'Popular Categories',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 100,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: state.categories.map((category) {
+              return _buildCategoryItem(
+                category['name'], 
+                category['icon'],
+                category['color'],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildRestaurantsSection(BuildContext context, HomeLoaded state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'All Restaurants',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              Icon(
+                Icons.filter_list,
+                color: Colors.black87,
+              ),
+            ],
+          ),
+        ),
+        
+        // Restaurant List
+        ...state.restaurants.map((restaurant) {
+          return RestaurantCard(
+            name: restaurant['name'],
+            imageUrl: restaurant['imageUrl'],
+            cuisine: restaurant['cuisine'],
+            rating: restaurant['rating'],
+            price: restaurant['price'],
+            deliveryTime: restaurant['deliveryTime'],
+            onTap: () {
+              // Handle restaurant tap
+              debugPrint('Tapped on restaurant: ${restaurant['name']}');
+            },
+          );
+        }).toList(),
+      ],
+    );
+  }
+  
+  Widget _buildCategoryItem(String title, String iconName, String colorName) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
@@ -327,17 +378,10 @@ class _HomePageState extends State<HomePage> {
               shape: BoxShape.circle,
             ),
             child: Center(
-              child: Image.asset(
-                imagePath,
-                width: 40,
-                height: 40,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    getIconData(title),
-                    size: 30,
-                    color: getCategoryColor(title),
-                  );
-                },
+              child: Icon(
+                _getIconData(iconName),
+                size: 30,
+                color: _getCategoryColor(colorName),
               ),
             ),
           ),
@@ -353,167 +397,94 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  IconData getIconData(String category) {
-    switch (category.toLowerCase()) {
-      case 'pizza':
+  
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'local_pizza':
         return Icons.local_pizza;
-      case 'burger':
+      case 'lunch_dining':
         return Icons.lunch_dining;
-      case 'sushi':
+      case 'set_meal':
         return Icons.set_meal;
-      case 'desserts':
+      case 'icecream':
         return Icons.icecream;
-      case 'drinks':
+      case 'local_drink':
         return Icons.local_drink;
       default:
         return Icons.restaurant;
     }
   }
-
-  Color getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'pizza':
+  
+  Color _getCategoryColor(String colorName) {
+    switch (colorName) {
+      case 'red':
         return Colors.red;
-      case 'burger':
+      case 'amber':
         return Colors.amber;
-      case 'sushi':
+      case 'blue':
         return Colors.blue;
-      case 'desserts':
+      case 'pink':
         return Colors.pink;
-      case 'drinks':
+      case 'teal':
         return Colors.teal;
       default:
         return Colors.orange;
     }
   }
-
-  Widget _buildRestaurantCard({
-    required String name,
-    required String imageUrl,
-    required String cuisine,
-    required double rating,
-    required String price,
-    required String deliveryTime,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            spreadRadius: 1,
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Restaurant Image
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Image.asset(
-              imageUrl,
-              height: 180,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 180,
-                  width: double.infinity,
-                  color: Colors.grey[200],
-                  child: Center(
-                    child: Icon(
-                      Icons.restaurant,
-                      size: 50,
-                      color: Colors.grey[400],
-                    ),
-                  ),
-                );
-              },
+  
+  Future<void> _showAddressPicker(BuildContext context) async {
+    try {
+      debugPrint('HomePage: Opening address picker');
+      
+      // Show the address picker bottom sheet
+      final result = await AddressPickerBottomSheet.show(context);
+      
+      if (result != null) {
+        // Validate that we have coordinates
+        final double latitude = result['latitude'] ?? 0.0;
+        final double longitude = result['longitude'] ?? 0.0;
+        
+        debugPrint('HomePage: Address selected:');
+        debugPrint('  Address: ${result['address']}');
+        debugPrint('  Sub-address: ${result['subAddress']}');
+        debugPrint('  Latitude: $latitude');
+        debugPrint('  Longitude: $longitude');
+        
+        // Make sure we have valid coordinates
+        if (latitude == 0.0 && longitude == 0.0) {
+          debugPrint('HomePage: Warning - Got zero coordinates');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not get location coordinates. Please try again.'),
+              backgroundColor: Colors.orange,
             ),
+          );
+          return;
+        }
+        
+        // Format the full address
+        String fullAddress = result['address'];
+        if (result['subAddress'].toString().isNotEmpty) {
+          fullAddress += ', ${result['subAddress']}';
+        }
+        
+        // Update the address through the bloc
+        context.read<HomeBloc>().add(
+          UpdateUserAddress(
+            address: fullAddress,
+            latitude: latitude,
+            longitude: longitude,
           ),
-          
-          // Restaurant Info
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            rating.toString(),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.star,
-                            size: 14,
-                            color: Colors.yellow,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  cuisine,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      price,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    Text(
-                      deliveryTime,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (e) {
+      debugPrint('HomePage: Error showing address picker: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error opening address picker. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

@@ -90,6 +90,16 @@ class TokenService {
       return null;
     }
   }
+  // Add this method to your TokenService class
+static Future<String?> getMobileNumber() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_phone');
+  } catch (e) {
+    debugPrint('Error getting mobile number: $e');
+    return null;
+  }
+}
 
   // Clear all saved data (for logout)
   static Future<bool> clearAll() async {

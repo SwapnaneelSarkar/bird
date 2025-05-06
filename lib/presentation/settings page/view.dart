@@ -1,9 +1,13 @@
 import 'dart:io';
-import 'package:bird/widgets/shimmer_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../widgets/settings_fields.dart';
+import '../../constants/api_constant.dart';
+import '../../constants/color/colorConstant.dart';
+import '../../constants/font/fontManager.dart';
+
+import '../../widgets/shimmer_helper.dart';
+import '../address bottomSheet/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -24,6 +28,10 @@ class _SettingsViewState extends State<SettingsView> {
   late SettingsBloc _settingsBloc;
   File? _profileImage;
   bool _isSaving = false;
+  
+  // Location coordinates
+  double? _latitude;
+  double? _longitude;
   
   @override
   void initState() {
@@ -47,6 +55,10 @@ class _SettingsViewState extends State<SettingsView> {
     _emailController.text = userData['email'] ?? '';
     _phoneController.text = userData['mobile'] ?? '';
     _addressController.text = userData['address'] ?? '';
+    
+    // Store coordinates
+    _latitude = userData['latitude'] != null ? double.tryParse(userData['latitude'].toString()) : null;
+    _longitude = userData['longitude'] != null ? double.tryParse(userData['longitude'].toString()) : null;
   }
   
   Future<void> _pickImage() async {
@@ -62,10 +74,9 @@ class _SettingsViewState extends State<SettingsView> {
           _profileImage = File(pickedFile.path);
         });
         
-        // Update profile image immediately
-        _settingsBloc.add(UpdateProfileImage(
-          imageFile: _profileImage!,
-        ));
+        // We'll only store the file locally and only update on save
+        // This prevents the issue with fields disappearing
+        debugPrint('Image selected: ${pickedFile.path}');
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
@@ -84,7 +95,34 @@ class _SettingsViewState extends State<SettingsView> {
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          margin: EdgeInsets.all(16),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+  
+  // Method to show address picker
+  Future<void> _showAddressPicker() async {
+    final result = await AddressPickerBottomSheet.show(context);
+    
+    if (result != null) {
+      setState(() {
+        _addressController.text = result['address'];
+        if (result['subAddress'].toString().isNotEmpty) {
+          _addressController.text += ', ${result['subAddress']}';
+        }
+        _latitude = result['latitude'];
+        _longitude = result['longitude'];
+      });
+      
+      // Show a success toast
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Address updated successfully'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          margin: const EdgeInsets.all(16),
         ),
       );
     }
@@ -95,17 +133,23 @@ class _SettingsViewState extends State<SettingsView> {
       _isSaving = true;
     });
     
+    // Now we'll update all the user settings including the profile image
     _settingsBloc.add(UpdateUserSettings(
       name: _nameController.text,
       email: _emailController.text,
       phone: _phoneController.text,
       address: _addressController.text,
+      latitude: _latitude,
+      longitude: _longitude,
+      imageFile: _profileImage, // Pass the image file here for saving
     ));
   }
 
   @override
   Widget build(BuildContext context) {
-    // Create the BlocProvider at the root of this widget
+    final Size screenSize = MediaQuery.of(context).size;
+    final double responsiveTextScale = screenSize.width / 375; // Base scale factor
+    
     return BlocProvider.value(
       value: _settingsBloc,
       child: Scaffold(
@@ -114,21 +158,24 @@ class _SettingsViewState extends State<SettingsView> {
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 22),
+            icon: Icon(Icons.arrow_back, color: ColorManager.black, size: 22 * responsiveTextScale),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: const Text(
+          title: Text(
             'Settings',
             style: TextStyle(
-              color: Colors.black87,
-              fontSize: 19,
-              fontWeight: FontWeight.w600,
+              color: ColorManager.black,
+              fontSize: FontSize.s18 * responsiveTextScale,
+              fontWeight: FontWeightManager.semiBold,
               letterSpacing: 0.2,
+              fontFamily: FontFamily.Montserrat,
             ),
           ),
           actions: [
             BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, state) {
+                // Always keep the save button enabled when SettingsLoaded 
+                // regardless of image selection
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: TextButton(
@@ -137,9 +184,9 @@ class _SettingsViewState extends State<SettingsView> {
                         : null,
                     child: _isSaving 
                       ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
+                          width: 20 * responsiveTextScale,
+                          height: 20 * responsiveTextScale,
+                          child: const CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.deepOrange),
                           ),
@@ -150,8 +197,9 @@ class _SettingsViewState extends State<SettingsView> {
                           color: state is SettingsLoaded && !_isSaving 
                               ? Colors.deepOrange 
                               : Colors.grey,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontSize: FontSize.s16 * responsiveTextScale,
+                          fontWeight: FontWeightManager.semiBold,
+                          fontFamily: FontFamily.Montserrat,
                         ),
                       ),
                   ),
@@ -170,16 +218,16 @@ class _SettingsViewState extends State<SettingsView> {
                 SnackBar(
                   content: Row(
                     children: [
-                      Icon(Icons.check_circle, color: Colors.white, size: 20),
-                      SizedBox(width: 10),
+                      const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(child: Text(state.message)),
                     ],
                   ),
                   backgroundColor: Colors.green,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  margin: EdgeInsets.all(16),
-                  duration: Duration(seconds: 2),
+                  margin: const EdgeInsets.all(16),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             }
@@ -192,19 +240,20 @@ class _SettingsViewState extends State<SettingsView> {
                 SnackBar(
                   content: Row(
                     children: [
-                      Icon(Icons.error, color: Colors.white, size: 20),
-                      SizedBox(width: 10),
+                      const Icon(Icons.error, color: Colors.white, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(child: Text(state.message)),
                     ],
                   ),
                   backgroundColor: Colors.red.shade700,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  margin: EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(16),
                 ),
               );
             }
             
+            // Redirect to login page when account is deleted
             if (state is SettingsAccountDeleted) {
               Navigator.of(context).pushNamedAndRemoveUntil(
                 '/login',
@@ -219,158 +268,151 @@ class _SettingsViewState extends State<SettingsView> {
           builder: (context, state) {
             if (state is SettingsLoading || state is SettingsInitial) {
               // Show shimmer loading effect
-              return _buildShimmerView();
+              return _buildShimmerView(responsiveTextScale);
             }
             
-            return SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Profile Photo Section
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 28),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 6,
-                          spreadRadius: 0,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: BlocBuilder<SettingsBloc, SettingsState>(
-                      builder: (context, state) {
-                        String imageUrl = '';
-                        
-                        if (state is SettingsLoaded) {
-                          imageUrl = state.userData['image'] ?? '';
-                        }
-                        
-                        return Column(
-                          children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  width: 110,
-                                  height: 110,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.grey[200],
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 4,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.08),
-                                        blurRadius: 10,
-                                        spreadRadius: 1,
-                                      ),
-                                    ],
-                                  ),
-                                  child: GestureDetector(
-                                    onTap: _pickImage,
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(55),
-                                      child: _profileImage != null
-                                          ? Image.file(
-                                              _profileImage!,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : imageUrl.isNotEmpty
-                                              ? Image.network(
-                                                  imageUrl,
-                                                  fit: BoxFit.cover,
-                                                  loadingBuilder: (context, child, loadingProgress) {
-                                                    if (loadingProgress == null) return child;
-                                                    return Center(
-                                                      child: CircularProgressIndicator(
-                                                        value: loadingProgress.expectedTotalBytes != null
-                                                            ? loadingProgress.cumulativeBytesLoaded / 
-                                                                loadingProgress.expectedTotalBytes!
-                                                            : null,
-                                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                                          Colors.deepOrange,
-                                                        ),
-                                                        strokeWidth: 2,
-                                                      ),
-                                                    );
-                                                  },
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    return const Icon(
-                                                      Icons.person,
-                                                      size: 55,
-                                                      color: Colors.grey,
-                                                    );
-                                                  },
-                                                )
-                                              : const Icon(
-                                                  Icons.person,
-                                                  size: 55,
-                                                  color: Colors.grey,
-                                                ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: GestureDetector(
-                                    onTap: _pickImage,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.deepOrange,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.1),
-                                            blurRadius: 4,
-                                            spreadRadius: 0,
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Tap to change profile photo',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Settings Form Fields
-                  if (state is SettingsLoaded)
+            if (state is SettingsLoaded) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Profile Photo Section
                     Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 18),
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 28 * responsiveTextScale),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 6,
+                            spreadRadius: 0,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Stack(
+                            children: [
+                              Container(
+                                width: 110 * responsiveTextScale,
+                                height: 110 * responsiveTextScale,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.grey[200],
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 4,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: GestureDetector(
+                                  onTap: _pickImage,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(55 * responsiveTextScale),
+                                    child: _profileImage != null
+                                        ? Image.file(
+                                            _profileImage!,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : state.userData['image'] != null && state.userData['image'].toString().isNotEmpty
+                                            ? Image.network(
+                                                // Add base URL to the image path
+                                                _getFullImageUrl(state.userData['image']),
+                                                fit: BoxFit.cover,
+                                                loadingBuilder: (context, child, loadingProgress) {
+                                                  if (loadingProgress == null) return child;
+                                                  return Center(
+                                                    child: CircularProgressIndicator(
+                                                      value: loadingProgress.expectedTotalBytes != null
+                                                          ? loadingProgress.cumulativeBytesLoaded / 
+                                                              loadingProgress.expectedTotalBytes!
+                                                          : null,
+                                                      valueColor: const AlwaysStoppedAnimation<Color>(
+                                                        Colors.deepOrange,
+                                                      ),
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  );
+                                                },
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  debugPrint('Error loading image: $error');
+                                                  return Icon(
+                                                    Icons.person,
+                                                    size: 55 * responsiveTextScale,
+                                                    color: Colors.grey,
+                                                  );
+                                                },
+                                              )
+                                            : Icon(
+                                                Icons.person,
+                                                size: 55 * responsiveTextScale,
+                                                color: Colors.grey,
+                                              ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: _pickImage,
+                                  child: Container(
+                                    padding: EdgeInsets.all(8 * responsiveTextScale),
+                                    decoration: BoxDecoration(
+                                      color: Colors.deepOrange,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                          spreadRadius: 0,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      size: 18 * responsiveTextScale,
+                                      color: ColorManager.textWhite,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12 * responsiveTextScale),
+                          Text(
+                            'Tap to change profile photo',
+                            style: TextStyle(
+                              fontSize: FontSize.s14 * responsiveTextScale,
+                              color: Colors.grey,
+                              letterSpacing: 0.2,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 20 * responsiveTextScale),
+                    
+                    // Settings Form Fields
+                    Container(
+                      margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12 * responsiveTextScale),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.03),
@@ -381,198 +423,323 @@ class _SettingsViewState extends State<SettingsView> {
                         ],
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 18 * responsiveTextScale, 
+                          vertical: 2 * responsiveTextScale
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Name Field
-                            SettingsField(
+                            _buildSettingsField(
                               label: 'Name',
-                              value: state.userData['username'] ?? '',
                               controller: _nameController,
                               icon: Icons.person_outline,
+                              responsiveTextScale: responsiveTextScale,
                             ),
                             
                             // Email Field
-                            SettingsField(
+                            _buildSettingsField(
                               label: 'Email',
-                              value: state.userData['email'] ?? '',
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               icon: Icons.email_outlined,
+                              responsiveTextScale: responsiveTextScale,
                             ),
                             
                             // Phone Number Field
-                            SettingsField(
+                            _buildSettingsField(
                               label: 'Phone Number',
-                              value: state.userData['mobile'] ?? '',
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
                               icon: Icons.phone_outlined,
+                              responsiveTextScale: responsiveTextScale,
                             ),
                             
-                            // Address Field
-                            SettingsField(
-                              label: 'Address',
-                              value: state.userData['address'] ?? '',
-                              controller: _addressController,
-                              icon: Icons.location_on_outlined,
-                            ),
+                            // Address Field with location picker
+                            _buildAddressField(responsiveTextScale),
                           ],
                         ),
                       ),
                     ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Delete Account Button
-                  if (state is SettingsLoaded)
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                    
+                    SizedBox(height: 20 * responsiveTextScale),
+                    
+                    // Delete Account Button
+                    _buildDeleteAccountButton(responsiveTextScale),
+                    
+                    SizedBox(height: 30 * responsiveTextScale),
+                  ],
+                ),
+              );
+            }
+            
+            // Fallback - should not happen
+            return const Center(child: Text('Something went wrong!'));
+          },
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build address field
+  Widget _buildAddressField(double responsiveTextScale) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12 * responsiveTextScale),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Address',
+            style: TextStyle(
+              fontSize: FontSize.s14 * responsiveTextScale,
+              color: Colors.grey,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          SizedBox(height: 8 * responsiveTextScale),
+          Row(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(right: 4 * responsiveTextScale),
+                child: Icon(
+                  Icons.location_on_outlined,
+                  color: Colors.grey[700],
+                  size: 20 * responsiveTextScale,
+                ),
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: _showAddressPicker,
+                  child: IgnorePointer(
+                    child: TextField(
+                      controller: _addressController,
+                      style: TextStyle(
+                        color: ColorManager.black,
+                        fontSize: FontSize.s16 * responsiveTextScale,
+                        fontFamily: FontFamily.Montserrat,
                       ),
-                      child: Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (dialogContext) => AlertDialog(
-                                title: Text(
-                                  'Delete Account',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                content: Text(
-                                  'Are you sure you want to delete your account? This action cannot be undone.'
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(dialogContext),
-                                    child: Text(
-                                      'CANCEL',
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(dialogContext);
-                                      _settingsBloc.add(DeleteAccount());
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                    ),
-                                    child: Text('DELETE'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                    size: 22,
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Delete Account',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                      decoration: InputDecoration(
+                        hintText: 'Select your address',
+                        hintStyle: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: FontSize.s16 * responsiveTextScale,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                        border: InputBorder.none,
+                        suffixIcon: Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.grey[500],
+                          size: 24 * responsiveTextScale,
                         ),
                       ),
                     ),
-                  
-                  const SizedBox(height: 30),
-                  
-                  // Error State
-                  if (state is SettingsError && !(state is SettingsLoaded))
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline, 
-                            size: 60, 
-                            color: Colors.red
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            state.message,
-                            style: TextStyle(fontSize: 16),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              _settingsBloc.add(LoadUserSettings());
-                            },
-                            icon: Icon(Icons.refresh),
-                            label: Text('Retry'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepOrange,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              elevation: 0,
-                              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                            ),
-                          ),
-                        ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_latitude != null && _longitude != null)
+            Padding(
+              padding: EdgeInsets.only(
+                top: 4 * responsiveTextScale, 
+                left: 32 * responsiveTextScale
+              ),
+              // child: Text(
+              //   'Location: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+              //   style: TextStyle(
+              //     color: Colors.green,
+              //     fontSize: FontSize.s12 * responsiveTextScale,
+              //     fontFamily: FontFamily.Montserrat,
+              //   ),
+              // ),
+            ),
+          const Divider(),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build settings field
+  Widget _buildSettingsField({
+    required String label,
+    required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    required IconData icon,
+    required double responsiveTextScale,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 4 * responsiveTextScale),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: FontSize.s14 * responsiveTextScale,
+              color: Colors.grey,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          SizedBox(height: 8 * responsiveTextScale),
+          Row(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(right: 12 * responsiveTextScale),
+                child: Icon(
+                  icon,
+                  color: Colors.grey[700],
+                  size: 20 * responsiveTextScale,
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  style: TextStyle(
+                    color: ColorManager.black,
+                    fontSize: FontSize.s16 * responsiveTextScale,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: FontSize.s16 * responsiveTextScale,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build delete account button
+  Widget _buildDeleteAccountButton(double responsiveTextScale) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12 * responsiveTextScale),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12 * responsiveTextScale),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12 * responsiveTextScale),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeightManager.bold,
+                    fontSize: FontSize.s18 * responsiveTextScale,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+                content: Text(
+                  'Are you sure you want to delete your account? This action cannot be undone.',
+                  style: TextStyle(
+                    fontSize: FontSize.s16 * responsiveTextScale,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16 * responsiveTextScale),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(
+                      'CANCEL',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: FontSize.s14 * responsiveTextScale,
+                        fontFamily: FontFamily.Montserrat,
                       ),
                     ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _settingsBloc.add(DeleteAccount());
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: ColorManager.textWhite,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20 * responsiveTextScale),
+                      ),
+                    ),
+                    child: Text(
+                      'DELETE',
+                      style: TextStyle(
+                        fontSize: FontSize.s14 * responsiveTextScale,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             );
           },
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: 16 * responsiveTextScale, 
+              horizontal: 18 * responsiveTextScale
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8 * responsiveTextScale),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                  ),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 22 * responsiveTextScale,
+                  ),
+                ),
+                SizedBox(width: 12 * responsiveTextScale),
+                Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: FontSize.s14 * responsiveTextScale,
+                    fontWeight: FontWeightManager.medium,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
   
   // Shimmer loading effect UI
-  Widget _buildShimmerView() {
+  Widget _buildShimmerView(double responsiveTextScale) {
     return SingleChildScrollView(
       child: ShimmerLoading(
         child: Column(
@@ -581,24 +748,24 @@ class _SettingsViewState extends State<SettingsView> {
             // Profile photo shimmer
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 28),
+              padding: EdgeInsets.symmetric(vertical: 28 * responsiveTextScale),
               color: Colors.white,
               child: Column(
                 children: [
                   Container(
-                    width: 110,
-                    height: 110,
+                    width: 110 * responsiveTextScale,
+                    height: 110 * responsiveTextScale,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.grey[300],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12 * responsiveTextScale),
                   Container(
-                    width: 160,
-                    height: 14,
+                    width: 160 * responsiveTextScale,
+                    height: 14 * responsiveTextScale,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4 * responsiveTextScale),
                       color: Colors.grey[300],
                     ),
                   ),
@@ -606,64 +773,66 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ),
             
-            const SizedBox(height: 20),
+            SizedBox(height: 20 * responsiveTextScale),
             
             // Form fields shimmer
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 18),
+              margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12 * responsiveTextScale),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+              padding: EdgeInsets.symmetric(
+                horizontal: 18 * responsiveTextScale, 
+                vertical: 20 * responsiveTextScale
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name field shimmer
-                  _buildShimmerField(),
-                  const SizedBox(height: 20),
+                  _buildShimmerField(responsiveTextScale),
+                  SizedBox(height: 20 * responsiveTextScale),
                   
-                  // Email field shimmer
-                  _buildShimmerField(),
-                  const SizedBox(height: 20),
+                  _buildShimmerField(responsiveTextScale),
+                  SizedBox(height: 20 * responsiveTextScale),
                   
-                  // Phone field shimmer
-                  _buildShimmerField(),
-                  const SizedBox(height: 20),
+                  _buildShimmerField(responsiveTextScale),
+                  SizedBox(height: 20 * responsiveTextScale),
                   
-                  // Address field shimmer
-                  _buildShimmerField(),
+                  _buildShimmerField(responsiveTextScale),
                 ],
               ),
             ),
             
-            const SizedBox(height: 20),
+            SizedBox(height: 20 * responsiveTextScale),
             
             // Delete button shimmer
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 18),
+              margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12 * responsiveTextScale),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+              padding: EdgeInsets.symmetric(
+                vertical: 16 * responsiveTextScale, 
+                horizontal: 18 * responsiveTextScale
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 38 * responsiveTextScale,
+                    height: 38 * responsiveTextScale,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(8 * responsiveTextScale),
                       color: Colors.grey[300],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12 * responsiveTextScale),
                   Container(
-                    width: 120,
-                    height: 16,
+                    width: 120 * responsiveTextScale,
+                    height: 16 * responsiveTextScale,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4 * responsiveTextScale),
                       color: Colors.grey[300],
                     ),
                   ),
@@ -671,7 +840,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ),
             
-            const SizedBox(height: 30),
+            SizedBox(height: 30 * responsiveTextScale),
           ],
         ),
       ),
@@ -679,31 +848,31 @@ class _SettingsViewState extends State<SettingsView> {
   }
   
   // Helper method to build shimmer field
-  Widget _buildShimmerField() {
+  Widget _buildShimmerField(double responsiveTextScale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label shimmer
         Container(
-          width: 80,
-          height: 14,
+          width: 80 * responsiveTextScale,
+          height: 14 * responsiveTextScale,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(4 * responsiveTextScale),
             color: Colors.grey[300],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * responsiveTextScale),
         
         // Value shimmer
         Container(
           width: double.infinity,
-          height: 16,
+          height: 16 * responsiveTextScale,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(4 * responsiveTextScale),
             color: Colors.grey[300],
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4 * responsiveTextScale),
         
         // Divider shimmer
         Container(
@@ -716,4 +885,21 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
   }
+  
+  // Helper method to build full image URL by adding base URL
+  // Helper method to build full image URL by adding base URL
+String _getFullImageUrl(String? imagePath) {
+  if (imagePath == null || imagePath.isEmpty) {
+    return '';
+  }
+  
+  // Check if the image path already has the base URL
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Add base URL to the image path
+  // Remove leading slash if present to avoid double slashes
+  return '${ApiConstants.baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
+}
 }

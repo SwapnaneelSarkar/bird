@@ -132,62 +132,93 @@ class ProfileService {
   }
 
   // Save complete profile data
-  static Future<bool> saveProfileData({
-    required String name,
-    required String email,
-    File? photo,
-  }) async {
-    try {
-      bool success = true;
-      
-      // Save name
-      success = success && await saveName(name);
-      
-      // Save email
-      success = success && await saveEmail(email);
-      
-      // Save photo if provided
-      if (photo != null) {
-        final photoPath = await savePhoto(photo);
-        success = success && (photoPath != null);
-      }
-      
-      // Mark profile as completed
-      if (success) {
-        await setProfileCompleted(true);
-      }
-      
-      return success;
-    } catch (e) {
-      debugPrint('Error saving profile data: $e');
-      return false;
+  // Update the saveProfileData method in ProfileService (paste-5.txt)
+static Future<bool> saveProfileData({
+  required String name,
+  required String email,
+  File? photo,
+  String? address,
+  double? latitude,
+  double? longitude,
+}) async {
+  try {
+    bool success = true;
+    
+    // Save name
+    success = success && await saveName(name);
+    
+    // Save email
+    success = success && await saveEmail(email);
+    
+    // Save address and coordinates if provided
+    if (address != null) {
+      final prefs = await SharedPreferences.getInstance();
+      success = success && await prefs.setString('user_address', address);
     }
+    
+    if (latitude != null) {
+      final prefs = await SharedPreferences.getInstance();
+      success = success && await prefs.setDouble('user_latitude', latitude);
+    }
+    
+    if (longitude != null) {
+      final prefs = await SharedPreferences.getInstance();
+      success = success && await prefs.setDouble('user_longitude', longitude);
+    }
+    
+    // Save photo if provided
+    if (photo != null) {
+      final photoPath = await savePhoto(photo);
+      success = success && (photoPath != null);
+    }
+    
+    // Mark profile as completed
+    if (success) {
+      await setProfileCompleted(true);
+    }
+    
+    return success;
+  } catch (e) {
+    debugPrint('Error saving profile data: $e');
+    return false;
   }
+}
 
-  // Get complete profile data
-  static Future<Map<String, dynamic>> getProfileData() async {
-    try {
-      final name = await getName();
-      final email = await getEmail();
-      final photo = await getPhoto();
-      final isCompleted = await isProfileCompleted();
-      
-      return {
-        'name': name,
-        'email': email,
-        'photo': photo,
-        'isCompleted': isCompleted,
-      };
-    } catch (e) {
-      debugPrint('Error retrieving profile data: $e');
-      return {
-        'name': null,
-        'email': null,
-        'photo': null,
-        'isCompleted': false,
-      };
-    }
+// Update the getProfileData method as well
+static Future<Map<String, dynamic>> getProfileData() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final name = await getName();
+    final email = await getEmail();
+    final photo = await getPhoto();
+    final isCompleted = await isProfileCompleted();
+    final address = prefs.getString('user_address');
+    final latitude = prefs.getDouble('user_latitude');
+    final longitude = prefs.getDouble('user_longitude');
+    
+    return {
+      'name': name,
+      'email': email,
+      'photo': photo,
+      'isCompleted': isCompleted,
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+    };
+  } catch (e) {
+    debugPrint('Error retrieving profile data: $e');
+    return {
+      'name': null,
+      'email': null,
+      'photo': null,
+      'isCompleted': false,
+      'address': null,
+      'latitude': null,
+      'longitude': null,
+    };
   }
+}
+
 
   // Clear profile data
   static Future<bool> clearProfileData() async {

@@ -11,6 +11,8 @@ class UpdateUserSettings extends SettingsEvent {
   final String? address;
   final String? password;
   final File? imageFile;
+  final double? latitude;
+  final double? longitude;
   
   UpdateUserSettings({
     this.name,
@@ -19,6 +21,8 @@ class UpdateUserSettings extends SettingsEvent {
     this.address,
     this.password,
     this.imageFile,
+    this.latitude,
+    this.longitude,
   });
 }
 

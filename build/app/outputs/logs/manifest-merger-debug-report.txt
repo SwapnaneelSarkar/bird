@@ -1,6 +1,6 @@
 -- Merging decision tree log ---
 application
-INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:14:5-54:19
+INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:14:5-57:19
 INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/debug/AndroidManifest.xml
 MERGED from [:firebase_auth] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_auth/intermediates/merged_manifest/debug/AndroidManifest.xml:7:5-13:19
 MERGED from [:firebase_auth] /Users/swapnaneelsarkar/Documents/GitHub/bird/build/firebase_auth/intermediates/merged_manifest/debug/AndroidManifest.xml:7:5-13:19
@@ -83,8 +83,8 @@ MERGED from [com.google.android.play:core-common:2.0.3] /Users/swapnaneelsarkar/
 	android:name
 		INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml
 manifest
-ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:1:1-67:12
-MERGED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:1:1-67:12
+ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:1:1-70:12
+MERGED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:1:1-70:12
 INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/debug/AndroidManifest.xml:1:1-10:12
 INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/debug/AndroidManifest.xml:1:1-10:12
 INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/debug/AndroidManifest.xml:1:1-10:12
@@ -264,17 +264,17 @@ ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/An
 	android:name
 		ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:12:22-72
 queries
-ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:61:5-66:15
+ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:64:5-69:15
 intent#action:name:android.intent.action.PROCESS_TEXT+data:mimeType:text/plain
-ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:62:9-65:18
+ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:65:9-68:18
 action#android.intent.action.PROCESS_TEXT
-ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:63:13-72
+ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:66:13-72
 	android:name
-		ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:63:21-70
+		ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:66:21-70
 data
-ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:64:13-50
+ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:67:13-50
 	android:mimeType
-		ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:64:19-48
+		ADDED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/main/AndroidManifest.xml:67:19-48
 uses-sdk
 INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/debug/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /Users/swapnaneelsarkar/Documents/GitHub/bird/android/app/src/debug/AndroidManifest.xml

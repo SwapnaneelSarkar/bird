@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../constants/api_constant.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/profile_tile.dart';
 import 'bloc.dart';
@@ -90,15 +91,61 @@ class ProfileView extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: w * 0.11,
-                            backgroundImage: userData['image'] != null
-                                ? NetworkImage(userData['image'])
-                                : const NetworkImage('https://i.pravatar.cc/150?img=68'),
-                            onBackgroundImageError: (error, stackTrace) {
-                              // Handle image loading error
-                              debugPrint('Error loading profile image: $error');
-                            },
+                          // Updated Profile Image
+                          Container(
+                            width: w * 0.22,
+                            height: w * 0.22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey[200],
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 6,
+                                  spreadRadius: 0.5,
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(w * 0.11),
+                              child: userData['image'] != null && userData['image'].toString().isNotEmpty
+                                ? Image.network(
+                                    _getFullImageUrl(userData['image']),
+                                    fit: BoxFit.cover,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded / 
+                                                  loadingProgress.expectedTotalBytes!
+                                              : null,
+                                          valueColor: const AlwaysStoppedAnimation<Color>(
+                                            Color(0xFFE67E22),
+                                          ),
+                                          strokeWidth: 2,
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      debugPrint('Error loading profile image: $error');
+                                      return Icon(
+                                        Icons.person,
+                                        size: w * 0.11,
+                                        color: Colors.grey,
+                                      );
+                                    },
+                                  )
+                                : Icon(
+                                    Icons.person,
+                                    size: w * 0.11,
+                                    color: Colors.grey,
+                                  ),
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -206,7 +253,6 @@ class ProfileView extends StatelessWidget {
                       title: 'Settings',
                       onTap: () {
                         Navigator.pushNamed(context, Routes.settings);
-
                       },
                     ),
 
@@ -245,6 +291,20 @@ class ProfileView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Helper method to get the full image URL
+  String _getFullImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return '';
+    }
+    
+    // Check if the image path already has the base URL
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    return '${ApiConstants.baseUrl}/api/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
   }
 
   Widget _buildProfileHeaderShimmer(double width) {

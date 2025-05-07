@@ -8,25 +8,19 @@ class UpdateUserService {
   Future<Map<String, dynamic>> updateUserProfile({
     required String token,
     required String mobile,
-    required String username,
-    required String email,
+    String? username,
+    String? email,
     String? password,
-    required String address,
-    required double latitude,
-    required double longitude,
+    String? address,
+    double? latitude,
+    double? longitude,
     File? imageFile,
   }) async {
     try {
       debugPrint('UpdateUserService: Starting profile update...');
       debugPrint('UpdateUserService: Token: $token');
       debugPrint('UpdateUserService: Mobile: $mobile');
-      debugPrint('UpdateUserService: Username: $username');
-      debugPrint('UpdateUserService: Email: $email');
-      debugPrint('UpdateUserService: Address: $address');
-      debugPrint('UpdateUserService: Latitude: $latitude');
-      debugPrint('UpdateUserService: Longitude: $longitude');
-      debugPrint('UpdateUserService: Has image: ${imageFile != null}');
-
+      
       // Create multipart request
       var request = http.MultipartRequest('POST', Uri.parse(ApiConstants.updateUserUrl));
       
@@ -35,30 +29,40 @@ class UpdateUserService {
         'Authorization': 'Bearer $token',
       });
 
-      // Add text fields - ensure all parameters are sent correctly
+      // Add mobile field - only required field
       request.fields['mobile'] = mobile;
-      request.fields['username'] = username;
-      request.fields['email'] = email;
+      
+      // Add optional fields only if they are provided
+      if (username != null) {
+        request.fields['username'] = username;
+        debugPrint('UpdateUserService: Username: $username');
+      }
+      
+      if (email != null) {
+        request.fields['email'] = email;
+        debugPrint('UpdateUserService: Email: $email');
+      }
+      
       if (password != null && password.isNotEmpty) {
         request.fields['password'] = password;
+        debugPrint('UpdateUserService: Password provided');
       }
-      request.fields['address'] = address;
       
-      // Convert coordinates to string and ensure they are not NaN or Infinity
-      if (!latitude.isNaN && !latitude.isInfinite) {
+      if (address != null) {
+        request.fields['address'] = address;
+        debugPrint('UpdateUserService: Address: $address');
+      }
+      
+      // Add latitude if provided and valid
+      if (latitude != null && !latitude.isNaN && !latitude.isInfinite) {
         request.fields['latitude'] = latitude.toString();
-        debugPrint('UpdateUserService: Adding latitude field: ${latitude.toString()}');
-      } else {
-        request.fields['latitude'] = '0.0';
-        debugPrint('UpdateUserService: Invalid latitude, using 0.0 instead');
+        debugPrint('UpdateUserService: Latitude: $latitude');
       }
       
-      if (!longitude.isNaN && !longitude.isInfinite) {
+      // Add longitude if provided and valid
+      if (longitude != null && !longitude.isNaN && !longitude.isInfinite) {
         request.fields['longitude'] = longitude.toString();
-        debugPrint('UpdateUserService: Adding longitude field: ${longitude.toString()}');
-      } else {
-        request.fields['longitude'] = '0.0';
-        debugPrint('UpdateUserService: Invalid longitude, using 0.0 instead');
+        debugPrint('UpdateUserService: Longitude: $longitude');
       }
 
       // Add image file if exists
@@ -140,18 +144,11 @@ class UpdateUserService {
       // Add authorization header
       request.headers['Authorization'] = 'Bearer $token';
       
-      // Add the mobile number field - this is critical
+      // Add only the mobile number field - this is critical
       request.fields['mobile'] = mobile;
-      
-      // Add other required fields with empty values to avoid null issues
-      request.fields['username'] = '';
-      request.fields['email'] = '';
-      request.fields['address'] = '';
-      request.fields['latitude'] = '0.0';
-      request.fields['longitude'] = '0.0';
 
       // Add the image file if it exists
-      if (imageFile != null && await imageFile.exists()) {
+      if (await imageFile.exists()) {
         var imageStream = http.ByteStream(imageFile.openRead());
         var length = await imageFile.length();
         
@@ -159,7 +156,7 @@ class UpdateUserService {
           'image', // Make sure this field name matches what your API expects
           imageStream,
           length,
-          filename: 'profile_image.jpg',
+          filename: 'profile_image${imageFile.path.substring(imageFile.path.lastIndexOf('.'))}',
         );
         
         request.files.add(multipartFile);

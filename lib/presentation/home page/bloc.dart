@@ -184,12 +184,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       var result = await _updateUserService.updateUserProfile(
         token: token,
         mobile: cleanMobile,
-        username: '',  // Empty string
-        email: '',     // Empty string
+  
         address: event.address,
         latitude: event.latitude,
         longitude: event.longitude,
-        imageFile: null,
       );
       
       if (result['success'] == true) {

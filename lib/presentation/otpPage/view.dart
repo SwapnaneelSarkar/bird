@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/custom_button_large.dart';
-import '../../widgets/otp_field.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -23,23 +24,17 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final List<TextEditingController> otpControllers =
-      List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> focusNodes = List.generate(6, (_) => FocusNode());
+  // Single controller for the OTP field
+  final TextEditingController otpController = TextEditingController();
 
   @override
   void dispose() {
-    for (var controller in otpControllers) {
-      controller.dispose();
-    }
-    for (var node in focusNodes) {
-      node.dispose();
-    }
+    otpController.dispose();
     super.dispose();
   }
 
-  String get completeOtp =>
-      otpControllers.map((controller) => controller.text).join();
+  // Get the complete OTP directly from the controller
+  String get completeOtp => otpController.text;
 
   @override
   Widget build(BuildContext context) {
@@ -124,26 +119,10 @@ class _OtpScreenState extends State<OtpScreen> {
                             ),
                           ),
                           SizedBox(height: MediaQuery.of(context).size.height * 0.04),
-                          Wrap(
-                            spacing: MediaQuery.of(context).size.width * 0.015,
-                            alignment: WrapAlignment.center,
-                            children: List.generate(6, (index) {
-                              return OtpBox(
-                                controller: otpControllers[index],
-                                focusNode: focusNodes[index],
-                                onChanged: (val) {
-                                  if (val.length == 1 && index < 5) {
-                                    focusNodes[index + 1].requestFocus();
-                                  }
-                                  if (val.isEmpty && index > 0) {
-                                    focusNodes[index - 1].requestFocus();
-                                  }
-                                  context.read<OtpBloc>().add(
-                                      OtpChangedEvent(otp: completeOtp));
-                                },
-                              );
-                            }),
-                          ),
+                          
+                          // Replace the Wrap with a single OtpField
+                          _buildOtpField(context),
+                          
                           SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                           if (state is OtpVerificationLoadingState)
                             CircularProgressIndicator(color: ColorManager.primary)
@@ -203,6 +182,64 @@ class _OtpScreenState extends State<OtpScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildOtpField(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: TextFormField(
+        controller: otpController,
+        onChanged: (val) {
+          context.read<OtpBloc>().add(OtpChangedEvent(otp: val));
+        },
+        maxLength: 6,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+        style: GoogleFonts.poppins(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: ColorManager.black,
+          letterSpacing: 8.0, // Adding letter spacing for OTP-like appearance
+        ),
+        decoration: InputDecoration(
+          hintText: "000000",
+          hintStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w300,
+            color: Colors.grey.shade400,
+            letterSpacing: 8.0,
+          ),
+          counterText: "",
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: ColorManager.primary.withOpacity(0.8), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+        ),
+        autofocus: true,
       ),
     );
   }

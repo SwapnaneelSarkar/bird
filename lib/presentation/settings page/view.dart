@@ -626,7 +626,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                     ).animate().slideY(begin: 0.1, end: 0, duration: 800.ms, curve: Curves.easeOutQuint)
                      .fadeIn(duration: 800.ms),
                     
-                    SizedBox(height: 20 * responsiveTextScale),
+                    // SizedBox(height: 20 * responsiveTextScale),
                     
                     // Delete Account Button with animation
                     _buildDeleteAccountButton(responsiveTextScale)
@@ -722,16 +722,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 top: 4 * responsiveTextScale, 
                 left: 42 * responsiveTextScale
               ),
-              child: Text(
-                'Location saved',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: FontSize.s12 * responsiveTextScale,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ).animate().fadeIn(duration: 300.ms),
+              
             ),
-          const Divider(thickness: 0.8),
+          // const Divider(thickness: 0.8),
         ],
       ),
     ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
@@ -805,67 +798,61 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
   }
 
-  // Helper method to build delete account button
-  Widget _buildDeleteAccountButton(double responsiveTextScale) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12 * responsiveTextScale),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            spreadRadius: 0,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12 * responsiveTextScale),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12 * responsiveTextScale),
-          splashColor: Colors.red.withOpacity(0.1),
-          highlightColor: Colors.red.withOpacity(0.05),
-          onTap: () => _showDeleteConfirmation(responsiveTextScale),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: 16 * responsiveTextScale, 
-              horizontal: 18 * responsiveTextScale
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8 * responsiveTextScale),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8 * responsiveTextScale),
-                  ),
-                  child: Icon(
-                    Icons.delete_outline,
-                    color: Colors.red,
-                    size: 22 * responsiveTextScale,
-                  ),
-                ),
-                SizedBox(width: 12 * responsiveTextScale),
-                Text(
-                  'Delete Account',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: FontSize.s14 * responsiveTextScale,
-                    fontWeight: FontWeightManager.medium,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-              ],
+
+Widget _buildDeleteAccountButton(double responsiveTextScale) {
+  return Container(
+    margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12 * responsiveTextScale),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.03),
+          blurRadius: 8,
+          spreadRadius: 0,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: InkWell(
+      onTap: () => _showDeleteConfirmation(responsiveTextScale),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(vertical: 16 * responsiveTextScale),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Colors.grey.withOpacity(0.2),
+              width: 1,
             ),
           ),
         ),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.delete_outline,
+                color: Colors.red[500],
+                size: 20 * responsiveTextScale,
+              ),
+              SizedBox(width: 8 * responsiveTextScale),
+              Text(
+                'Delete Account',
+                style: TextStyle(
+                  color: Colors.red[500],
+                  fontSize: 14 * responsiveTextScale,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: FontFamily.Montserrat,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
   
   // Shimmer loading effect UI with more appealing animations
   Widget _buildShimmerView(double responsiveTextScale) {

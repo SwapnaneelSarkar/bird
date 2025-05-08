@@ -1,61 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../constants/color/colorConstant.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../constants/font/fontManager.dart';
 
-class OtpBox extends StatelessWidget {
+class OtpField extends StatelessWidget {
   final TextEditingController controller;
-  final FocusNode focusNode;
-  final void Function(String) onChanged;
+  final Function(String) onChanged;
 
-  const OtpBox({
+  const OtpField({
     Key? key,
     required this.controller,
-    required this.focusNode,
     required this.onChanged,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    double boxSize = MediaQuery.of(context).size.width * 0.13;
-
-    return Container(
-      width: boxSize,
-      height: boxSize,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5), // Almost white
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          // Soft light top-left highlight
-          BoxShadow(
-            color: Colors.white,
-            offset: Offset(-2, -2),
-            blurRadius: 6,
-            spreadRadius: 1,
-          ),
-          // Soft dark bottom-right shadow
-          BoxShadow(
-            color: Color(0x33000000), // Slightly darker grey
-            offset: Offset(2, 2),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
+    final horizontal = MediaQuery.of(context).size.width * 0.05;
+    
+    return TextFormField(
+      controller: controller,
+      onChanged: onChanged,
+      maxLength: 6,
+      textAlign: TextAlign.center,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
+      style: GoogleFonts.poppins(
+        fontSize: FontSize.s18,
+        fontWeight: FontWeightManager.medium,
+        color: ColorManager.black,
+        letterSpacing: 8.0, // Adding letter spacing for OTP-like appearance
       ),
-      child: Center(
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          onChanged: onChanged,
-          maxLength: 1,
-          textAlign: TextAlign.center,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
-          decoration: const InputDecoration(
-            counterText: "",
-            border: InputBorder.none,
-          ),
+      decoration: InputDecoration(
+        hintText: "Enter 6-digit OTP",
+        hintStyle: GoogleFonts.poppins(
+          fontSize: FontSize.s16,
+          fontWeight: FontWeightManager.regular,
+          color: Colors.grey,
+        ),
+        counterText: "",
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: horizontal,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: ColorManager.primary.withOpacity(0.8), width: 1.5),
         ),
       ),
     );

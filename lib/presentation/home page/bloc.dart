@@ -1,10 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../service/token_service.dart';
-import '../../service/profile_get_service.dart';
-import '../../service/update_user_service.dart';
-import '../../service/update_address_service.dart';
+import '../../../service/token_service.dart';
+import '../../../service/profile_get_service.dart';
+import '../../../service/update_user_service.dart';
+import '../../../service/update_address_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -49,7 +51,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         debugPrint('HomeBloc: User ID or token is null');
       }
       
-      // For now, static category and restaurant data
+      // Load restaurant data from JSON file
+      final restaurants = await _loadRestaurantData();
+      debugPrint('HomeBloc: Loaded ${restaurants.length} restaurants from JSON file');
+      
+      // For categories, we'll keep the static data for now, but this could also be moved to JSON
       final categories = [
         {'name': 'Pizza', 'icon': 'local_pizza', 'color': 'red'},
         {'name': 'Burger', 'icon': 'lunch_dining', 'color': 'amber'},
@@ -58,47 +64,65 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         {'name': 'Drinks', 'icon': 'local_drink', 'color': 'teal'},
       ];
       
-      final restaurants = [
-        {
-          'name': 'The Gourmet Kitchen',
-          'imageUrl': 'assets/restaurant1.jpg',
-          'cuisine': 'Italian, Continental',
-          'rating': 4.8,
-          'price': '₹200 for two',
-          'deliveryTime': '20-25 mins',
-        },
-        {
-          'name': 'Cafe Bistro',
-          'imageUrl': 'assets/restaurant2.jpg',
-          'cuisine': 'Cafe, Continental',
-          'rating': 4.5,
-          'price': '₹150 for two',
-          'deliveryTime': '15-20 mins',
-        },
-        {
-          'name': 'Sushi Master',
-          'imageUrl': 'assets/restaurant3.jpg',
-          'cuisine': 'Japanese, Asian',
-          'rating': 4.7,
-          'price': '₹300 for two',
-          'deliveryTime': '25-30 mins',
-        },
-      ];
-      
       // Load user preferences
       final prefs = await SharedPreferences.getInstance();
       final vegOnly = prefs.getBool('veg_only') ?? false;
       
+      // If vegOnly is true, filter restaurants
+      final filteredRestaurants = vegOnly 
+          ? restaurants.where((r) => r['isVeg'] == true).toList()
+          : restaurants;
+      
       emit(HomeLoaded(
         userAddress: userAddress,
         vegOnly: vegOnly,
-        restaurants: restaurants,
+        restaurants: filteredRestaurants,
         categories: categories,
       ));
       
     } catch (e) {
       debugPrint('HomeBloc: Error loading home data: $e');
       emit(HomeError('Failed to load data. Please try again.'));
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> _loadRestaurantData() async {
+    try {
+      // Load data from the JSON file
+      final String data = await rootBundle.loadString('assets/data/restaurant.json');
+      final Map<String, dynamic> jsonData = json.decode(data);
+      
+      // Extract and return restaurants as List<Map<String, dynamic>>
+      final List<dynamic> restaurants = jsonData['restaurants'];
+      
+      // Convert each restaurant item to a Map<String, dynamic>
+      return List<Map<String, dynamic>>.from(restaurants);
+    } catch (e) {
+      debugPrint('HomeBloc: Error loading restaurant data from JSON: $e');
+      
+      // Return fallback data in case of error
+      return [
+        {
+          'id': 'rest001',
+          'name': 'The Gourmet Kitchen',
+          'imageUrl': 'assets/images/restaurant1.jpg',
+          'cuisine': 'Italian, Continental',
+          'rating': 4.8,
+          'price': '₹200 for two',
+          'deliveryTime': '20-25 mins',
+          'isVeg': false,
+        },
+        {
+          'id': 'rest002',
+          'name': 'Cafe Bistro',
+          'imageUrl': 'assets/images/restaurant2.jpg',
+          'cuisine': 'Cafe, Continental',
+          'rating': 4.5,
+          'price': '₹150 for two',
+          'deliveryTime': '15-20 mins',
+          'isVeg': true,
+        },
+      ];
     }
   }
   
@@ -111,7 +135,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('veg_only', event.value);
         
-        emit(currentState.copyWith(vegOnly: event.value));
+        // If vegOnly is toggled on, we need to filter restaurants to show only veg
+        // If toggled off, we need to reload all restaurants
+        if (event.value != currentState.vegOnly) {
+          emit(HomeLoading());
+          
+          // Reload restaurant data
+          final allRestaurants = await _loadRestaurantData();
+          
+          // Filter if vegOnly is true
+          final filteredRestaurants = event.value 
+              ? allRestaurants.where((r) => r['isVeg'] == true).toList()
+              : allRestaurants;
+          
+          emit(currentState.copyWith(
+            vegOnly: event.value,
+            restaurants: filteredRestaurants,
+          ));
+        }
         
         debugPrint('HomeBloc: Veg only toggled to: ${event.value}');
       }
@@ -184,7 +225,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       var result = await _updateUserService.updateUserProfile(
         token: token,
         mobile: cleanMobile,
-  
         address: event.address,
         latitude: event.latitude,
         longitude: event.longitude,

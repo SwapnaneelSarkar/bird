@@ -5,8 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'presentation/restaurant_profile/bloc.dart';
 import 'presentation/splash_screen/view.dart';
-
 
 void main() async {
   // Ensure Flutter bindings are initialized
@@ -28,13 +28,22 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => LoginBloc(),
+    return MultiBlocProvider(
+      providers: [
+        // Original LoginBloc provider
+        BlocProvider<LoginBloc>(
+          create: (_) => LoginBloc(),
+        ),
+        // Add the RestaurantProfileBloc provider with direct instantiation
+        BlocProvider<RestaurantProfileBloc>(
+          create: (_) => RestaurantProfileBloc(),
+        ),
+      ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Bird',
         theme: ThemeData(
-          scaffoldBackgroundColor: Colors.black,
+          scaffoldBackgroundColor: Colors.white,
           useMaterial3: true,
         ),
         home: const SplashScreen(), // Start with splash screen instead of login

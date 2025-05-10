@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/constants/color/colorConstant.dart';
-import '../../service/token_service.dart';
-import '../../widgets/restaurant_card.dart';
+import '../../../service/token_service.dart';
+import '../../../widgets/restaurant_card.dart';
 import '../address bottomSheet/view.dart';
+import '../restaurant_menu/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -147,16 +148,22 @@ class _HomeContent extends StatelessWidget {
 
         // Main Content
         Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Popular Categories
-                _buildCategoriesSection(context, state),
-                
-                // All Restaurants
-                _buildRestaurantsSection(context, state),
-              ],
+          child: RefreshIndicator(
+            onRefresh: () async {
+              context.read<HomeBloc>().add(const LoadHomeData());
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Popular Categories
+                  _buildCategoriesSection(context, state),
+                  
+                  // All Restaurants
+                  _buildRestaurantsSection(context, state),
+                ],
+              ),
             ),
           ),
         ),
@@ -324,6 +331,7 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Header remains the same
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
@@ -346,21 +354,67 @@ class _HomeContent extends StatelessWidget {
         ),
         
         // Restaurant List
-        ...state.restaurants.map((restaurant) {
-          return RestaurantCard(
-            name: restaurant['name'],
-            imageUrl: restaurant['imageUrl'],
-            cuisine: restaurant['cuisine'],
-            rating: restaurant['rating'],
-            price: restaurant['price'],
-            deliveryTime: restaurant['deliveryTime'],
+        if (state.restaurants.isEmpty)
+          _buildEmptyRestaurantsList()
+        else
+          ...state.restaurants.map((restaurant) {
+            return RestaurantCard(
+              name: restaurant['name'],
+              imageUrl: restaurant['imageUrl'],
+              cuisine: restaurant['cuisine'],
+              rating: restaurant['rating'],
+              price: restaurant['price'],
+              deliveryTime: restaurant['deliveryTime'],
             onTap: () {
-              // Handle restaurant tap
-              debugPrint('Tapped on restaurant: ${restaurant['name']}');
-            },
-          );
-        }).toList(),
+            debugPrint('Restaurant tapped: ${restaurant['name']}');
+            debugPrint('Restaurant data: ${restaurant.toString()}');
+            
+            // DIRECT NAVIGATION: Skip named routes which might be causing the issue
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => RestaurantDetailsPage(
+                  restaurantData: Map<String, dynamic>.from(restaurant),
+                ),
+              ),
+            );
+          },
+            );
+          }).toList(),
       ],
+    );
+  }
+  
+  Widget _buildEmptyRestaurantsList() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.restaurant_outlined,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No restaurants available',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try changing your filters or location',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
     );
   }
   

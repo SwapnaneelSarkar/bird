@@ -1,7 +1,10 @@
+// constants/router/router.dart
 import 'package:bird/presentation/DeliveryAddressPage/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
 import 'package:bird/presentation/profile_view/view.dart';
+import 'package:bird/presentation/restaurant_menu/view.dart';
+import 'package:bird/presentation/restaurant_profile/view.dart';
 import 'package:bird/presentation/settings%20page/view.dart';
 import 'package:flutter/material.dart';
 
@@ -17,8 +20,9 @@ class Routes {
   static const String address = '/address';
   static const String profileView = '/profileView';
   static const String home = '/home';
-    static const String settings = '/settings';
-
+  static const String settings = '/settings';
+  static const String restaurantMenu = '/restaurantMenu';
+  static const String restaurantProfile = '/restaurantProfile';
   static const String blank = '/blank';
 }
 
@@ -32,7 +36,6 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => LoginPage());
 
       case Routes.home:
-        // Handle home route with arguments
         if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
           final args = routeSettings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -42,11 +45,9 @@ class RouteGenerator {
             ),
           );
         }
-        // Fallback if no arguments provided
         return MaterialPageRoute(builder: (_) => const HomePage());
 
       case Routes.profileComplete:
-        // Add fade transition for profile complete screen with arguments
         if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
           final args = routeSettings.arguments as Map<String, dynamic>;
           return PageRouteBuilder(
@@ -64,7 +65,6 @@ class RouteGenerator {
             transitionDuration: const Duration(milliseconds: 500),
           );
         }
-        // Fallback without arguments
         return PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
               const CompleteProfileView(),
@@ -78,7 +78,6 @@ class RouteGenerator {
         );
 
       case Routes.otp:
-        // Extract arguments for OTP screen
         if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
           final args = routeSettings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -88,7 +87,6 @@ class RouteGenerator {
             ),
           );
         }
-        // Fallback if no arguments provided
         return MaterialPageRoute(
           builder: (_) => OtpScreen(
             phoneNumber: '',
@@ -97,16 +95,6 @@ class RouteGenerator {
         );
 
       case Routes.address:
-        // Handle address route with arguments
-        if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
-          final args = routeSettings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (_) => AddressScreen(
-            
-            ),
-          );
-        }
-        // Fallback if no arguments provided
         return MaterialPageRoute(builder: (_) => AddressScreen());
 
       case Routes.profileView:
@@ -114,6 +102,28 @@ class RouteGenerator {
 
       case Routes.settings:
         return MaterialPageRoute(builder: (_) => const SettingsView());
+
+      case Routes.restaurantMenu:
+        if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
+          final restaurantData = routeSettings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (_) => RestaurantDetailsPage(restaurantData: restaurantData),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const RestaurantDetailsPage(restaurantData: {}),
+        );
+
+      case Routes.restaurantProfile:
+        if (routeSettings.arguments != null) {
+          final restaurantId = routeSettings.arguments as String;
+          return MaterialPageRoute(
+            builder: (_) => RestaurantProfileView(restaurantId: restaurantId),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const RestaurantProfileView(restaurantId: ""),
+        );
 
       default:
         return unDefinedRoute();
@@ -123,10 +133,8 @@ class RouteGenerator {
   static Route<dynamic> unDefinedRoute() {
     return MaterialPageRoute(
       builder: (_) => const Scaffold(
-        body: SizedBox(
-          child: Center(
-            child: Text("Page Not Found"),
-          ),
+        body: Center(
+          child: Text("Page Not Found"),
         ),
       ),
     );

@@ -4,7 +4,7 @@ class RestaurantCard extends StatelessWidget {
   final String name;
   final String imageUrl;
   final String cuisine;
-  final double rating;
+  final dynamic rating;
   final String price;
   final String deliveryTime;
   final VoidCallback? onTap;
@@ -22,6 +22,9 @@ class RestaurantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Convert rating to double safely
+    final double ratingValue = rating is num ? rating.toDouble() : 0.0;
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -85,13 +88,13 @@ class RestaurantCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _getRatingColor(rating),
+                          color: _getRatingColor(ratingValue),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
                           children: [
                             Text(
-                              rating.toString(),
+                              ratingValue.toStringAsFixed(1),
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,

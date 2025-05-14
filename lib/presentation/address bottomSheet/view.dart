@@ -176,7 +176,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                       Text(
                         'Add Address',
                         style: TextStyle(
-                          fontSize: FontSize.s20 * textScale,
+                          fontSize: FontSize.s18 * textScale,
                           fontWeight: FontWeightManager.bold,
                           color: Colors.black87,
                           fontFamily: FontFamily.Montserrat,
@@ -216,7 +216,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                               hintText: 'Enter your address',
                               hintStyle: TextStyle(
                                 color: Colors.grey[400],
-                                fontSize: FontSize.s16 * textScale,
+                                fontSize: FontSize.s14 * textScale,
                                 fontFamily: FontFamily.Montserrat,
                               ),
                               border: InputBorder.none,
@@ -268,7 +268,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                               ? 'Detecting location...' 
                               : 'Searching...',
                             style: TextStyle(
-                              fontSize: FontSize.s16 * textScale,
+                              fontSize: FontSize.s14 * textScale,
                               fontWeight: FontWeightManager.medium,
                               color: Colors.grey[700],
                               fontFamily: FontFamily.Montserrat,
@@ -367,7 +367,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                                   'Use Current Location',
                                   style: TextStyle(
                                     color: Colors.black,
-                                    fontSize: 16 * textScale,
+                                    fontSize: 14 * textScale,
                                     fontWeight: FontWeight.w500,
                                     fontFamily: FontFamily.Montserrat,
                                   ),
@@ -441,7 +441,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                     Text(
                       mainText,
                       style: TextStyle(
-                        fontSize: FontSize.s16 * textScale,
+                        fontSize: FontSize.s12 * textScale,
                         fontWeight: FontWeightManager.medium,
                         color: Colors.black87,
                         fontFamily: FontFamily.Montserrat,

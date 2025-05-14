@@ -33,12 +33,12 @@ class TokenService {
     }
   }
 
-  // Save user ID
-  static Future<bool> saveUserId(int userId) async {
+  // Save user ID - UPDATED to store string ID
+  static Future<bool> saveUserId(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final result = await prefs.setInt(_userIdKey, userId);
-      debugPrint('User ID saved: ${result ? "Success" : "Failed"}');
+      final result = await prefs.setString(_userIdKey, userId);
+      debugPrint('User ID saved: ${result ? "Success" : "Failed"} - ID: $userId');
       return result;
     } catch (e) {
       debugPrint('Error saving user ID: $e');
@@ -46,11 +46,11 @@ class TokenService {
     }
   }
 
-  // Get user ID
-  static Future<int?> getUserId() async {
+  // Get user ID - UPDATED to retrieve string ID
+  static Future<String?> getUserId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt(_userIdKey);
+      final userId = prefs.getString(_userIdKey);
       debugPrint('User ID retrieved: ${userId ?? "Not found"}');
       return userId;
     } catch (e) {
@@ -90,16 +90,17 @@ class TokenService {
       return null;
     }
   }
-  // Add this method to your TokenService class
-static Future<String?> getMobileNumber() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_phone');
-  } catch (e) {
-    debugPrint('Error getting mobile number: $e');
-    return null;
+
+  // Get mobile number
+  static Future<String?> getMobileNumber() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('user_phone');
+    } catch (e) {
+      debugPrint('Error getting mobile number: $e');
+      return null;
+    }
   }
-}
 
   // Clear all saved data (for logout)
   static Future<bool> clearAll() async {
@@ -136,8 +137,10 @@ static Future<String?> getMobileNumber() async {
       final tokenSaved = await saveToken(token);
       final userDataSaved = await saveUserData(userData);
       
-      if (userData['id'] != null) {
-        final userIdSaved = await saveUserId(userData['id']);
+      // UPDATED: Extract and save the user_id as string
+      if (userData['user_id'] != null) {
+        final userIdSaved = await saveUserId(userData['user_id'].toString());
+        debugPrint('Saved user_id from API response: ${userData['user_id']}');
         return tokenSaved && userDataSaved && userIdSaved;
       }
       

@@ -162,102 +162,91 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
   
   Future<void> _onUpdateUserAddress(UpdateUserAddress event, Emitter<HomeState> emit) async {
-    try {
-      debugPrint('HomeBloc: Updating user address...');
-      debugPrint('HomeBloc: Address: ${event.address}');
-      debugPrint('HomeBloc: Latitude: ${event.latitude}');
-      debugPrint('HomeBloc: Longitude: ${event.longitude}');
+  try {
+    debugPrint('HomeBloc: Updating user address...');
+    debugPrint('HomeBloc: Address: ${event.address}');
+    debugPrint('HomeBloc: Latitude: ${event.latitude}');
+    debugPrint('HomeBloc: Longitude: ${event.longitude}');
+    
+    // If already in a HomeLoaded state, keep current state data
+    HomeLoaded? currentLoadedState;
+    if (state is HomeLoaded) {
+      currentLoadedState = state as HomeLoaded;
+    }
+    
+    emit(AddressUpdating());
+    
+    // Get token and user ID
+    final token = await TokenService.getToken();
+    final userId = await TokenService.getUserId();
+    
+    if (token == null || userId == null) {
+      debugPrint('HomeBloc: Missing token or user ID');
+      emit(const AddressUpdateFailure('Please login again to update your address.'));
       
-      // If already in a HomeLoaded state, keep current state data
-      HomeLoaded? currentLoadedState;
-      if (state is HomeLoaded) {
-        currentLoadedState = state as HomeLoaded;
+      // Restore previous state if it was HomeLoaded
+      if (currentLoadedState != null) {
+        emit(currentLoadedState);
       }
+      return;
+    }
+    
+    // Verify the coordinates are valid numbers
+    if (event.latitude.isNaN || event.longitude.isNaN ||
+        event.latitude.isInfinite || event.longitude.isInfinite) {
+      debugPrint('HomeBloc: Invalid coordinates detected');
+      emit(const AddressUpdateFailure('Invalid coordinates. Please try again.'));
       
-      emit(AddressUpdating());
-      
-      // Get token and mobile number
-      final token = await TokenService.getToken();
-      final prefs = await SharedPreferences.getInstance();
-      final mobile = prefs.getString('user_phone');
-      
-      if (token == null || mobile == null) {
-        debugPrint('HomeBloc: Missing token or mobile number');
-        emit(const AddressUpdateFailure('Please login again to update your address.'));
-        
-        // Restore previous state if it was HomeLoaded
-        if (currentLoadedState != null) {
-          emit(currentLoadedState);
-        }
-        return;
+      // Restore previous state if it was HomeLoaded
+      if (currentLoadedState != null) {
+        emit(currentLoadedState);
       }
+      return;
+    }
+    
+    debugPrint('HomeBloc: Making API call to update address with:');
+    debugPrint('HomeBloc: User ID: $userId');
+    debugPrint('HomeBloc: Address: ${event.address}');
+    debugPrint('HomeBloc: Latitude: ${event.latitude}');
+    debugPrint('HomeBloc: Longitude: ${event.longitude}');
+    
+    // Use the UpdateAddressService with user_id
+    var result = await _updateAddressService.updateUserAddress(
+      token: token,
+      userId: userId,  // Using userId instead of mobile
+      address: event.address,
+      latitude: event.latitude,
+      longitude: event.longitude,
+    );
+    
+    if (result['success'] == true) {
+      debugPrint('HomeBloc: Address updated successfully');
+      emit(AddressUpdateSuccess(event.address));
       
-      // Clean up mobile number (remove country code if present)
-      String cleanMobile = mobile;
-      if (cleanMobile.startsWith('+91')) {
-        cleanMobile = cleanMobile.substring(3);
-      } else if (cleanMobile.startsWith('+')) {
-        // Remove any country code
-        cleanMobile = cleanMobile.substring(cleanMobile.length - 10);
-      }
-      
-      // Verify the coordinates are valid numbers
-      if (event.latitude.isNaN || event.longitude.isNaN ||
-          event.latitude.isInfinite || event.longitude.isInfinite) {
-        debugPrint('HomeBloc: Invalid coordinates detected');
-        emit(const AddressUpdateFailure('Invalid coordinates. Please try again.'));
-        
-        // Restore previous state if it was HomeLoaded
-        if (currentLoadedState != null) {
-          emit(currentLoadedState);
-        }
-        return;
-      }
-      
-      debugPrint('HomeBloc: Making API call to update address with:');
-      debugPrint('HomeBloc: Mobile: $cleanMobile');
-      debugPrint('HomeBloc: Address: ${event.address}');
-      debugPrint('HomeBloc: Latitude: ${event.latitude}');
-      debugPrint('HomeBloc: Longitude: ${event.longitude}');
-      
-      // Use the UpdateUserService directly to ensure coordinates are properly sent
-      // This matches the API usage in other parts of the app
-      var result = await _updateUserService.updateUserProfile(
-        token: token,
-        mobile: cleanMobile,
-        address: event.address,
-        latitude: event.latitude,
-        longitude: event.longitude,
-      );
-      
-      if (result['success'] == true) {
-        debugPrint('HomeBloc: Address updated successfully');
-        emit(AddressUpdateSuccess(event.address));
-        
-        // If we had a HomeLoaded state before, restore it with the new address
-        if (currentLoadedState != null) {
-          emit(currentLoadedState.copyWith(userAddress: event.address));
-        } else {
-          // Reload home data
-          add(const LoadHomeData());
-        }
+      // If we had a HomeLoaded state before, restore it with the new address
+      if (currentLoadedState != null) {
+        emit(currentLoadedState.copyWith(userAddress: event.address));
       } else {
-        debugPrint('HomeBloc: Failed to update address: ${result['message']}');
-        emit(AddressUpdateFailure(result['message'] ?? 'Failed to update address'));
-        
-        // Restore previous state if it was HomeLoaded
-        if (currentLoadedState != null) {
-          emit(currentLoadedState);
-        }
+        // Reload home data
+        add(const LoadHomeData());
       }
-    } catch (e) {
-      debugPrint('HomeBloc: Error updating address: $e');
-      emit(AddressUpdateFailure('An error occurred while updating your address.'));
+    } else {
+      debugPrint('HomeBloc: Failed to update address: ${result['message']}');
+      emit(AddressUpdateFailure(result['message'] ?? 'Failed to update address'));
       
-      // If we had a HomeLoaded state before, restore it
-      if (state is HomeLoaded) {
-        emit(state);
+      // Restore previous state if it was HomeLoaded
+      if (currentLoadedState != null) {
+        emit(currentLoadedState);
       }
     }
+  } catch (e) {
+    debugPrint('HomeBloc: Error updating address: $e');
+    emit(AddressUpdateFailure('An error occurred while updating your address.'));
+    
+    // If we had a HomeLoaded state before, restore it
+    if (state is HomeLoaded) {
+      emit(state);
+    }
   }
+}
 }

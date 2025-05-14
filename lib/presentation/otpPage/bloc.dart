@@ -12,7 +12,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   final AuthService _authService = AuthService();
 
   OtpBloc() : super(OtpInitialState()) {
-    on<OtpChangedEvent>(_onOtpChanged);
+    on<OtpChangedEvent>(_onOtpChanged);      
     on<VerifyOtpEvent>(_onVerifyOtp);
     on<ResendOtpEvent>(_onResendOtp);
   }

@@ -83,23 +83,16 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       emit(SettingsUpdating());
       
       final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
       
-      if (token == null) {
+      if (token == null || userId == null) {
         emit(SettingsError(message: 'Please login again'));
         return;
       }
       
-      // Get mobile number
-      String mobile = event.phone ?? currentUserData['mobile']?.toString() ?? '';
-      
-      // Remove country code if present
-      if (mobile.startsWith('+91')) {
-        mobile = mobile.substring(3);
-      }
-      
       // Debug print all parameters being sent
       debugPrint('SettingsBloc: Updating user profile with:');
-      debugPrint('  Mobile: $mobile');
+      debugPrint('  User ID: $userId');
       debugPrint('  Username: ${event.name ?? currentUserData['username']?.toString() ?? ''}');
       debugPrint('  Email: ${event.email ?? currentUserData['email']?.toString() ?? ''}');
       debugPrint('  Password provided: ${event.password != null}');
@@ -138,10 +131,10 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       
       debugPrint('  Has image: ${event.imageFile != null}');
       
-      // Update user profile with all fields
-      final result = await _updateUserService.updateUserProfile(
+      // Update user profile with user_id instead of mobile
+      final result = await _updateUserService.updateUserProfileWithId(
         token: token,
-        mobile: mobile,
+        userId: userId,
         username: event.name ?? currentUserData['username']?.toString() ?? '',
         email: event.email ?? currentUserData['email']?.toString() ?? '',
         password: event.password,
@@ -215,17 +208,11 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     emit(SettingsDeleting());
     
     try {
-      // Get token and mobile number
+      // Get token and user ID
       final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
       
-      // Get mobile number from current state
-      String mobile = "";
-      
-      if (currentState is SettingsLoaded) {
-        mobile = currentState.userData['mobile'] ?? '';
-      }
-      
-      if (token == null || mobile.isEmpty) {
+      if (token == null || userId == null) {
         emit(SettingsError(message: 'Please login again'));
         // Restore previous state
         if (currentState is SettingsLoaded) {
@@ -234,9 +221,9 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         return;
       }
       
-      debugPrint('SettingsBloc: Attempting to delete account for mobile: $mobile');
+      debugPrint('SettingsBloc: Attempting to delete account for user ID: $userId');
       
-      // Make API call to delete user
+      // Make API call to delete user using user_id instead of mobile
       final url = Uri.parse('${ApiConstants.baseUrl}/api/user/delete-user');
       final response = await http.delete(
         url,
@@ -245,7 +232,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          'mobile': mobile,
+          'user_id': userId,
         }),
       );
       

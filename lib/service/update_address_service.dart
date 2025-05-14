@@ -4,17 +4,17 @@ import 'package:http/http.dart' as http;
 import '../../constants/api_constant.dart';
 
 class UpdateAddressService {
-  // Method to update just the address and coordinates
+  // Method to update just the address and coordinates using user_id
   Future<Map<String, dynamic>> updateUserAddress({
     required String token,
-    required String mobile,
+    required String userId,  // Changed from mobile to userId
     required String address,
     required double latitude,
     required double longitude,
   }) async {
     try {
       debugPrint('UpdateAddressService: Starting address update...');
-      debugPrint('UpdateAddressService: Mobile: $mobile');
+      debugPrint('UpdateAddressService: User ID: $userId');  // Updated log
       debugPrint('UpdateAddressService: Address: $address');
       debugPrint('UpdateAddressService: Latitude: $latitude');
       debugPrint('UpdateAddressService: Longitude: $longitude');
@@ -28,8 +28,8 @@ class UpdateAddressService {
       // Add authorization header
       request.headers['Authorization'] = 'Bearer $token';
       
-      // Add only the necessary fields
-      request.fields['mobile'] = mobile;
+      // Add only the necessary fields - using user_id instead of mobile
+      request.fields['user_id'] = userId;  // Changed from mobile to user_id
       request.fields['address'] = address;
       
       // Convert coordinates to string with proper formatting
@@ -40,7 +40,7 @@ class UpdateAddressService {
       debugPrint('UpdateAddressService: Sending latitude as: ${request.fields['latitude']}');
       debugPrint('UpdateAddressService: Sending longitude as: ${request.fields['longitude']}');
       
-      // Add empty fields for required parameters
+      // Add empty fields for potentially required parameters (if needed by the API)
       request.fields['username'] = '';
       request.fields['email'] = '';
       

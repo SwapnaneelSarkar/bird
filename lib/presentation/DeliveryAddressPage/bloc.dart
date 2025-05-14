@@ -12,13 +12,13 @@ import 'state.dart';
 class AddressBloc extends Bloc<AddressEvent, AddressState> {
   final LocationService _locationService = LocationService();
   final UpdateUserService _updateUserService = UpdateUserService();
-
+  
   AddressBloc() : super(AddressInitialState()) {
     on<SubmitAddressEvent>(_onSubmitAddress);
     on<DetectLocationEvent>(_onDetectLocation);
     on<SelectPlaceEvent>(_onSelectPlace);
   }
-
+  
   Future<void> _onSubmitAddress(
       SubmitAddressEvent event, Emitter<AddressState> emit) async {
     try {
@@ -28,50 +28,40 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
       debugPrint('AddressBloc: Longitude: ${event.longitude}');
       
       emit(AddressLoadingState());
-
+      
       // Get saved data
       final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
       final profileData = await ProfileService.getProfileData();
-      final prefs = await SharedPreferences.getInstance();
-      final mobile = prefs.getString('user_phone');
-
+      
       debugPrint('AddressBloc: Retrieved token: ${token != null ? "Found" : "Not found"}');
-      debugPrint('AddressBloc: Retrieved mobile: $mobile');
+      debugPrint('AddressBloc: Retrieved user_id: $userId');
       debugPrint('AddressBloc: Retrieved profile data: $profileData');
-
-      if (token == null || mobile == null) {
-        debugPrint('AddressBloc: Missing required data: token or mobile');
+      
+      if (token == null || userId == null) {
+        debugPrint('AddressBloc: Missing required data: token or user_id');
         emit(AddressErrorState(error: 'Please login again'));
         return;
       }
-
-      // Clean up mobile number (remove country code if present)
-      String cleanMobile = mobile;
-      if (cleanMobile.startsWith('+91')) {
-        cleanMobile = cleanMobile.substring(3);
-      } else if (cleanMobile.startsWith('+')) {
-        // Remove any country code
-        cleanMobile = cleanMobile.substring(cleanMobile.length - 10);
-      }
-
+      
       // Get name and email from profile data
       final name = profileData['name'] ?? '';
       final email = profileData['email'] ?? '';
       final photoFile = profileData['photo'] as File?;
-
+      
       debugPrint('AddressBloc: Submitting profile update with:');
       debugPrint('AddressBloc: Name: $name');
       debugPrint('AddressBloc: Email: $email');
-      debugPrint('AddressBloc: Mobile: $cleanMobile');
+      debugPrint('AddressBloc: User ID: $userId');
       debugPrint('AddressBloc: Address: ${event.address}');
       debugPrint('AddressBloc: Latitude: ${event.latitude}');
       debugPrint('AddressBloc: Longitude: ${event.longitude}');
       debugPrint('AddressBloc: Has photo: ${photoFile != null}');
-
-      // Call update user API
-      final result = await _updateUserService.updateUserProfile(
+      
+      // Call update user API with user_id instead of mobile
+      final result = await _updateUserService.updateUserProfileWithId(
         token: token,
-        mobile: cleanMobile,
+        userId: userId.toString(), // Convert to string if needed
         username: name,
         email: email,
         address: event.address,
@@ -79,7 +69,7 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
         longitude: event.longitude,
         imageFile: photoFile,
       );
-
+      
       if (result['success'] == true) {
         debugPrint('AddressBloc: Address submission successful');
         
@@ -96,28 +86,28 @@ class AddressBloc extends Bloc<AddressEvent, AddressState> {
         emit(AddressSubmittedState(address: event.address));
       } else {
         debugPrint('AddressBloc: Address submission failed: ${result['message']}');
-        emit(AddressErrorState(error: 'Something went wrong. Please try again.'));
+        emit(AddressErrorState(error: result['message'] ?? 'Something went wrong. Please try again.'));
       }
     } catch (e) {
       debugPrint('AddressBloc: Error submitting address: $e');
       emit(AddressErrorState(error: 'Something went wrong. Please try again.'));
     }
   }
-
+  
   Future<void> _onDetectLocation(
       DetectLocationEvent event, Emitter<AddressState> emit) async {
     try {
       debugPrint('AddressBloc: Detecting current location...');
       emit(AddressLoadingState());
-
+      
       final locationData = await _locationService.getCurrentLocationAndAddress();
-
+      
       if (locationData != null) {
         debugPrint('AddressBloc: Location detected successfully');
         debugPrint('AddressBloc: Latitude: ${locationData['latitude']}');
         debugPrint('AddressBloc: Longitude: ${locationData['longitude']}');
         debugPrint('AddressBloc: Address: ${locationData['address']}');
-
+        
         emit(LocationDetectedState(
           location: locationData['address'],
           latitude: locationData['latitude'],

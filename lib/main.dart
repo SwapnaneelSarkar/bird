@@ -35,9 +35,9 @@ class MyApp extends StatelessWidget {
           create: (_) => LoginBloc(),
         ),
         // Add the RestaurantProfileBloc provider with direct instantiation
-        BlocProvider<RestaurantProfileBloc>(
-          create: (_) => RestaurantProfileBloc(),
-        ),
+        // BlocProvider<RestaurantProfileBloc>(
+        //   create: (_) => RestaurantProfileBloc(),
+        // ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

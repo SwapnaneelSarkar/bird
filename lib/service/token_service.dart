@@ -33,31 +33,32 @@ class TokenService {
     }
   }
 
-  // Save user ID - UPDATED to store string ID
-  static Future<bool> saveUserId(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final result = await prefs.setString(_userIdKey, userId);
-      debugPrint('User ID saved: ${result ? "Success" : "Failed"} - ID: $userId');
-      return result;
-    } catch (e) {
-      debugPrint('Error saving user ID: $e');
-      return false;
-    }
+  // lib/service/token_service.dart - Update or add these methods
+// Get user ID (ensuring it's treated as a string)
+static Future<String?> getUserId() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_userIdKey);
+    debugPrint('User ID retrieved: ${userId ?? "Not found"}');
+    return userId;
+  } catch (e) {
+    debugPrint('Error retrieving user ID: $e');
+    return null;
   }
+}
 
-  // Get user ID - UPDATED to retrieve string ID
-  static Future<String?> getUserId() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString(_userIdKey);
-      debugPrint('User ID retrieved: ${userId ?? "Not found"}');
-      return userId;
-    } catch (e) {
-      debugPrint('Error retrieving user ID: $e');
-      return null;
-    }
+// Save user ID as a string
+static Future<bool> saveUserId(String userId) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final result = await prefs.setString(_userIdKey, userId);
+    debugPrint('User ID saved: ${result ? "Success" : "Failed"}');
+    return result;
+  } catch (e) {
+    debugPrint('Error saving user ID: $e');
+    return false;
   }
+}
 
   // Save user data as JSON string
   static Future<bool> saveUserData(Map<String, dynamic> userData) async {

@@ -1,113 +1,56 @@
+// lib/models/restaurant_model.dart
 class Restaurant {
-  final String id;
+  final String partnerId;
   final String name;
-  final String imageUrl;
+  final String category;
+  final double? rating;
+  final String vegNonveg;
+  final String? image;
+  final double latitude;
+  final double longitude;
+  
+  // Additional display fields
   final String cuisine;
-  final double rating;
   final String price;
   final String deliveryTime;
-  final String address;
-  final double avgCostPerPerson;
-  final double distance;
-  final bool isVeg;
-  final List<MenuItem> menu;
-  final String? legalName;
-  final String? gstNumber;
-  final String? fssaiLicenseNumber;
-  final bool? openNow;
-  final String? closesAt;
-  
+
   Restaurant({
-    required this.id,
+    required this.partnerId,
     required this.name,
-    required this.imageUrl,
-    required this.cuisine,
-    required this.rating,
-    required this.price,
-    required this.deliveryTime,
-    required this.address,
-    required this.avgCostPerPerson,
-    required this.distance,
-    required this.isVeg,
-    required this.menu,
-    this.legalName,
-    this.gstNumber,
-    this.fssaiLicenseNumber,
-    this.openNow,
-    this.closesAt,
+    required this.category,
+    this.rating,
+    required this.vegNonveg,
+    this.image,
+    required this.latitude,
+    required this.longitude,
+    this.cuisine = "Various",
+    this.price = "₹150 for two",
+    this.deliveryTime = "30-40 mins",
   });
-  
+
   factory Restaurant.fromJson(Map<String, dynamic> json) {
-    // Parse menu items if available
-    List<MenuItem> menuItems = [];
-    if (json['menu'] != null) {
-      menuItems = (json['menu'] as List)
-          .map((item) => MenuItem.fromJson(item))
-          .toList();
-    }
-    
     return Restaurant(
-      id: json['id'],
-      name: json['name'],
-      imageUrl: json['imageUrl'],
-      cuisine: json['cuisine'],
-      rating: json['rating'] is int ? (json['rating'] as int).toDouble() : json['rating'],
-      price: json['price'],
-      deliveryTime: json['deliveryTime'],
-      address: json['address'],
-      avgCostPerPerson: json['avgCostPerPerson'] is int ? 
-          (json['avgCostPerPerson'] as int).toDouble() : 
-          json['avgCostPerPerson'],
-      distance: json['distance'] is int ? 
-          (json['distance'] as int).toDouble() : 
-          json['distance'],
-      isVeg: json['isVeg'],
-      menu: menuItems,
-      legalName: json['legalName'],
-      gstNumber: json['gstNumber'],
-      fssaiLicenseNumber: json['fssaiLicenseNumber'],
-      openNow: json['openNow'],
-      closesAt: json['closesAt'],
+      partnerId: json['partner_id'] ?? '',
+      name: json['restaurant_name'] ?? '',
+      category: json['category'] ?? '',
+      rating: json['rating'] != null ? double.parse(json['rating'].toString()) : null,
+      vegNonveg: json['veg_nonveg'] ?? '',
+      image: json['image'],
+      latitude: json['latitude'] != null ? double.parse(json['latitude'].toString()) : 0.0,
+      longitude: json['longitude'] != null ? double.parse(json['longitude'].toString()) : 0.0,
     );
   }
-}
 
-class MenuItem {
-  final String id;
-  final String name;
-  final double price;
-  final String description;
-  final String imageUrl;
-  final bool isVeg;
-  final String category;
-  final String cookTime;
-  final bool isPopular;
-  
-  MenuItem({
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.description,
-    required this.imageUrl,
-    required this.isVeg,
-    required this.category,
-    required this.cookTime,
-    required this.isPopular,
-  });
-  
-  factory MenuItem.fromJson(Map<String, dynamic> json) {
-    return MenuItem(
-      id: json['id'],
-      name: json['name'],
-      price: json['price'] is int ? 
-          (json['price'] as int).toDouble() : 
-          json['price'],
-      description: json['description'],
-      imageUrl: json['imageUrl'],
-      isVeg: json['isVeg'],
-      category: json['category'],
-      cookTime: json['cookTime'],
-      isPopular: json['isPopular'],
-    );
+  Map<String, dynamic> toMap() {
+    return {
+      'id': partnerId,
+      'name': name,
+      'imageUrl': image ?? 'assets/images/restaurant_placeholder.jpg',
+      'cuisine': category,
+      'rating': rating ?? 4.0,
+      'price': price,
+      'deliveryTime': deliveryTime,
+      'isVeg': vegNonveg.toLowerCase() == 'veg',
+    };
   }
 }

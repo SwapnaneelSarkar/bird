@@ -114,16 +114,16 @@ class RouteGenerator {
           builder: (_) => const RestaurantDetailsPage(restaurantData: {}),
         );
 
-      // case Routes.restaurantProfile:
-      //   if (routeSettings.arguments != null) {
-      //     final restaurantId = routeSettings.arguments as String;
-      //     return MaterialPageRoute(
-      //       builder: (_) => RestaurantProfileView(restaurantId: restaurantId),
-      //     );
-      //   }
-      //   return MaterialPageRoute(
-      //     builder: (_) => const RestaurantProfileView(restaurantId: ""),
-      //   );
+      case Routes.restaurantProfile:
+        if (routeSettings.arguments != null) {
+          final restaurantId = routeSettings.arguments as String;
+          return MaterialPageRoute(
+            builder: (_) => RestaurantProfileView(restaurantId: restaurantId),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const RestaurantProfileView(restaurantId: ""),
+        );
 
       default:
         return unDefinedRoute();

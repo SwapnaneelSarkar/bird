@@ -30,14 +30,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        // Original LoginBloc provider
+        // Login Bloc provider
         BlocProvider<LoginBloc>(
           create: (_) => LoginBloc(),
         ),
-        // Add the RestaurantProfileBloc provider with direct instantiation
-        // BlocProvider<RestaurantProfileBloc>(
-        //   create: (_) => RestaurantProfileBloc(),
-        // ),
+        // RestaurantProfileBloc provider
+        BlocProvider<RestaurantProfileBloc>(
+          create: (_) => RestaurantProfileBloc(),
+        ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -46,7 +46,7 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: Colors.white,
           useMaterial3: true,
         ),
-        home: const SplashScreen(), // Start with splash screen instead of login
+        home: const SplashScreen(), // Start with splash screen
         onGenerateRoute: (RouteSettings settings) {
           final Route<dynamic> route = RouteGenerator.getRoute(settings);
           return route;

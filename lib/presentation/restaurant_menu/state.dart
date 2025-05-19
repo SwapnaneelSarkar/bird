@@ -1,4 +1,4 @@
-// presentation/restaurant_menu/state.dart
+// state.dart
 import 'package:equatable/equatable.dart';
 
 abstract class RestaurantDetailsState extends Equatable {
@@ -43,13 +43,15 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
   }
 }
 
+// state.dart (just this specific class - leave the rest unchanged)
 class RestaurantDetailsError extends RestaurantDetailsState {
   final String message;
+  final bool needsLogin;
   
-  const RestaurantDetailsError(this.message);
+  const RestaurantDetailsError(this.message, {this.needsLogin = false});
   
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, needsLogin];
 }
 
 class CartUpdateSuccess extends RestaurantDetailsState {

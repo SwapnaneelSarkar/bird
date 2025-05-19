@@ -1,8 +1,12 @@
+// bloc.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import '../../../service/token_service.dart';
+import '../../../constants/api_constant.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -30,27 +34,127 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
         return;
       }
       
-      final restaurantId = restaurant['id'] as String?;
-      final restaurantName = restaurant['name'] as String?;
+      // Extract restaurant ID using different possible key names
+      final partnerId = restaurant['partnerId'] ?? 
+                         restaurant['partner_id'] ?? 
+                         restaurant['id'];
       
-      debugPrint('RestaurantDetailsBloc: Loading details for restaurant ID: ${restaurantId ?? 'unknown'}, name: ${restaurantName ?? 'unknown'}');
+      final restaurantName = restaurant['restaurantName'] ?? 
+                              restaurant['restaurant_name'] ?? 
+                              restaurant['name'];
       
-      if (restaurantName == null) {
-        debugPrint('RestaurantDetailsBloc: Restaurant name is missing');
+      debugPrint('RestaurantDetailsBloc: Loading details for restaurant ID: ${partnerId ?? 'unknown'}, name: ${restaurantName ?? 'unknown'}');
+      
+      if (partnerId == null) {
+        debugPrint('RestaurantDetailsBloc: Restaurant ID is missing');
         emit(RestaurantDetailsError('Restaurant information is incomplete. Please try again.'));
         return;
-      };
+      }
       
-      // Load menu items from the JSON file (if not already present in the restaurant data)
-      final List<Map<String, dynamic>> menuItems = 
-          await _loadRestaurantMenu(restaurant['name'], restaurantId);
+      // Get auth token
+      final token = await TokenService.getToken();
+      if (token == null) {
+        debugPrint('RestaurantDetailsBloc: No authentication token available');
+        emit(RestaurantDetailsError('Please login to view restaurant details.'));
+        return;
+      }
       
-      debugPrint('RestaurantDetailsBloc: Loaded ${menuItems.length} menu items');
+      // Fetch menu items from the API
+      List<Map<String, dynamic>> menuItems = [];
+      bool needsLogin = false;
+      String errorMessage = '';
+      
+      try {
+        final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurant/$partnerId');
+        
+        debugPrint('RestaurantDetailsBloc: Fetching menu from: $url');
+        
+        final response = await http.get(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        );
+        
+        debugPrint('RestaurantDetailsBloc: API Response Status: ${response.statusCode}');
+        if (response.statusCode == 200) {
+          debugPrint('RestaurantDetailsBloc: API Response Body: ${response.body}');
+          
+          final Map<String, dynamic> responseData = jsonDecode(response.body);
+          
+          if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+            final data = responseData['data'];
+            
+            // Format menu items from API response
+            if (data['menu_items'] != null && data['menu_items'] is List) {
+              final List<dynamic> menuItemsList = data['menu_items'];
+              
+              // Convert to map format expected by UI
+              menuItems = menuItemsList.map((item) {
+                // Parse price (handling string or numeric values)
+                double price = 0.0;
+                if (item['price'] != null) {
+                  if (item['price'] is String) {
+                    price = double.tryParse(item['price'].toString()) ?? 0.0;
+                  } else if (item['price'] is num) {
+                    price = (item['price'] as num).toDouble();
+                  }
+                }
+                
+                return {
+                  'id': item['menu_id'] ?? '',
+                  'name': item['name'] ?? '',
+                  'price': price,
+                  'description': item['description'] ?? '',
+                  'imageUrl': item['image_url'],
+                  'isVeg': item['isVeg'] ?? false,
+                  'category': item['category'] ?? '',
+                };
+              }).toList();
+              
+              debugPrint('RestaurantDetailsBloc: Processed ${menuItems.length} menu items');
+              
+              // Log one menu item for debugging
+              if (menuItems.isNotEmpty) {
+                debugPrint('RestaurantDetailsBloc: Sample menu item: ${menuItems[0]}');
+              }
+            }
+          } else {
+            debugPrint('RestaurantDetailsBloc: API returned non-success status: ${responseData['message']}');
+            errorMessage = responseData['message'] ?? 'Failed to load restaurant menu';
+          }
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          // Authentication error
+          debugPrint('RestaurantDetailsBloc: Authentication error: ${response.statusCode}');
+          needsLogin = true;
+          errorMessage = 'Your session has expired. Please login again.';
+        } else {
+          debugPrint('RestaurantDetailsBloc: Restaurant API Error: Status ${response.statusCode}');
+          errorMessage = 'Server error. Please try again later.';
+        }
+      } catch (e) {
+        debugPrint('RestaurantDetailsBloc: Error fetching restaurant menu: $e');
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      // Check for authentication errors
+      if (needsLogin) {
+        await TokenService.clearAll(); // Clear invalid tokens
+        emit(RestaurantDetailsError(errorMessage, needsLogin: true));
+        return;
+      }
+      
+      // Check if we have an error message but no menu items
+      if (errorMessage.isNotEmpty && menuItems.isEmpty) {
+        emit(RestaurantDetailsError(errorMessage));
+        return;
+      }
       
       // Check if the restaurant is in favorites
       final prefs = await SharedPreferences.getInstance();
       final favoriteRestaurants = prefs.getStringList('favorite_restaurants') ?? [];
-      final isFavorite = favoriteRestaurants.contains(restaurant['name']);
+      final isFavorite = favoriteRestaurants.contains(restaurantName);
       
       emit(RestaurantDetailsLoaded(
         restaurant: restaurant,
@@ -84,7 +188,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
           // Update quantity
           final existingItem = updatedCart[existingItemIndex];
           final updatedItem = {...existingItem};
-          updatedItem['quantity'] = event.quantity as int;
+          updatedItem['quantity'] = event.quantity;
           
           if (event.quantity > 0) {
             updatedCart[existingItemIndex] = updatedItem;
@@ -96,7 +200,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
           // Add new item
           updatedCart.add({
             ...event.item,
-            'quantity': event.quantity as int,
+            'quantity': event.quantity,
           });
         }
         
@@ -120,6 +224,11 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
         final currentState = state as RestaurantDetailsLoaded;
         final restaurant = currentState.restaurant;
         
+        // Get restaurant name using different possible keys
+        final restaurantName = restaurant['restaurantName'] ?? 
+                               restaurant['restaurant_name'] ?? 
+                               restaurant['name'];
+        
         // Update SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         final favoriteRestaurants = prefs.getStringList('favorite_restaurants') ?? [];
@@ -127,9 +236,9 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
         List<String> updatedFavorites = List.from(favoriteRestaurants);
         
         if (currentState.isFavorite) {
-          updatedFavorites.remove(restaurant['name']);
+          updatedFavorites.remove(restaurantName);
         } else {
-          updatedFavorites.add(restaurant['name']);
+          updatedFavorites.add(restaurantName);
         }
         
         await prefs.setStringList('favorite_restaurants', updatedFavorites);
@@ -139,114 +248,6 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
       }
     } catch (e) {
       debugPrint('RestaurantDetailsBloc: Error toggling favorite: $e');
-    }
-  }
-  
-  // Helper method to load restaurant menu from the JSON file
-  Future<List<Map<String, dynamic>>> _loadRestaurantMenu(String restaurantName, String? restaurantId) async {
-    try {
-      // Load data from the JSON file
-      final String data = await rootBundle.loadString('assets/data/restaurant.json');
-      final Map<String, dynamic> jsonData = json.decode(data);
-      
-      // Extract restaurants list
-      final List<dynamic> restaurants = jsonData['restaurants'];
-      
-      // Find the restaurant - first try by ID if available, then by name
-      Map<String, dynamic>? restaurant;
-      
-      if (restaurantId != null) {
-        // Try to find by ID first
-        restaurant = restaurants.firstWhere(
-          (r) => r['id'] == restaurantId,
-          orElse: () => null,
-        );
-      }
-      
-      // If not found by ID or ID was null, try to find by name
-      if (restaurant == null) {
-        restaurant = restaurants.firstWhere(
-          (r) => r['name'] == restaurantName,
-          orElse: () => null,
-        );
-      }
-      
-      // If restaurant is found and has menu items
-      if (restaurant != null && restaurant.containsKey('menu')) {
-        debugPrint('RestaurantDetailsBloc: Found restaurant ${restaurant['name']} with ${restaurant['menu'].length} menu items');
-        return List<Map<String, dynamic>>.from(restaurant['menu']);
-      }
-      
-      debugPrint('RestaurantDetailsBloc: Restaurant menu not found, using fallback menu');
-      // Fallback menu items if not found
-      return [
-        {
-          'id': 'default1',
-          'name': 'House Special',
-          'price': 299,
-          'description': 'Chef\'s special preparation',
-          'imageUrl': 'assets/images/food1.jpg',
-          'isVeg': false,
-          'category': 'Specials',
-          'cookTime': '15 mins',
-          'isPopular': true
-        },
-        {
-          'id': 'default2',
-          'name': 'Vegetarian Platter',
-          'price': 249,
-          'description': 'Assorted vegetarian delicacies',
-          'imageUrl': 'assets/images/food2.jpg',
-          'isVeg': true,
-          'category': 'Main Course',
-          'cookTime': '10 mins',
-          'isPopular': false
-        }
-      ];
-      
-      debugPrint('RestaurantDetailsBloc: Restaurant data not found in JSON, using fallback menu');
-      // Fallback to hardcoded menu for demo purposes
-      return [
-        {
-          'id': 'default1',
-          'name': 'House Special',
-          'price': 299,
-          'description': 'Chef\'s special preparation',
-          'imageUrl': 'assets/images/food1.jpg',
-          'isVeg': false,
-          'category': 'Specials',
-          'cookTime': '15 mins',
-          'isPopular': true
-        },
-        {
-          'id': 'default2',
-          'name': 'Vegetarian Platter',
-          'price': 249,
-          'description': 'Assorted vegetarian delicacies',
-          'imageUrl': 'assets/images/food2.jpg',
-          'isVeg': true,
-          'category': 'Main Course',
-          'cookTime': '10 mins',
-          'isPopular': false
-        },
-      ];
-    } catch (e) {
-      debugPrint('RestaurantDetailsBloc: Error loading menu: $e');
-      
-      // Return fallback menu in case of error
-      return [
-        {
-          'id': 'error1',
-          'name': 'Classic Dish',
-          'price': 299,
-          'description': 'A delicious option from our menu',
-          'imageUrl': 'assets/images/food1.jpg',
-          'isVeg': true,
-          'category': 'Main Course',
-          'cookTime': '15 mins',
-          'isPopular': true
-        }
-      ];
     }
   }
 }

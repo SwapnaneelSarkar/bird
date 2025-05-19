@@ -1,52 +1,80 @@
-// import 'dart:convert';
-// import 'package:flutter/foundation.dart';
-// import 'package:flutter/services.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import '../../models/restaurant_model.dart';
+// presentation/restaurant_profile/bloc.dart
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
+import '../../../service/token_service.dart';
+import '../../../constants/api_constant.dart';
+import '../../../models/restaurant_model.dart';
+import 'event.dart';
+import 'state.dart';
 
-// import 'event.dart';
-// import 'state.dart';
+class RestaurantProfileBloc extends Bloc<RestaurantProfileEvent, RestaurantProfileState> {
+  RestaurantProfileBloc() : super(RestaurantProfileInitial()) {
+    on<LoadRestaurantProfile>(_onLoadRestaurantProfile);
+  }
 
-// class RestaurantProfileBloc extends Bloc<RestaurantProfileEvent, RestaurantProfileState> {
-//   RestaurantProfileBloc() : super(RestaurantProfileInitial()) {
-//     on<LoadRestaurantProfile>(_onLoadRestaurantProfile);
-//   }
-
-//   Future<void> _onLoadRestaurantProfile(
-//     LoadRestaurantProfile event,
-//     Emitter<RestaurantProfileState> emit,
-//   ) async {
-//     try {
-//       emit(RestaurantProfileLoading());
+  Future<void> _onLoadRestaurantProfile(
+    LoadRestaurantProfile event,
+    Emitter<RestaurantProfileState> emit,
+  ) async {
+    try {
+      emit(RestaurantProfileLoading());
       
-//       debugPrint('RestaurantProfileBloc: Loading restaurant with ID: ${event.restaurantId}');
+      debugPrint('RestaurantProfileBloc: Loading restaurant with ID: ${event.restaurantId}');
       
-//       // Load data from assets (this path should be registered in pubspec.yaml)
-//       final jsonString = await rootBundle.loadString('assets/data/restaurant.json');
-//       final jsonData = json.decode(jsonString);
+      // Get auth token
+      final token = await TokenService.getToken();
+      if (token == null) {
+        debugPrint('RestaurantProfileBloc: No authentication token available');
+        emit(const RestaurantProfileError(message: 'Please login to view restaurant details'));
+        return;
+      }
       
-//       final restaurants = (jsonData['restaurants'] as List)
-//           .map((item) => Restaurant.fromJson(item))
-//           .toList();
+      // Fetch restaurant data from API
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurant/${event.restaurantId}');
       
-//       try {
-//         // Find restaurant with matching ID
-//         final restaurant = restaurants.firstWhere(
-//           (r) => r.id == event.restaurantId,
-//           orElse: () => restaurants.first, // Use first restaurant as fallback
-//         );
+      debugPrint('RestaurantProfileBloc: Fetching restaurant from: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('RestaurantProfileBloc: API Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        debugPrint('RestaurantProfileBloc: API Response Body: ${response.body}');
         
-//         debugPrint('RestaurantProfileBloc: Restaurant loaded successfully: ${restaurant.name}');
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
         
-//         emit(RestaurantProfileLoaded(restaurant: restaurant));
-//       } catch (e) {
-//         debugPrint('RestaurantProfileBloc: Error finding restaurant: $e');
-//         // If no restaurant found, emit error
-//         emit(RestaurantProfileError(message: 'Restaurant not found'));
-//       }
-//     } catch (e) {
-//       debugPrint('RestaurantProfileBloc: Error loading restaurant data: $e');
-//       emit(RestaurantProfileError(message: 'Failed to load restaurant data'));
-//     }
-//   }
-// }
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final restaurantData = responseData['data'];
+          
+          // Convert API response to Restaurant model
+          final restaurant = Restaurant.fromJson(restaurantData);
+          
+          debugPrint('RestaurantProfileBloc: Restaurant loaded successfully: ${restaurant.name}');
+          
+          emit(RestaurantProfileLoaded(restaurant: restaurant));
+        } else {
+          debugPrint('RestaurantProfileBloc: API returned non-success status: ${responseData['message']}');
+          emit(RestaurantProfileError(message: responseData['message'] ?? 'Failed to load restaurant details'));
+        }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        // Authentication error
+        debugPrint('RestaurantProfileBloc: Authentication error: ${response.statusCode}');
+        emit(const RestaurantProfileError(message: 'Your session has expired. Please login again'));
+      } else {
+        debugPrint('RestaurantProfileBloc: Restaurant API Error: Status ${response.statusCode}');
+        emit(const RestaurantProfileError(message: 'Server error. Please try again later.'));
+      }
+    } catch (e) {
+      debugPrint('RestaurantProfileBloc: Error loading restaurant data: $e');
+      emit(const RestaurantProfileError(message: 'Failed to load restaurant data. Please check your connection.'));
+    }
+  }
+}

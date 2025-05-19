@@ -98,44 +98,109 @@ class _RestaurantDetailsContent extends StatelessWidget {
     );
   }
   
-  Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state) {
-    Map<String, dynamic> restaurant = state.restaurant;
-    
-    return Column(
-      children: [
-        _buildSearchBar(context, restaurant),
-        _buildRestaurantHeader(context, restaurant),
-        _buildRecommendedHeader(),
+  // In the _buildUpdatedContent method
+Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state) {
+  Map<String, dynamic> restaurant = state.restaurant;
+  
+  return Column(
+    children: [
+      _buildSearchBar(context, restaurant),
+      _buildRestaurantHeader(context, restaurant),
+      
+      // Show appropriate message if menu is empty
+      if (state.menu.isEmpty) 
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: state.menu.length,
-            itemBuilder: (context, index) {
-              final menuItem = state.menu[index];
-              final cartItem = state.cartItems.firstWhere(
-                (item) => item['id'] == menuItem['id'],
-                orElse: () => {"quantity": 0},
-              );
-              final quantity = cartItem['quantity'] ?? 0;
-              
-              return FoodItemCard(
-                item: menuItem,
-                quantity: quantity,
-                onQuantityChanged: (newQuantity) {
-                  context.read<RestaurantDetailsBloc>().add(
-                    AddItemToCart(
-                      item: menuItem,
-                      quantity: newQuantity,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.restaurant_menu, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No menu items available',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This restaurant has not added any items yet',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+      else
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // This is the part causing layout issues - it should not be inside a scrollable with Expanded
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Menu', 
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.filter_list, color: Colors.grey[700], size: 16),
+                          const SizedBox(width: 2),
+                          Text('Filter', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              );
-            },
+                  ],
+                ),
+              ),
+              
+              // This is the list of menu items
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: state.menu.length,
+                  itemBuilder: (context, index) {
+                    final menuItem = state.menu[index];
+                    final cartItem = state.cartItems.firstWhere(
+                      (item) => item['id'] == menuItem['id'],
+                      orElse: () => {"quantity": 0},
+                    );
+                    final quantity = cartItem['quantity'] ?? 0;
+                    
+                    return FoodItemCard(
+                      item: menuItem,
+                      quantity: quantity,
+                      onQuantityChanged: (newQuantity) {
+                        context.read<RestaurantDetailsBloc>().add(
+                          AddItemToCart(
+                            item: menuItem,
+                            quantity: newQuantity,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
-      ],
-    );
-  }
+    ],
+  );
+}
   
   Widget _buildSearchBar(BuildContext context, Map<String, dynamic> restaurant) {
     return Container(

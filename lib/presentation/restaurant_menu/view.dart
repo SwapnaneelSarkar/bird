@@ -54,7 +54,71 @@ class RestaurantDetailsPage extends StatelessWidget {
   }
 }
 
-class _RestaurantDetailsContent extends StatelessWidget {
+class _RestaurantDetailsContent extends StatefulWidget {
+  @override
+  _RestaurantDetailsContentState createState() => _RestaurantDetailsContentState();
+}
+
+class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _sortOption = 'none';
+  bool _isFilterMenuOpen = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+  
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+  
+  void _toggleFilterMenu() {
+    setState(() {
+      _isFilterMenuOpen = !_isFilterMenuOpen;
+    });
+  }
+
+  void _setSortOption(String option) {
+    setState(() {
+      _sortOption = option;
+      _isFilterMenuOpen = false;
+    });
+  }
+  
+  List<Map<String, dynamic>> _filterAndSortMenu(List<Map<String, dynamic>> menu) {
+    // First filter by search query
+    List<Map<String, dynamic>> filteredMenu = _searchQuery.isEmpty
+        ? List.from(menu)
+        : menu.where((item) => 
+            item['name'].toString().toLowerCase().contains(_searchQuery) ||
+            (item['description'] != null && 
+             item['description'].toString().toLowerCase().contains(_searchQuery))
+          ).toList();
+    
+    // Then sort by price if needed
+    if (_sortOption == 'price_asc') {
+      filteredMenu.sort((a, b) => 
+        (a['price'] as num).compareTo(b['price'] as num));
+    } else if (_sortOption == 'price_desc') {
+      filteredMenu.sort((a, b) => 
+        (b['price'] as num).compareTo(a['price'] as num));
+    }
+    
+    return filteredMenu;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,110 +161,219 @@ class _RestaurantDetailsContent extends StatelessWidget {
       ),
     );
   }
-  
-  // In the _buildUpdatedContent method
-Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state) {
-  Map<String, dynamic> restaurant = state.restaurant;
-  
-  return Column(
-    children: [
-      _buildSearchBar(context, restaurant),
-      _buildRestaurantHeader(context, restaurant),
-      
-      // Show appropriate message if menu is empty
-      if (state.menu.isEmpty) 
-        Expanded(
-          child: Center(
+
+  Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state) {
+    Map<String, dynamic> restaurant = state.restaurant;
+    List<Map<String, dynamic>> filteredAndSortedMenu = _filterAndSortMenu(state.menu);
+    
+    return Column(
+      children: [
+        _buildSearchBar(context, restaurant),
+        _buildRestaurantHeader(context, restaurant),
+        
+        // Show appropriate message if menu is empty after filtering
+        if (filteredAndSortedMenu.isEmpty) 
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.menu.isEmpty 
+                        ? 'No menu items available'
+                        : 'No items match your search',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    state.menu.isEmpty
+                        ? 'This restaurant has not added any items yet'
+                        : 'Try a different search term or clear filters',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                  if (!state.menu.isEmpty && _searchQuery.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                        child: const Text('Clear Search'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orangeAccent,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          )
+        else
+          Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.restaurant_menu, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'No menu items available',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[600],
+                // Menu header with filter option
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Menu', 
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      GestureDetector(
+                        onTap: _toggleFilterMenu,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(4),
+                            color: _isFilterMenuOpen || _sortOption != 'none' 
+                              ? Colors.grey[200] 
+                              : Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.filter_list, 
+                                color: _sortOption != 'none' ? Colors.black : Colors.grey[700], 
+                                size: 16
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Sort', 
+                                style: TextStyle(
+                                  fontSize: 14, 
+                                  color: _sortOption != 'none' ? Colors.black : Colors.grey[700],
+                                  fontWeight: _sortOption != 'none' ? FontWeight.bold : FontWeight.normal,
+                                )
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'This restaurant has not added any items yet',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[500],
+                
+                // Filter dropdown menu
+                if (_isFilterMenuOpen)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildFilterOption(
+                          'Price: Low to High', 
+                          'price_asc', 
+                          Icons.arrow_upward
+                        ),
+                        Divider(height: 1, color: Colors.grey[200]),
+                        _buildFilterOption(
+                          'Price: High to Low', 
+                          'price_desc', 
+                          Icons.arrow_downward
+                        ),
+                        if (_sortOption != 'none') ...[
+                          Divider(height: 1, color: Colors.grey[200]),
+                          _buildFilterOption(
+                            'Clear Sorting', 
+                            'none', 
+                            Icons.clear
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                
+                // This is the list of menu items
+                Expanded(
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: filteredAndSortedMenu.length,
+                    itemBuilder: (context, index) {
+                      final menuItem = filteredAndSortedMenu[index];
+                      final cartItem = state.cartItems.firstWhere(
+                        (item) => item['id'] == menuItem['id'],
+                        orElse: () => {"quantity": 0},
+                      );
+                      final quantity = cartItem['quantity'] ?? 0;
+                      
+                      return FoodItemCard(
+                        item: menuItem,
+                        quantity: quantity,
+                        onQuantityChanged: (newQuantity) {
+                          context.read<RestaurantDetailsBloc>().add(
+                            AddItemToCart(
+                              item: menuItem,
+                              quantity: newQuantity,
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
-        )
-      else
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // This is the part causing layout issues - it should not be inside a scrollable with Expanded
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Menu', 
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.filter_list, color: Colors.grey[700], size: 16),
-                          const SizedBox(width: 2),
-                          Text('Filter', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+      ],
+    );
+  }
+  
+  Widget _buildFilterOption(String title, String option, IconData icon) {
+    bool isSelected = _sortOption == option;
+    
+    return InkWell(
+      onTap: () => _setSortOption(option),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        color: isSelected ? Colors.orangeAccent.withOpacity(0.1) : Colors.transparent,
+        child: Row(
+          children: [
+            Icon(
+              icon, 
+              size: 16, 
+              color: isSelected ? Colors.orangeAccent : Colors.grey[700],
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                color: isSelected ? Colors.orangeAccent : Colors.black,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
-              
-              // This is the list of menu items
-              Expanded(
-                child: ListView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: state.menu.length,
-                  itemBuilder: (context, index) {
-                    final menuItem = state.menu[index];
-                    final cartItem = state.cartItems.firstWhere(
-                      (item) => item['id'] == menuItem['id'],
-                      orElse: () => {"quantity": 0},
-                    );
-                    final quantity = cartItem['quantity'] ?? 0;
-                    
-                    return FoodItemCard(
-                      item: menuItem,
-                      quantity: quantity,
-                      onQuantityChanged: (newQuantity) {
-                        context.read<RestaurantDetailsBloc>().add(
-                          AddItemToCart(
-                            item: menuItem,
-                            quantity: newQuantity,
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+            const Spacer(),
+            if (isSelected)
+              const Icon(Icons.check, size: 16, color: Colors.orangeAccent),
+          ],
         ),
-    ],
-  );
-}
+      ),
+    );
+  }
   
   Widget _buildSearchBar(BuildContext context, Map<String, dynamic> restaurant) {
     return Container(
@@ -226,18 +399,26 @@ Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state)
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, color: Colors.grey[400], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Search dishes...',
-                      style: TextStyle(
-                        color: Colors.grey[400], 
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search dishes...',
+                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                    border: InputBorder.none,
+                    icon: Icon(Icons.search, color: Colors.grey[400], size: 20),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    isDense: true,
+                    suffixIcon: _searchQuery.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                          },
+                          child: Icon(Icons.clear, color: Colors.grey[400], size: 18),
+                        )
+                      : null,
+                  ),
+                  style: const TextStyle(fontSize: 16),
+                  textAlignVertical: TextAlignVertical.center,
                 ),
               ),
             ),
@@ -316,33 +497,6 @@ Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state)
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildRecommendedHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Recommended for you', 
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.filter_list, color: Colors.grey[700], size: 16),
-                const SizedBox(width: 2),
-                Text('Filter', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-              ],
-            ),
           ),
         ],
       ),

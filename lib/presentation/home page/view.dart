@@ -409,29 +409,136 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
   
   List<Widget> _getCategoryItems(List<dynamic> categories) {
-    final Map<String, String> imageMap = {
-      'pizza': 'assets/images/pizza.jpg',
-      'burger': 'assets/images/burger.jpg',
-      'sushi': 'assets/images/sushi.jpg',
-      'drinks': 'assets/images/drinks.jpg',
-      'dessert': 'assets/images/desert.jpg',
-    };
-    
-    return categories.map((category) {
-      String categoryName = category['name'].toString().toLowerCase();
-      String imagePath = 'assets/images/burger.jpg'; // Default
-      
-      // Map category to image path
-      if (categoryName.contains('pizza')) imagePath = imageMap['pizza']!;
-      else if (categoryName.contains('burger')) imagePath = imageMap['burger']!;
-      else if (categoryName.contains('sushi') || categoryName.contains('fish')) imagePath = imageMap['sushi']!;
-      else if (categoryName.contains('drink') || categoryName.contains('beverage')) imagePath = imageMap['drinks']!;
-      else if (categoryName.contains('dessert') || categoryName.contains('ice')) imagePath = imageMap['dessert']!;
-      
-      return _buildCategoryItem(category['name'], imagePath, category['color']);
-    }).toList();
-  }
+  // Map for known category image associations
+  final Map<String, String> imageMap = {
+    'pizza': 'assets/images/pizza.jpg',
+    'burger': 'assets/images/burger.jpg',
+    'sushi': 'assets/images/sushi.jpg',
+    'dessert': 'assets/images/desert.jpg',
+    'drinks': 'assets/images/drinks.jpg',
+  };
   
+  return categories.map((category) {
+    String categoryName = category['name'].toString().toLowerCase();
+    String? imagePath;
+    
+    // Try to find exact matching image based on category name
+    for (final entry in imageMap.entries) {
+      if (categoryName == entry.key || 
+          (categoryName.contains(entry.key) && entry.key.length > 3)) {
+        imagePath = entry.value;
+        break;
+      }
+    }
+    
+    // If we have an image, build with image
+    if (imagePath != null) {
+      return _buildCategoryItem(category['name'], imagePath, category['color']);
+    } 
+    // Otherwise build with an icon instead
+    else {
+      return _buildCategoryItemWithIcon(
+        category['name'], 
+        _getIconData(category['icon']), 
+        _getCategoryColor(category['color'])
+      );
+    }
+  }).toList();
+}
+
+// New method to create category item with icon instead of image
+Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor) {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    width: 100,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.transparent,
+                boxShadow: [BoxShadow(color: accentColor.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 6), spreadRadius: 2)],
+              ),
+            ),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Colors.white, accentColor.withOpacity(0.15)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 36,
+                  color: accentColor,
+                ),
+              ),
+            ),
+            // Small light reflection
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+            border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+          ),
+          child: Text(
+            title,
+            style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800]),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+IconData _getIconData(String iconName) {
+  switch (iconName) {
+    case 'local_pizza': return Icons.local_pizza;
+    case 'lunch_dining': return Icons.lunch_dining;
+    case 'set_meal': return Icons.set_meal;
+    case 'icecream': return Icons.icecream;
+    case 'local_drink': return Icons.local_drink;
+    case 'bakery_dining': return Icons.bakery_dining;
+    case 'free_breakfast': return Icons.free_breakfast;
+    case 'spa': return Icons.spa;
+    case 'egg': return Icons.egg_alt;
+    case 'ramen_dining': return Icons.ramen_dining;
+    case 'restaurant': return Icons.restaurant;
+    default: return Icons.restaurant;
+  }
+}
   Widget _buildCategoryItem(String title, String imagePath, String colorName) {
     Color accentColor = _getCategoryColor(colorName);
     
@@ -1511,15 +1618,20 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   Color _getCategoryColor(String colorName) {
-    switch (colorName) {
-      case 'red': return Colors.red;
-      case 'amber': return Colors.amber;
-      case 'blue': return Colors.blue;
-      case 'pink': return Colors.pink;
-      case 'teal': return Colors.teal;
-      default: return Colors.orange;
-    }
+  switch (colorName) {
+    case 'red': return Colors.red;
+    case 'amber': return Colors.amber;
+    case 'blue': return Colors.blue;
+    case 'pink': return Colors.pink;
+    case 'teal': return Colors.teal;
+    case 'purple': return Colors.purple;
+    case 'green': return Colors.green;
+    case 'orange': return Colors.orange;
+    case 'brown': return Colors.brown;
+    case 'deepOrange': return Colors.deepOrange;
+    default: return Colors.orange;
   }
+}
   
   void _showCustomSnackBar(BuildContext context, String message, Color color, IconData icon) {
     ScaffoldMessenger.of(context).showSnackBar(

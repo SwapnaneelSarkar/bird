@@ -23,89 +23,85 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
   
   Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async {
-    emit(HomeLoading());
+  emit(HomeLoading());
+  
+  try {
+    // Get user ID and token
+    final userId = await TokenService.getUserId();
+    final token = await TokenService.getToken();
     
-    try {
-      // Get user ID and token
-      final userId = await TokenService.getUserId();
-      final token = await TokenService.getToken();
+    debugPrint('HomeBloc: Loading home data with token: ${token != null ? 'Found' : 'Not found'}');
+    
+    String userAddress = 'Add delivery address';
+    double? latitude;
+    double? longitude;
+    
+    if (userId != null && token != null) {
+      // Fetch user profile data
+      final result = await _profileApiService.getUserProfile(
+        token: token,
+        userId: userId,
+      );
       
-      debugPrint('HomeBloc: Loading home data with token: ${token != null ? 'Found' : 'Not found'}');
+      debugPrint('Profile API Response: $result');
       
-      String userAddress = 'Add delivery address';
-      double? latitude;
-      double? longitude;
-      
-      if (userId != null && token != null) {
-        // Fetch user profile data
-        final result = await _profileApiService.getUserProfile(
-          token: token,
-          userId: userId,
-        );
+      if (result['success'] == true) {
+        final userData = result['data'] as Map<String, dynamic>;
+        userAddress = userData['address'] ?? 'Add delivery address';
         
-        debugPrint('Profile API Response: $result');
-        
-        if (result['success'] == true) {
-          final userData = result['data'] as Map<String, dynamic>;
-          userAddress = userData['address'] ?? 'Add delivery address';
+        // Get latitude and longitude
+        if (userData['latitude'] != null && userData['longitude'] != null) {
+          latitude = double.tryParse(userData['latitude'].toString());
+          longitude = double.tryParse(userData['longitude'].toString());
           
-          // Get latitude and longitude
-          if (userData['latitude'] != null && userData['longitude'] != null) {
-            latitude = double.tryParse(userData['latitude'].toString());
-            longitude = double.tryParse(userData['longitude'].toString());
-            
-            debugPrint('HomeBloc: User coordinates loaded - Lat: $latitude, Long: $longitude');
-          }
-          
-          debugPrint('HomeBloc: User address loaded: $userAddress');
-        } else {
-          debugPrint('HomeBloc: Failed to load address: ${result['message']}');
+          debugPrint('HomeBloc: User coordinates loaded - Lat: $latitude, Long: $longitude');
         }
         
-        // Now fetch restaurants based on location
-        List<Map<String, dynamic>> restaurants = [];
-        
-        if (latitude != null && longitude != null) {
-          restaurants = await _fetchRestaurantsByLocation(token, latitude, longitude);
-          debugPrint('HomeBloc: Loaded ${restaurants.length} restaurants from API');
-        } else {
-          debugPrint('HomeBloc: No coordinates available, could not fetch restaurants');
-        }
-        
-        // For categories, we'll keep the static data for now
-        final categories = [
-          {'name': 'Pizza', 'icon': 'local_pizza', 'color': 'red'},
-          {'name': 'Burger', 'icon': 'lunch_dining', 'color': 'amber'},
-          {'name': 'Sushi', 'icon': 'set_meal', 'color': 'blue'},
-          {'name': 'Desserts', 'icon': 'icecream', 'color': 'pink'},
-          {'name': 'Drinks', 'icon': 'local_drink', 'color': 'teal'},
-        ];
-        
-        // Load user preferences
-        final prefs = await SharedPreferences.getInstance();
-        final vegOnly = prefs.getBool('veg_only') ?? false;
-        
-        // If vegOnly is true, filter restaurants
-        final filteredRestaurants = vegOnly 
-            ? restaurants.where((r) => r['isVeg'] == true).toList()
-            : restaurants;
-        
-        emit(HomeLoaded(
-          userAddress: userAddress,
-          vegOnly: vegOnly,
-          restaurants: filteredRestaurants,
-          categories: categories,
-        ));
+        debugPrint('HomeBloc: User address loaded: $userAddress');
       } else {
-        debugPrint('HomeBloc: User ID or token is null');
-        emit(HomeError('Please login to continue'));
+        debugPrint('HomeBloc: Failed to load address: ${result['message']}');
       }
       
-    } catch (e) {
-      debugPrint('HomeBloc: Error loading home data: $e');
-      emit(HomeError('Failed to load data. Please try again.'));
+      // Now fetch restaurants and categories in parallel for better performance
+      final restaurantsFuture = (latitude != null && longitude != null) 
+          ? _fetchRestaurantsByLocation(token, latitude, longitude)
+          : Future.value(<Map<String, dynamic>>[]);
+      
+      final categoriesFuture = _fetchCategories(token);
+      
+      final results = await Future.wait([restaurantsFuture, categoriesFuture]);
+      
+      final List<Map<String, dynamic>> restaurants = results[0];
+      final List<Map<String, dynamic>> categories = results[1];
+      
+      debugPrint('HomeBloc: Loaded ${restaurants.length} restaurants from API');
+      debugPrint('HomeBloc: Loaded ${categories.length} categories from API');
+      
+      // Load user preferences
+      final prefs = await SharedPreferences.getInstance();
+      final vegOnly = prefs.getBool('veg_only') ?? false;
+      
+      // If vegOnly is true, filter restaurants
+      final filteredRestaurants = vegOnly 
+          ? restaurants.where((r) => r['isVeg'] == true).toList()
+          : restaurants;
+      
+      emit(HomeLoaded(
+        userAddress: userAddress,
+        vegOnly: vegOnly,
+        restaurants: filteredRestaurants,
+        categories: categories,
+      ));
+    } else {
+      debugPrint('HomeBloc: User ID or token is null');
+      emit(HomeError('Please login to continue'));
     }
+    
+  } catch (e) {
+    debugPrint('HomeBloc: Error loading home data: $e');
+    emit(HomeError('Failed to load data. Please try again.'));
   }
+}
   
   Future<List<Map<String, dynamic>>> _fetchRestaurantsByLocation(String token, double latitude, double longitude) async {
     try {
@@ -287,4 +283,105 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }
     }
   }
+  // Add this method in HomeBloc class to fetch categories from API
+Future<List<Map<String, dynamic>>> _fetchCategories(String token) async {
+  try {
+    final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/categories');
+    
+    debugPrint('Fetching categories from: $url');
+    
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    
+    debugPrint('Categories API Response Status: ${response.statusCode}');
+    
+    if (response.statusCode == 200) {
+      debugPrint('Categories API Response Body: ${response.body}');
+      
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      
+      if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+        final List<dynamic> categoriesList = responseData['data'];
+        
+        // Convert to map format expected by UI
+        return categoriesList.map((category) {
+          return {
+            'id': category['id'],
+            'name': category['name'],
+            'display_order': category['display_order'] ?? 0,
+            'active': category['active'] ?? 1,
+            'icon': _getCategoryIcon(category['name']),
+            'color': _getCategoryColor(category['name']),
+          };
+        }).toList();
+      } else {
+        debugPrint('HomeBloc: API returned non-success status: ${responseData['message']}');
+        return _getDefaultCategories();
+      }
+    } else {
+      debugPrint('HomeBloc: Categories API Error: Status ${response.statusCode}');
+      return _getDefaultCategories();
+    }
+  } catch (e) {
+    debugPrint('HomeBloc: Error fetching categories: $e');
+    return _getDefaultCategories();
+  }
+}
+
+// Helper method to get default categories if API fails
+List<Map<String, dynamic>> _getDefaultCategories() {
+  return [
+    {'name': 'Pizza', 'icon': 'local_pizza', 'color': 'red'},
+    {'name': 'Burger', 'icon': 'lunch_dining', 'color': 'amber'},
+    {'name': 'Sushi', 'icon': 'set_meal', 'color': 'blue'},
+    {'name': 'Desserts', 'icon': 'icecream', 'color': 'pink'},
+    {'name': 'Drinks', 'icon': 'local_drink', 'color': 'teal'},
+  ];
+}
+
+// Helper method to assign icons to categories based on name
+String _getCategoryIcon(String categoryName) {
+  final name = categoryName.toLowerCase();
+  
+  if (name.contains('pizza')) return 'local_pizza';
+  if (name.contains('burger')) return 'lunch_dining';
+  if (name.contains('sushi') || name.contains('seafood')) return 'set_meal';
+  if (name.contains('dessert') || name.contains('cake') || name.contains('sweet')) return 'icecream';
+  if (name.contains('drink') || name.contains('beverage')) return 'local_drink';
+  if (name.contains('bakery') || name.contains('bread')) return 'bakery_dining';
+  if (name.contains('breakfast')) return 'free_breakfast';
+  if (name.contains('healthy') || name.contains('salad')) return 'spa';
+  if (name.contains('indian')) return 'restaurant';
+  if (name.contains('chicken')) return 'egg';
+  if (name.contains('chinese')) return 'ramen_dining';
+  
+  // Default icon for other categories
+  return 'restaurant';
+}
+
+// Helper method to assign colors to categories based on name
+String _getCategoryColor(String categoryName) {
+  final name = categoryName.toLowerCase();
+  
+  if (name.contains('pizza')) return 'red';
+  if (name.contains('burger')) return 'amber';
+  if (name.contains('sushi') || name.contains('seafood')) return 'blue';
+  if (name.contains('dessert') || name.contains('cake')) return 'pink';
+  if (name.contains('drink') || name.contains('beverage')) return 'teal';
+  if (name.contains('bakery') || name.contains('bread')) return 'brown';
+  if (name.contains('breakfast')) return 'orange';
+  if (name.contains('healthy') || name.contains('salad')) return 'green';
+  if (name.contains('indian')) return 'deepOrange';
+  if (name.contains('chicken')) return 'amber';
+  
+  // Generate a random but consistent color based on category name
+  final colors = ['red', 'amber', 'blue', 'pink', 'teal', 'purple', 'green', 'orange'];
+  final hash = name.hashCode.abs() % colors.length;
+  return colors[hash];
+}
 }

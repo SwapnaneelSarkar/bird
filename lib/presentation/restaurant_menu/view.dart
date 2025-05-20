@@ -422,16 +422,31 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.more_vert, color: Colors.black),
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  Routes.restaurantProfile,
-                  arguments: restaurant['id'],
-                );
-              },
-            ),
+            PopupMenuButton<String>(
+  icon: const Icon(Icons.more_vert, color: Colors.black),
+  onSelected: (String value) {
+    if (value == 'profile') {
+      Navigator.pushNamed(
+        context,
+        Routes.restaurantProfile,
+        arguments: restaurant['id'],
+      );
+    }
+  },
+  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+    const PopupMenuItem<String>(
+      value: 'profile',
+      child: Row(
+        children: [
+          Icon(Icons.restaurant, size: 18),
+          SizedBox(width: 8),
+          Text('Restaurant Profile'),
+        ],
+      ),
+    ),
+  ],
+),
+
           ],
         ),
       ),

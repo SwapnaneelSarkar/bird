@@ -13,9 +13,10 @@ class RestaurantCard extends StatelessWidget {
   final bool isVeg;
   final VoidCallback onTap;
   final double? restaurantLatitude;
-final double? restaurantLongitude;
-final double? userLatitude;
-final double? userLongitude;
+  final double? restaurantLongitude;
+  final double? userLatitude;
+  final double? userLongitude;
+  final String? restaurantType;
 
   const RestaurantCard({
     Key? key,
@@ -30,6 +31,7 @@ final double? userLongitude;
     this.restaurantLongitude,
     this.userLatitude,
     this.userLongitude,
+    this.restaurantType,
   }) : super(key: key);
 
   @override
@@ -127,6 +129,27 @@ final double? userLongitude;
                       child: _buildYellowRatingBadge(ratingValue),
                     ),
                   ),
+                  
+                  // Restaurant Type badge - moved to bottom left of image
+                  if (restaurantType != null && restaurantType!.isNotEmpty)
+                    Positioned(
+                      bottom: 12,
+                      left: 12,
+                      child: Container(
+                        padding: EdgeInsets.zero,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _buildTypeTagBadge(restaurantType!),
+                      ),
+                    ),
                 ],
               ),
               
@@ -198,35 +221,71 @@ final double? userLongitude;
     );
   }
 
+  // Updated method to create the restaurant type badge with the app theme color
+  Widget _buildTypeTagBadge(String type) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            // Using ColorManager.primary with a darker opacity (0.95)
+            color: ColorManager.primary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 0.5,
+            ),
+          ),
+          child: Text(
+            type,
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.4), // Darker shadow for better contrast
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // Calculate and display distance instead of "Nearby"
   String _getDistanceText() {
-  if (userLatitude != null && userLongitude != null &&
-      restaurantLatitude != null && restaurantLongitude != null) {
-    try {
-      debugPrint('RestaurantCard: Calculating distance for $name');
-      // Calculate distance using the Haversine formula
-      final distance = DistanceUtil.calculateDistance(
-        userLatitude!,
-        userLongitude!,
-        restaurantLatitude!,
-        restaurantLongitude!
-      );
-      
-      // Format the distance in a user-friendly way
-      final formattedDistance = DistanceUtil.formatDistance(distance);
-      debugPrint('RestaurantCard: Distance for $name: $formattedDistance');
-      return formattedDistance;
-    } catch (e) {
-      debugPrint('RestaurantCard: Error calculating distance: $e');
-      return "Nearby";
+    if (userLatitude != null && userLongitude != null &&
+        restaurantLatitude != null && restaurantLongitude != null) {
+      try {
+        debugPrint('RestaurantCard: Calculating distance for $name');
+        // Calculate distance using the Haversine formula
+        final distance = DistanceUtil.calculateDistance(
+          userLatitude!,
+          userLongitude!,
+          restaurantLatitude!,
+          restaurantLongitude!
+        );
+        
+        // Format the distance in a user-friendly way
+        final formattedDistance = DistanceUtil.formatDistance(distance);
+        debugPrint('RestaurantCard: Distance for $name: $formattedDistance');
+        return formattedDistance;
+      } catch (e) {
+        debugPrint('RestaurantCard: Error calculating distance: $e');
+        return "Nearby";
+      }
     }
+    
+    // If any of the required coordinates is missing, fall back to "Nearby"
+    debugPrint('RestaurantCard: Missing coordinates for $name, using "Nearby"');
+    return "Nearby";
   }
-  
-  // If any of the required coordinates is missing, fall back to "Nearby"
-  debugPrint('RestaurantCard: Missing coordinates for $name, using "Nearby"');
-  return "Nearby";
-}
-
 
   Widget _buildYellowRatingBadge(double ratingValue) {
     return ClipRRect(
@@ -236,7 +295,7 @@ final double? userLongitude;
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Color(0xFFFFD700).withOpacity(0.9),
+            color: ColorManager.primary.withOpacity(0.7),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: Colors.white.withOpacity(0.2),

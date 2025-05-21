@@ -687,26 +687,27 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                       debugPrint('HomePage: Restaurant ${restaurant['name']} coordinates - Lat: $restaurantLat, Long: $restaurantLng');
                       
                       // Using the original RestaurantCard with added coordinates
-                      return Hero(
-                        tag: 'restaurant-${restaurant['name']}',
-                        child: RestaurantCard(
-                          name: restaurant['name'],
-                          imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
-                          cuisine: restaurant['cuisine'],
-                          rating: restaurant['rating'] ?? 0.0,
-                          deliveryTime: restaurant['deliveryTime'] ?? '30-40 min',
-                          isVeg: restaurant['isVegetarian'] as bool? ?? false,
-                          // Pass restaurant and user coordinates
-                          restaurantLatitude: restaurantLat,
-                          restaurantLongitude: restaurantLng,
-                          userLatitude: state.userLatitude,
-                          userLongitude: state.userLongitude,
-                          onTap: () => _navigateToRestaurantDetails(context, restaurant),
-                        ).animate(controller: _animationController)
-                          .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
-                          .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
-                      );
-                    },
+// In _buildRestaurantsSection of HomePage
+return Hero(
+  tag: 'restaurant-${restaurant['name']}',
+  child: RestaurantCard(
+    name: restaurant['name'],
+    imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
+    cuisine: restaurant['cuisine'],
+    rating: restaurant['rating'] ?? 0.0,
+    deliveryTime: restaurant['deliveryTime'] ?? '30-40 min',
+    isVeg: restaurant['isVegetarian'] as bool? ?? false,
+    // Pass restaurant and user coordinates
+    restaurantLatitude: restaurantLat,
+    restaurantLongitude: restaurantLng,
+    userLatitude: state.userLatitude,
+    userLongitude: state.userLongitude,
+    restaurantType: restaurant['restaurantType'], // Add this line to pass the restaurant type
+    onTap: () => _navigateToRestaurantDetails(context, restaurant),
+  ).animate(controller: _animationController)
+    .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+    .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
+);                    },
                   ),
                 ),
         ],

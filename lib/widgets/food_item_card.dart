@@ -83,155 +83,219 @@ class FoodItemCard extends StatelessWidget {
           
           const SizedBox(width: 12),
           
-          // Food details section
+          // Food details section with absolute positioned dot
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                // Name and veg indicator in a row
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                // Main content
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                    // Veg indicator as a simple colored dot
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isVeg ? const Color(0xFF3CB043).withOpacity(0.3) : const Color(0xFFE53935).withOpacity(0.3),
-                            blurRadius: 4,
-                            spreadRadius: 1,
+                    // Name row 
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 6),
+                    
+                    // Description
+                    if (description.isNotEmpty)
+                      Text(
+                        description,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Price and quantity selector in a row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Price
+                        Text(
+                          '₹${price.toString()}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        
+                        // Quantity controls or Add button
+                        quantity == 0 
+                        ? Container(
+                            height: 38,
+                            margin: const EdgeInsets.only(right: 10), // Added right margin to move button left
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  ColorManager.primary,
+                                  ColorManager.primary.withOpacity(0.8),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: ColorManager.primary.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => onQuantityChanged(1),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Add',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      const Icon(
+                                        Icons.add_shopping_cart_rounded,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.03),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                // Minus button
+                                InkWell(
+                                  onTap: () => onQuantityChanged(quantity > 0 ? quantity - 1 : 0),
+                                  borderRadius: BorderRadius.circular(50),
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '-',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 20,
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                
+                                // Quantity text
+                                SizedBox(
+                                  width: 30,
+                                  child: Text(
+                                    quantity.toString(),
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                
+                                // Plus button
+                                InkWell(
+                                  onTap: () => onQuantityChanged(quantity + 1),
+                                  borderRadius: BorderRadius.circular(50),
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '+',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 20,
+                                        color: ColorManager.primary,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
                 
-                const SizedBox(height: 6),
-                
-                // Description
-                if (description.isNotEmpty)
-                  Text(
-                    description,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w400,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                
-                const SizedBox(height: 12),
-                
-                // Price and quantity selector in a row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Price
-                    Text(
-                      '₹${price.toString()}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                        letterSpacing: -0.5,
+                // Veg indicator absolutely positioned at top and centered above button
+                Positioned(
+                  top: 0,
+                  right: quantity == 0 ? 60 : 54, // Adjusted to match shifted button
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 1.5,
                       ),
-                    ),
-                    
-                    // Quantity selector
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(50),
-                        border: Border.all(
-                          color: Colors.grey[300]!,
-                          width: 1,
+                      boxShadow: [
+                        BoxShadow(
+                          color: isVeg ? const Color(0xFF3CB043).withOpacity(0.3) : const Color(0xFFE53935).withOpacity(0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          // Minus button
-                          InkWell(
-                            onTap: () => onQuantityChanged(quantity > 0 ? quantity - 1 : 0),
-                            borderRadius: BorderRadius.circular(50),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              alignment: Alignment.center,
-                              child: Text(
-                                '-',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 20,
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          ),
-                          
-                          // Quantity text
-                          SizedBox(
-                            width: 30,
-                            child: Text(
-                              quantity.toString(),
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          
-                          // Plus button
-                          InkWell(
-                            onTap: () => onQuantityChanged(quantity + 1),
-                            borderRadius: BorderRadius.circular(50),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              alignment: Alignment.center,
-                              child: Text(
-                                '+',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 20,
-                                  color: ColorManager.primary,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),

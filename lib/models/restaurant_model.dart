@@ -17,6 +17,7 @@ class Restaurant {
   final double? longitude;
   final String? openTimings;
   final String? ownerName;
+  final String? restaurantType;
 
   Restaurant({
     required this.id,
@@ -33,6 +34,7 @@ class Restaurant {
     this.longitude,
     this.openTimings,
     this.ownerName,
+    this.restaurantType,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -57,28 +59,28 @@ class Restaurant {
           : null,
       openTimings: json['open_timings'],
       ownerName: json['owner_name'],
+      restaurantType: json['restaurant_type'], // Added line to get restaurant_type
     );
   }
 
-  // Add this method to convert Restaurant to Map for the UI
-  // Update the toMap method in the Restaurant class:
-
-Map<String, dynamic> toMap() {
-  return {
-    'id': id,
-    'name': name,
-    'imageUrl': imageUrl ?? '',
-    'cuisine': cuisine,
-    'rating': rating ?? 0.0,
-    'price': '₹200 for two', // Default value as API doesn't provide this
-    'deliveryTime': '20-30 mins', // Default value as API doesn't provide this
-    'isVeg': isVeg,
-    'distance': 1.2, // Default value as API doesn't provide this
-    'address': address,
-    'latitude': latitude,    // Add latitude
-    'longitude': longitude,  // Add longitude
-  };
-}
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'imageUrl': imageUrl ?? '',
+      'cuisine': cuisine,
+      'rating': rating ?? 0.0,
+      'price': '₹200 for two', // Default value as API doesn't provide this
+      'deliveryTime': '20-30 mins', // Default value as API doesn't provide this
+      'isVegetarian': isVeg,
+      'distance': 1.2, // Default value as API doesn't provide this
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'restaurantType': restaurantType, // Added line to include restaurantType
+    };
+  }
+  
 
   // Helper to determine if restaurant is currently open
   static bool? _determineOpenStatus(String? openTimingsJson) {

@@ -1,4 +1,3 @@
-// bloc.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../../../service/token_service.dart';
 import '../../../constants/api_constant.dart';
+import '../../../utils/distance_util.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -25,13 +25,46 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
     
     try {
       // Process restaurant data
-      final restaurant = event.restaurant;
+      final restaurant = Map<String, dynamic>.from(event.restaurant);
       
       // Check if restaurant data is valid
-      if (restaurant == null || restaurant.isEmpty) {
+      if (restaurant.isEmpty) {
         debugPrint('RestaurantDetailsBloc: Restaurant data is null or empty');
         emit(RestaurantDetailsError('Restaurant data is not available. Please try again.'));
         return;
+      }
+      
+      // Calculate distance if coordinates are available
+      if (event.userLatitude != null && event.userLongitude != null) {
+        final restaurantLat = restaurant['latitude'] != null 
+            ? double.tryParse(restaurant['latitude'].toString())
+            : null;
+        final restaurantLng = restaurant['longitude'] != null 
+            ? double.tryParse(restaurant['longitude'].toString())
+            : null;
+            
+        debugPrint('RestaurantDetailsBloc: User coordinates - Lat: ${event.userLatitude}, Long: ${event.userLongitude}');
+        debugPrint('RestaurantDetailsBloc: Restaurant coordinates - Lat: $restaurantLat, Long: $restaurantLng');
+            
+        if (restaurantLat != null && restaurantLng != null) {
+          try {
+            final distance = DistanceUtil.calculateDistance(
+              event.userLatitude!,
+              event.userLongitude!,
+              restaurantLat,
+              restaurantLng
+            );
+            
+            // Format the distance
+            final formattedDistance = DistanceUtil.formatDistance(distance);
+            debugPrint('RestaurantDetailsBloc: Calculated distance: $formattedDistance');
+            
+            // Update the restaurant data with the calculated distance
+            restaurant['calculatedDistance'] = formattedDistance;
+          } catch (e) {
+            debugPrint('RestaurantDetailsBloc: Error calculating distance: $e');
+          }
+        }
       }
       
       // Extract restaurant ID using different possible key names
@@ -85,6 +118,21 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
           
           if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
             final data = responseData['data'];
+            
+            // Update restaurant information with API response data
+            final apiRestaurant = data as Map<String, dynamic>;
+            
+            // Update restaurant with any new information from API
+            if (apiRestaurant['partner_id'] != null) restaurant['id'] = apiRestaurant['partner_id'];
+            if (apiRestaurant['restaurant_name'] != null) restaurant['name'] = apiRestaurant['restaurant_name'];
+            if (apiRestaurant['category'] != null) restaurant['cuisine'] = apiRestaurant['category'];
+            if (apiRestaurant['address'] != null) restaurant['address'] = apiRestaurant['address'];
+            if (apiRestaurant['latitude'] != null) restaurant['latitude'] = apiRestaurant['latitude'];
+            if (apiRestaurant['longitude'] != null) restaurant['longitude'] = apiRestaurant['longitude'];
+            if (apiRestaurant['veg_nonveg'] != null) restaurant['isVeg'] = apiRestaurant['veg_nonveg'] == 'veg';
+            if (apiRestaurant['open_timings'] != null) restaurant['openTimings'] = apiRestaurant['open_timings'];
+            if (apiRestaurant['owner_name'] != null) restaurant['ownerName'] = apiRestaurant['owner_name'];
+            if (apiRestaurant['description'] != null) restaurant['description'] = apiRestaurant['description'];
             
             // Format menu items from API response
             if (data['menu_items'] != null && data['menu_items'] is List) {

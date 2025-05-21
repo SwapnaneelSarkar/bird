@@ -351,7 +351,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         'Save',
                         style: TextStyle(
                           color: state is SettingsLoaded && !_isSaving 
-                              ? Colors.deepOrange 
+                              ? ColorManager.primary 
                               : Colors.grey,
                           fontSize: FontSize.s16 * responsiveTextScale,
                           fontWeight: FontWeightManager.semiBold,
@@ -482,7 +482,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                                                   loadingProgress.expectedTotalBytes!
                                                               : null,
                                                           valueColor: const AlwaysStoppedAnimation<Color>(
-                                                            Colors.deepOrange,
+                                                            Colors.orange,
                                                           ),
                                                           strokeWidth: 2,
                                                         ),
@@ -524,7 +524,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                       child: Container(
                                         padding: EdgeInsets.all(8 * responsiveTextScale),
                                         decoration: BoxDecoration(
-                                          color: Colors.deepOrange,
+                                          color: ColorManager.primary,
                                           shape: BoxShape.circle,
                                           border: Border.all(
                                             color: Colors.white,
@@ -667,8 +667,8 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           InkWell(
             onTap: _showAddressPicker,
             borderRadius: BorderRadius.circular(8 * responsiveTextScale),
-            splashColor: Colors.deepOrange.withOpacity(0.1),
-            highlightColor: Colors.deepOrange.withOpacity(0.05),
+            splashColor: Colors.orange.withOpacity(0.1),
+            highlightColor: Colors.orange.withOpacity(0.05),
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 4 * responsiveTextScale),
               child: Row(
@@ -676,12 +676,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   Container(
                     padding: EdgeInsets.all(6 * responsiveTextScale),
                     decoration: BoxDecoration(
-                      color: Colors.deepOrange.withOpacity(0.1),
+                      color: Colors.orange.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8 * responsiveTextScale),
                     ),
                     child: Icon(
                       Icons.location_on_outlined,
-                      color: Colors.deepOrange,
+                      color: Colors.orange,
                       size: 18 * responsiveTextScale,
                     ),
                   ),
@@ -758,12 +758,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               Container(
                 padding: EdgeInsets.all(6 * responsiveTextScale),
                 decoration: BoxDecoration(
-                  color: Colors.deepOrange.withOpacity(0.1),
+                  color: Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8 * responsiveTextScale),
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.deepOrange,
+                  color: Colors.orange,
                   size: 18 * responsiveTextScale,
                 ),
               ),

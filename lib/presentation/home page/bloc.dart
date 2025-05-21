@@ -22,7 +22,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<UpdateUserAddress>(_onUpdateUserAddress);
   }
   
-  Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async {
+  // Update the _onLoadHomeData method in HomeBloc class:
+
+Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async {
   emit(HomeLoading());
   
   try {
@@ -91,6 +93,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         vegOnly: vegOnly,
         restaurants: filteredRestaurants,
         categories: categories,
+        userLatitude: latitude,  // Include user coordinates
+        userLongitude: longitude, // Include user coordinates
       ));
     } else {
       debugPrint('HomeBloc: User ID or token is null');
@@ -100,6 +104,112 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   } catch (e) {
     debugPrint('HomeBloc: Error loading home data: $e');
     emit(HomeError('Failed to load data. Please try again.'));
+  }
+}
+
+// Update the _onUpdateUserAddress method in HomeBloc class:
+Future<void> _onUpdateUserAddress(UpdateUserAddress event, Emitter<HomeState> emit) async {
+  try {
+    debugPrint('HomeBloc: Updating user address...');
+    debugPrint('HomeBloc: Address: ${event.address}');
+    debugPrint('HomeBloc: Latitude: ${event.latitude}');
+    debugPrint('HomeBloc: Longitude: ${event.longitude}');
+    
+    // If already in a HomeLoaded state, keep current state data
+    HomeLoaded? currentLoadedState;
+    if (state is HomeLoaded) {
+      currentLoadedState = state as HomeLoaded;
+    }
+    
+    emit(AddressUpdating());
+    
+    // Get token and user ID (instead of mobile number)
+    final token = await TokenService.getToken();
+    final userId = await TokenService.getUserId();
+    
+    if (token == null || userId == null) {
+      debugPrint('HomeBloc: Missing token or user ID');
+      emit(const AddressUpdateFailure('Please login again to update your address.'));
+      
+      // Restore previous state if it was HomeLoaded
+      if (currentLoadedState != null) {
+        emit(currentLoadedState);
+      }
+      return;
+    }
+    
+    // Verify the coordinates are valid numbers
+    if (event.latitude.isNaN || event.longitude.isNaN ||
+        event.latitude.isInfinite || event.longitude.isInfinite) {
+      debugPrint('HomeBloc: Invalid coordinates detected');
+      emit(const AddressUpdateFailure('Invalid coordinates. Please try again.'));
+      
+      // Restore previous state if it was HomeLoaded
+      if (currentLoadedState != null) {
+        emit(currentLoadedState);
+      }
+      return;
+    }
+    
+    debugPrint('HomeBloc: Making API call to update address with:');
+    debugPrint('HomeBloc: User ID: $userId');
+    debugPrint('HomeBloc: Address: ${event.address}');
+    debugPrint('HomeBloc: Latitude: ${event.latitude}');
+    debugPrint('HomeBloc: Longitude: ${event.longitude}');
+    
+    // Use updateUserProfileWithId instead of updateUserProfile
+    var result = await _updateUserService.updateUserProfileWithId(
+      token: token,
+      userId: userId,
+      address: event.address,
+      latitude: event.latitude,
+      longitude: event.longitude,
+    );
+  
+    if (result['success'] == true) {
+      debugPrint('HomeBloc: Address updated successfully');
+      emit(AddressUpdateSuccess(event.address));
+      
+      // Now fetch restaurants for this new location
+      final restaurants = await _fetchRestaurantsByLocation(token, event.latitude, event.longitude);
+      
+      // If we had a HomeLoaded state before, restore it with the new address and restaurants
+      if (currentLoadedState != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final vegOnly = prefs.getBool('veg_only') ?? false;
+        
+        // If vegOnly is true, filter restaurants
+        final filteredRestaurants = vegOnly 
+            ? restaurants.where((r) => r['isVeg'] == true).toList()
+            : restaurants;
+        
+        emit(currentLoadedState.copyWith(
+          userAddress: event.address,
+          restaurants: filteredRestaurants,
+          userLatitude: event.latitude,   // Update user location coordinates
+          userLongitude: event.longitude, // Update user location coordinates
+        ));
+      } else {
+        // Reload home data
+        add(const LoadHomeData());
+      }
+    } else {
+      debugPrint('HomeBloc: Failed to update address: ${result['message']}');
+      emit(AddressUpdateFailure(result['message'] ?? 'Failed to update address'));
+      
+      // Restore previous state if it was HomeLoaded
+      if (currentLoadedState != null) {
+        emit(currentLoadedState);
+      }
+    }
+  } catch (e) {
+    debugPrint('HomeBloc: Error updating address: $e');
+    emit(AddressUpdateFailure('An error occurred while updating your address.'));
+    
+    // If we had a HomeLoaded state before, restore it
+    if (state is HomeLoaded) {
+      emit(state);
+    }
   }
 }
   
@@ -180,109 +290,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
   
-  Future<void> _onUpdateUserAddress(UpdateUserAddress event, Emitter<HomeState> emit) async {
-  try {
-    debugPrint('HomeBloc: Updating user address...');
-    debugPrint('HomeBloc: Address: ${event.address}');
-    debugPrint('HomeBloc: Latitude: ${event.latitude}');
-    debugPrint('HomeBloc: Longitude: ${event.longitude}');
-    
-    // If already in a HomeLoaded state, keep current state data
-    HomeLoaded? currentLoadedState;
-    if (state is HomeLoaded) {
-      currentLoadedState = state as HomeLoaded;
-    }
-    
-    emit(AddressUpdating());
-    
-    // Get token and user ID (instead of mobile number)
-    final token = await TokenService.getToken();
-    final userId = await TokenService.getUserId(); // Change to userId
-    
-    if (token == null || userId == null) {
-      debugPrint('HomeBloc: Missing token or user ID');
-      emit(const AddressUpdateFailure('Please login again to update your address.'));
-      
-      // Restore previous state if it was HomeLoaded
-      if (currentLoadedState != null) {
-        emit(currentLoadedState);
-      }
-      return;
-    }
-    
-    // Verify the coordinates are valid numbers
-    if (event.latitude.isNaN || event.longitude.isNaN ||
-        event.latitude.isInfinite || event.longitude.isInfinite) {
-      debugPrint('HomeBloc: Invalid coordinates detected');
-      emit(const AddressUpdateFailure('Invalid coordinates. Please try again.'));
-      
-      // Restore previous state if it was HomeLoaded
-      if (currentLoadedState != null) {
-        emit(currentLoadedState);
-      }
-      return;
-    }
-    
-    debugPrint('HomeBloc: Making API call to update address with:');
-    debugPrint('HomeBloc: User ID: $userId'); // Update log message
-    debugPrint('HomeBloc: Address: ${event.address}');
-    debugPrint('HomeBloc: Latitude: ${event.latitude}');
-    debugPrint('HomeBloc: Longitude: ${event.longitude}');
-    
-    // Use updateUserProfileWithId instead of updateUserProfile
-    var result = await _updateUserService.updateUserProfileWithId(
-      token: token,
-      userId: userId, // Use userId parameter
-      address: event.address,
-      latitude: event.latitude,
-      longitude: event.longitude,
-    );
   
-      
-      if (result['success'] == true) {
-        debugPrint('HomeBloc: Address updated successfully');
-        emit(AddressUpdateSuccess(event.address));
-        
-        // Now fetch restaurants for this new location
-        final restaurants = await _fetchRestaurantsByLocation(token, event.latitude, event.longitude);
-        
-        // If we had a HomeLoaded state before, restore it with the new address and restaurants
-        if (currentLoadedState != null) {
-          final prefs = await SharedPreferences.getInstance();
-          final vegOnly = prefs.getBool('veg_only') ?? false;
-          
-          // If vegOnly is true, filter restaurants
-          final filteredRestaurants = vegOnly 
-              ? restaurants.where((r) => r['isVeg'] == true).toList()
-              : restaurants;
-          
-          emit(currentLoadedState.copyWith(
-            userAddress: event.address,
-            restaurants: filteredRestaurants,
-          ));
-        } else {
-          // Reload home data
-          add(const LoadHomeData());
-        }
-      } else {
-        debugPrint('HomeBloc: Failed to update address: ${result['message']}');
-        emit(AddressUpdateFailure(result['message'] ?? 'Failed to update address'));
-        
-        // Restore previous state if it was HomeLoaded
-        if (currentLoadedState != null) {
-          emit(currentLoadedState);
-        }
-      }
-    } catch (e) {
-      debugPrint('HomeBloc: Error updating address: $e');
-      emit(AddressUpdateFailure('An error occurred while updating your address.'));
-      
-      // If we had a HomeLoaded state before, restore it
-      if (state is HomeLoaded) {
-        emit(state);
-      }
-    }
-  }
   // Add this method in HomeBloc class to fetch categories from API
 Future<List<Map<String, dynamic>>> _fetchCategories(String token) async {
   try {

@@ -9,6 +9,7 @@ import 'package:bird/constants/router/router.dart';
 import 'package:bird/constants/color/colorConstant.dart';
 import 'package:bird/constants/font/fontManager.dart';
 import '../../../service/token_service.dart';
+import '../../../utils/distance_util.dart';
 import '../../../widgets/restaurant_card.dart';
 import '../address bottomSheet/view.dart';
 import '../restaurant_menu/view.dart';
@@ -97,6 +98,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             if (state is HomeLoading) {
               return _buildLoadingIndicator();
             } else if (state is HomeLoaded) {
+              debugPrint('HomePage: Building with user coordinates - Lat: ${state.userLatitude}, Long: ${state.userLongitude}');
               return _buildHomeContent(context, state);
             } else if (state is HomeError) {
               return _buildErrorState(context, state);
@@ -331,10 +333,14 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   Future<void> _navigateToSearch(BuildContext context, HomeLoaded state) async {
+    debugPrint('HomePage: Navigating to search with user coordinates - Lat: ${state.userLatitude}, Long: ${state.userLongitude}');
+    
     final result = await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => SearchPage(
           restaurants: state.restaurants.map((r) => Map<String, dynamic>.from(r)).toList(),
+          userLatitude: state.userLatitude,
+          userLongitude: state.userLongitude,
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -409,136 +415,136 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
   
   List<Widget> _getCategoryItems(List<dynamic> categories) {
-  // Map for known category image associations
-  final Map<String, String> imageMap = {
-    'pizza': 'assets/images/pizza.jpg',
-    'burger': 'assets/images/burger.jpg',
-    'sushi': 'assets/images/sushi.jpg',
-    'dessert': 'assets/images/desert.jpg',
-    'drinks': 'assets/images/drinks.jpg',
-  };
-  
-  return categories.map((category) {
-    String categoryName = category['name'].toString().toLowerCase();
-    String? imagePath;
+    // Map for known category image associations
+    final Map<String, String> imageMap = {
+      'pizza': 'assets/images/pizza.jpg',
+      'burger': 'assets/images/burger.jpg',
+      'sushi': 'assets/images/sushi.jpg',
+      'dessert': 'assets/images/desert.jpg',
+      'drinks': 'assets/images/drinks.jpg',
+    };
     
-    // Try to find exact matching image based on category name
-    for (final entry in imageMap.entries) {
-      if (categoryName == entry.key || 
-          (categoryName.contains(entry.key) && entry.key.length > 3)) {
-        imagePath = entry.value;
-        break;
+    return categories.map((category) {
+      String categoryName = category['name'].toString().toLowerCase();
+      String? imagePath;
+      
+      // Try to find exact matching image based on category name
+      for (final entry in imageMap.entries) {
+        if (categoryName == entry.key || 
+            (categoryName.contains(entry.key) && entry.key.length > 3)) {
+          imagePath = entry.value;
+          break;
+        }
       }
-    }
-    
-    // If we have an image, build with image
-    if (imagePath != null) {
-      return _buildCategoryItem(category['name'], imagePath, category['color']);
-    } 
-    // Otherwise build with an icon instead
-    else {
-      return _buildCategoryItemWithIcon(
-        category['name'], 
-        _getIconData(category['icon']), 
-        _getCategoryColor(category['color'])
-      );
-    }
-  }).toList();
-}
+      
+      // If we have an image, build with image
+      if (imagePath != null) {
+        return _buildCategoryItem(category['name'], imagePath, category['color']);
+      } 
+      // Otherwise build with an icon instead
+      else {
+        return _buildCategoryItemWithIcon(
+          category['name'], 
+          _getIconData(category['icon']), 
+          _getCategoryColor(category['color'])
+        );
+      }
+    }).toList();
+  }
 
-// New method to create category item with icon instead of image
-Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor) {
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 8),
-    width: 100,
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 74,
-              height: 74,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-                boxShadow: [BoxShadow(color: accentColor.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 6), spreadRadius: 2)],
-              ),
-            ),
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Colors.white, accentColor.withOpacity(0.15)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: Colors.white, width: 3),
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: 36,
-                  color: accentColor,
+  // New method to create category item with icon instead of image
+  Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      width: 100,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 74,
+                height: 74,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.transparent,
+                  boxShadow: [BoxShadow(color: accentColor.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 6), spreadRadius: 2)],
                 ),
               ),
-            ),
-            // Small light reflection
-            Positioned(
-              top: 10,
-              left: 10,
-              child: Container(
-                width: 20,
-                height: 20,
+              Container(
+                width: 72,
+                height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
+                    colors: [Colors.white, accentColor.withOpacity(0.15)],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(color: Colors.white, width: 3),
+                ),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    size: 36,
+                    color: accentColor,
                   ),
                 ),
               ),
+              // Small light reflection
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+              border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-            border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800]),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
           ),
-          child: Text(
-            title,
-            style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800]),
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-IconData _getIconData(String iconName) {
-  switch (iconName) {
-    case 'local_pizza': return Icons.local_pizza;
-    case 'lunch_dining': return Icons.lunch_dining;
-    case 'set_meal': return Icons.set_meal;
-    case 'icecream': return Icons.icecream;
-    case 'local_drink': return Icons.local_drink;
-    case 'bakery_dining': return Icons.bakery_dining;
-    case 'free_breakfast': return Icons.free_breakfast;
-    case 'spa': return Icons.spa;
-    case 'egg': return Icons.egg_alt;
-    case 'ramen_dining': return Icons.ramen_dining;
-    case 'restaurant': return Icons.restaurant;
-    default: return Icons.restaurant;
+        ],
+      ),
+    );
   }
-}
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'local_pizza': return Icons.local_pizza;
+      case 'lunch_dining': return Icons.lunch_dining;
+      case 'set_meal': return Icons.set_meal;
+      case 'icecream': return Icons.icecream;
+      case 'local_drink': return Icons.local_drink;
+      case 'bakery_dining': return Icons.bakery_dining;
+      case 'free_breakfast': return Icons.free_breakfast;
+      case 'spa': return Icons.spa;
+      case 'egg': return Icons.egg_alt;
+      case 'ramen_dining': return Icons.ramen_dining;
+      case 'restaurant': return Icons.restaurant;
+      default: return Icons.restaurant;
+    }
+  }
   Widget _buildCategoryItem(String title, String imagePath, String colorName) {
     Color accentColor = _getCategoryColor(colorName);
     
@@ -669,7 +675,18 @@ IconData _getIconData(String iconName) {
                     itemCount: filteredRestaurants.length,
                     itemBuilder: (context, index) {
                       final restaurant = filteredRestaurants[index];
-                      // Using the original RestaurantCard with enhancements
+                      
+                      // Extract coordinates for debugging
+                      final restaurantLat = restaurant['latitude'] != null 
+                          ? double.tryParse(restaurant['latitude'].toString())
+                          : null;
+                      final restaurantLng = restaurant['longitude'] != null 
+                          ? double.tryParse(restaurant['longitude'].toString())
+                          : null;
+                          
+                      debugPrint('HomePage: Restaurant ${restaurant['name']} coordinates - Lat: $restaurantLat, Long: $restaurantLng');
+                      
+                      // Using the original RestaurantCard with added coordinates
                       return Hero(
                         tag: 'restaurant-${restaurant['name']}',
                         child: RestaurantCard(
@@ -677,9 +694,13 @@ IconData _getIconData(String iconName) {
                           imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
                           cuisine: restaurant['cuisine'],
                           rating: restaurant['rating'] ?? 0.0,
-                          price: restaurant['price'] ?? '\$',
                           deliveryTime: restaurant['deliveryTime'] ?? '30-40 min',
                           isVeg: restaurant['isVegetarian'] as bool? ?? false,
+                          // Pass restaurant and user coordinates
+                          restaurantLatitude: restaurantLat,
+                          restaurantLongitude: restaurantLng,
+                          userLatitude: state.userLatitude,
+                          userLongitude: state.userLongitude,
                           onTap: () => _navigateToRestaurantDetails(context, restaurant),
                         ).animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
@@ -804,26 +825,41 @@ IconData _getIconData(String iconName) {
     );
   }
 
-  void _navigateToRestaurantDetails(BuildContext context, Map<String, dynamic> restaurant) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => RestaurantDetailsPage(
-          restaurantData: Map<String, dynamic>.from(restaurant),
-        ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOutQuart;
-          
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          var offsetAnimation = animation.drive(tween);
-          
-          return SlideTransition(position: offsetAnimation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-    );
+  // Update _navigateToRestaurantDetails method in _HomeContentState class:
+
+void _navigateToRestaurantDetails(BuildContext context, Map<String, dynamic> restaurant) {
+  // Get the current state to extract user coordinates
+  final state = context.read<HomeBloc>().state;
+  double? userLatitude;
+  double? userLongitude;
+  
+  if (state is HomeLoaded) {
+    userLatitude = state.userLatitude;
+    userLongitude = state.userLongitude;
+    debugPrint('HomePage: Navigating to restaurant details with user coordinates - Lat: $userLatitude, Long: $userLongitude');
   }
+  
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => RestaurantDetailsPage(
+        restaurantData: Map<String, dynamic>.from(restaurant),
+        userLatitude: userLatitude,
+        userLongitude: userLongitude,
+      ),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        const begin = Offset(1.0, 0.0);
+        const end = Offset.zero;
+        const curve = Curves.easeInOutQuart;
+        
+        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        var offsetAnimation = animation.drive(tween);
+        
+        return SlideTransition(position: offsetAnimation, child: child);
+      },
+      transitionDuration: const Duration(milliseconds: 500),
+    ),
+  );
+}
 
   // Futuristic filter dialog with blur background and tab animation
   void _showFuturisticFilterDialog(BuildContext context) {
@@ -1618,20 +1654,20 @@ IconData _getIconData(String iconName) {
   }
 
   Color _getCategoryColor(String colorName) {
-  switch (colorName) {
-    case 'red': return Colors.red;
-    case 'amber': return Colors.amber;
-    case 'blue': return Colors.blue;
-    case 'pink': return Colors.pink;
-    case 'teal': return Colors.teal;
-    case 'purple': return Colors.purple;
-    case 'green': return Colors.green;
-    case 'orange': return Colors.orange;
-    case 'brown': return Colors.brown;
-    case 'deepOrange': return Colors.deepOrange;
-    default: return Colors.orange;
+    switch (colorName) {
+      case 'red': return Colors.red;
+      case 'amber': return Colors.amber;
+      case 'blue': return Colors.blue;
+      case 'pink': return Colors.pink;
+      case 'teal': return Colors.teal;
+      case 'purple': return Colors.purple;
+      case 'green': return Colors.green;
+      case 'orange': return Colors.orange;
+      case 'brown': return Colors.brown;
+      case 'deepOrange': return Colors.deepOrange;
+      default: return Colors.orange;
+    }
   }
-}
   
   void _showCustomSnackBar(BuildContext context, String message, Color color, IconData icon) {
     ScaffoldMessenger.of(context).showSnackBar(

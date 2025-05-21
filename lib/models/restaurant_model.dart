@@ -61,20 +61,24 @@ class Restaurant {
   }
 
   // Add this method to convert Restaurant to Map for the UI
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'imageUrl': imageUrl ?? '',
-      'cuisine': cuisine,
-      'rating': rating ?? 0.0,
-      'price': '₹200 for two', // Default value as API doesn't provide this
-      'deliveryTime': '20-30 mins', // Default value as API doesn't provide this
-      'isVeg': isVeg,
-      'distance': 1.2, // Default value as API doesn't provide this
-      'address': address,
-    };
-  }
+  // Update the toMap method in the Restaurant class:
+
+Map<String, dynamic> toMap() {
+  return {
+    'id': id,
+    'name': name,
+    'imageUrl': imageUrl ?? '',
+    'cuisine': cuisine,
+    'rating': rating ?? 0.0,
+    'price': '₹200 for two', // Default value as API doesn't provide this
+    'deliveryTime': '20-30 mins', // Default value as API doesn't provide this
+    'isVeg': isVeg,
+    'distance': 1.2, // Default value as API doesn't provide this
+    'address': address,
+    'latitude': latitude,    // Add latitude
+    'longitude': longitude,  // Add longitude
+  };
+}
 
   // Helper to determine if restaurant is currently open
   static bool? _determineOpenStatus(String? openTimingsJson) {

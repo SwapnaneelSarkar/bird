@@ -1,4 +1,3 @@
-// presentation/restaurant_profile/state.dart
 import 'package:equatable/equatable.dart';
 import '../../models/restaurant_model.dart';
 
@@ -15,13 +14,15 @@ class RestaurantProfileLoading extends RestaurantProfileState {}
 
 class RestaurantProfileLoaded extends RestaurantProfileState {
   final Restaurant restaurant;
+  final String? calculatedDistance;
   
   const RestaurantProfileLoaded({
     required this.restaurant,
+    this.calculatedDistance,
   });
   
   @override
-  List<Object?> get props => [restaurant];
+  List<Object?> get props => [restaurant, calculatedDistance];
 }
 
 class RestaurantProfileError extends RestaurantProfileState {

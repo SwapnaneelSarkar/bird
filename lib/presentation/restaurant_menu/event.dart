@@ -1,4 +1,3 @@
-// presentation/restaurant_menu/event.dart
 import 'package:equatable/equatable.dart';
 
 abstract class RestaurantDetailsEvent extends Equatable {
@@ -10,11 +9,17 @@ abstract class RestaurantDetailsEvent extends Equatable {
 
 class LoadRestaurantDetails extends RestaurantDetailsEvent {
   final Map<String, dynamic> restaurant;
+  final double? userLatitude;
+  final double? userLongitude;
   
-  const LoadRestaurantDetails(this.restaurant);
+  const LoadRestaurantDetails(
+    this.restaurant, {
+    this.userLatitude,
+    this.userLongitude,
+  });
   
   @override
-  List<Object?> get props => [restaurant];
+  List<Object?> get props => [restaurant, userLatitude, userLongitude];
 }
 
 class AddItemToCart extends RestaurantDetailsEvent {

@@ -1,17 +1,20 @@
-// Modified SearchPage to use our enhanced RestaurantCard
 import 'package:bird/constants/color/colorConstant.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../widgets/restaurant_card.dart'; // Import our restaurant card
+import '../../../widgets/restaurant_card.dart';
 
 class SearchPage extends StatefulWidget {
   final List<Map<String, dynamic>> restaurants;
+  final double? userLatitude;
+  final double? userLongitude;
   
   const SearchPage({
     Key? key,
     required this.restaurants,
+    this.userLatitude,
+    this.userLongitude,
   }) : super(key: key);
   
   @override
@@ -31,9 +34,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     _searchFocusNode = FocusNode();
     _filteredRestaurants = widget.restaurants;
     
+    debugPrint('SearchPage: Initialized with user coordinates - Lat: ${widget.userLatitude}, Long: ${widget.userLongitude}');
+    debugPrint('SearchPage: Loaded ${widget.restaurants.length} restaurants');
+    
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 800),
     )..forward();
     
     // Auto-focus the search field when the page opens
@@ -57,6 +63,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       });
       return;
     }
+    
+    debugPrint('SearchPage: Filtering restaurants with query: "$query"');
     
     // Split the search query into individual words
     final queryWords = query.toLowerCase().split(' ');
@@ -106,6 +114,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     // Sort by relevance score (highest first)
     results.sort((a, b) => (scoreMap[b] ?? 0).compareTo(scoreMap[a] ?? 0));
     
+    debugPrint('SearchPage: Found ${results.length} matching restaurants');
+    
     setState(() {
       _filteredRestaurants = results;
     });
@@ -114,11 +124,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8F9FF),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(0),
         child: AppBar(
-          backgroundColor: Colors.grey[50],
+          backgroundColor: const Color(0xFFF8F9FF),
           systemOverlayStyle: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.dark,
@@ -144,18 +154,20 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       child: Material(
         color: Colors.transparent,
         child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           height: 52,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+                spreadRadius: 2,
               ),
             ],
+            border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
           ),
           child: Row(
             children: [
@@ -249,15 +261,16 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   
   Widget _buildResultsHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
           Text(
-            'All Restaurants',
+            'Search Results',
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.grey[800],
+              letterSpacing: 0.2,
             ),
           ),
           if (_searchController.text.isNotEmpty) ...[
@@ -280,8 +293,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           ],
         ],
       ).animate(controller: _animationController)
-       .fadeIn(duration: 300.ms, delay: 150.ms)
-       .slideY(begin: 0.2, end: 0, duration: 300.ms, curve: Curves.easeOutQuad),
+       .fadeIn(duration: 400.ms, delay: 150.ms, curve: Curves.easeOut)
+       .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOutQuad),
     );
   }
   
@@ -316,32 +329,52 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             ),
           ],
         ).animate(controller: _animationController)
-         .fadeIn(duration: 300.ms, delay: 200.ms),
+         .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
       );
     }
     
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    // Use GridView with a higher childAspectRatio to reduce the height of each card
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 1, // Keep as 1 to maintain original UI layout
+        childAspectRatio: 1.6, // Increased from 1.2 to reduce card height
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+      ),
       itemCount: _filteredRestaurants.length,
       itemBuilder: (context, index) {
         final restaurant = _filteredRestaurants[index];
         
-        // Using our enhanced restaurant card with horizontal layout
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+        // Extract coordinates for debugging
+        final restaurantLat = restaurant['latitude'] != null 
+            ? double.tryParse(restaurant['latitude'].toString())
+            : null;
+        final restaurantLng = restaurant['longitude'] != null 
+            ? double.tryParse(restaurant['longitude'].toString())
+            : null;
+            
+        debugPrint('SearchPage: Restaurant ${restaurant['name']} coordinates - Lat: $restaurantLat, Long: $restaurantLng');
+        
+        // Using the same RestaurantCard as in homepage
+        return Hero(
+          tag: 'restaurant-${restaurant['name']}',
           child: RestaurantCard(
-            name: restaurant['name'] ?? '',
+            name: restaurant['name'],
             imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
-            cuisine: restaurant['cuisine'] ?? 'Restaurant',
+            cuisine: restaurant['cuisine'],
             rating: restaurant['rating'] ?? 0.0,
-            price: restaurant['price'] ?? '₹200 for two',
             deliveryTime: restaurant['deliveryTime'] ?? '30 min',
             isVeg: restaurant['isVegetarian'] as bool? ?? false,
+            // Pass restaurant and user coordinates
+            restaurantLatitude: restaurantLat,
+            restaurantLongitude: restaurantLng,
+            userLatitude: widget.userLatitude,
+            userLongitude: widget.userLongitude,
             onTap: () => Navigator.pop(context, restaurant),
-            isHorizontal: true, // Using horizontal layout for search results
           ).animate(controller: _animationController)
-           .fadeIn(duration: 300.ms, delay: 100.ms + (index * 50).ms)
-           .slideY(begin: 0.1, end: 0, duration: 300.ms, delay: 100.ms + (index * 50).ms, curve: Curves.easeOutQuad),
+            .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+            .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
         );
       },
     );

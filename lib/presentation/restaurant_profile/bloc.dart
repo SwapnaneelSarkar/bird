@@ -1,4 +1,3 @@
-// presentation/restaurant_profile/bloc.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../../service/token_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../../models/restaurant_model.dart';
+import '../../../utils/distance_util.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -22,6 +22,7 @@ class RestaurantProfileBloc extends Bloc<RestaurantProfileEvent, RestaurantProfi
       emit(RestaurantProfileLoading());
       
       debugPrint('RestaurantProfileBloc: Loading restaurant with ID: ${event.restaurantId}');
+      debugPrint('RestaurantProfileBloc: User coordinates - Lat: ${event.userLatitude}, Long: ${event.userLongitude}');
       
       // Get auth token
       final token = await TokenService.getToken();
@@ -57,9 +58,38 @@ class RestaurantProfileBloc extends Bloc<RestaurantProfileEvent, RestaurantProfi
           // Convert API response to Restaurant model
           final restaurant = Restaurant.fromJson(restaurantData);
           
+          // Calculate distance if coordinates are available
+          String? calculatedDistance;
+          if (event.userLatitude != null && event.userLongitude != null) {
+            final restaurantLat = restaurant.latitude;
+            final restaurantLng = restaurant.longitude;
+            
+            debugPrint('RestaurantProfileBloc: Restaurant coordinates - Lat: $restaurantLat, Long: $restaurantLng');
+            
+            if (restaurantLat != null && restaurantLng != null) {
+              try {
+                final distance = DistanceUtil.calculateDistance(
+                  event.userLatitude!,
+                  event.userLongitude!,
+                  restaurantLat,
+                  restaurantLng
+                );
+                
+                // Format the distance
+                calculatedDistance = DistanceUtil.formatDistance(distance);
+                debugPrint('RestaurantProfileBloc: Calculated distance: $calculatedDistance');
+              } catch (e) {
+                debugPrint('RestaurantProfileBloc: Error calculating distance: $e');
+              }
+            }
+          }
+          
           debugPrint('RestaurantProfileBloc: Restaurant loaded successfully: ${restaurant.name}');
           
-          emit(RestaurantProfileLoaded(restaurant: restaurant));
+          emit(RestaurantProfileLoaded(
+            restaurant: restaurant,
+            calculatedDistance: calculatedDistance,
+          ));
         } else {
           debugPrint('RestaurantProfileBloc: API returned non-success status: ${responseData['message']}');
           emit(RestaurantProfileError(message: responseData['message'] ?? 'Failed to load restaurant details'));

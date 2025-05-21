@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bird/constants/color/colorConstant.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../constants/font/fontManager.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/food_item_card.dart';
@@ -11,10 +12,14 @@ import 'state.dart';
 
 class RestaurantDetailsPage extends StatelessWidget {
   final Map<String, dynamic> restaurantData;
+  final double? userLatitude;
+  final double? userLongitude;
 
   const RestaurantDetailsPage({
     Key? key,
     required this.restaurantData,
+    this.userLatitude,
+    this.userLongitude,
   }) : super(key: key);
 
   @override
@@ -47,8 +52,16 @@ class RestaurantDetailsPage extends StatelessWidget {
       );
     }
     
+    debugPrint('RestaurantDetailsPage: Building with user coordinates - Lat: $userLatitude, Long: $userLongitude');
+    debugPrint('RestaurantDetailsPage: Restaurant data: $restaurantData');
+    
     return BlocProvider(
-      create: (context) => RestaurantDetailsBloc()..add(LoadRestaurantDetails(restaurantData)),
+      create: (context) => RestaurantDetailsBloc()..add(
+        LoadRestaurantDetails(
+          restaurantData,
+          userLatitude: userLatitude,
+          userLongitude: userLongitude,
+        )),
       child: _RestaurantDetailsContent(),
     );
   }
@@ -423,30 +436,29 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
               ),
             ),
             PopupMenuButton<String>(
-  icon: const Icon(Icons.more_vert, color: Colors.black),
-  onSelected: (String value) {
-    if (value == 'profile') {
-      Navigator.pushNamed(
-        context,
-        Routes.restaurantProfile,
-        arguments: restaurant['id'],
-      );
-    }
-  },
-  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-    const PopupMenuItem<String>(
-      value: 'profile',
-      child: Row(
-        children: [
-          Icon(Icons.restaurant, size: 18),
-          SizedBox(width: 8),
-          Text('Restaurant Profile'),
-        ],
-      ),
-    ),
-  ],
-),
-
+              icon: const Icon(Icons.more_vert, color: Colors.black),
+              onSelected: (String value) {
+                if (value == 'profile') {
+                  Navigator.pushNamed(
+                    context,
+                    Routes.restaurantProfile,
+                    arguments: restaurant['id'],
+                  );
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.restaurant, size: 18),
+                      SizedBox(width: 8),
+                      Text('Restaurant Profile'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -454,6 +466,24 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   }
   
   Widget _buildRestaurantHeader(BuildContext context, Map<String, dynamic> restaurant) {
+    // Extract the veg/non-veg status
+    final isVeg = restaurant['isVeg'] == true || 
+                 restaurant['veg_nonveg'] == 'veg' ||
+                 (restaurant['veg_nonveg'] ?? '').toString().toLowerCase() == 'veg';
+    
+    // Get the category/cuisine
+    final cuisine = restaurant['cuisine'] ?? 
+                   restaurant['category'] ?? 
+                   'Restaurant';
+    
+    // Use calculated distance if available, otherwise use default value
+    final distance = restaurant['calculatedDistance'] ?? '${restaurant['distance'] ?? 1.2} Kms';
+    
+    // Get rating or use default
+    final rating = restaurant['rating']?.toString() ?? '4.3';
+    
+    debugPrint('RestaurantHeader: isVeg = $isVeg, cuisine = $cuisine, distance = $distance');
+    
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -461,39 +491,71 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
         children: [
           Text(
             restaurant['name'] ?? 'Restaurant',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: GoogleFonts.poppins(
+              fontSize: 24, 
+              fontWeight: FontWeight.bold, 
+              color: Colors.grey[800],
+            ),
           ),
+          const SizedBox(height: 8),
+          
           const SizedBox(height: 12),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
+              // Pure Veg indicator (only show if restaurant is vegetarian)
+              if (isVeg)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.eco_outlined, color: Colors.green, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Pure Veg', 
+                        style: GoogleFonts.poppins(
+                          fontSize: 12, 
+                          color: Colors.green, 
+                          fontWeight: FontWeight.w500
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.eco_outlined, color: Colors.green, size: 14),
-                    const SizedBox(width: 4),
-                    const Text('Pure Veg', 
-                      style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
+              
+              // Add spacing only if veg indicator is shown
+              if (isVeg)
+                const SizedBox(width: 12),
+              
+              // Distance badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
-                  '${restaurant['distance'] ?? 1.2} Kms', 
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w500)
+                child: Row(
+                  children: [
+                    Icon(Icons.place_outlined, color: Colors.grey[700], size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      distance, 
+                      style: GoogleFonts.poppins(
+                        fontSize: 12, 
+                        color: Colors.grey[700], 
+                        fontWeight: FontWeight.w500
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              
               const SizedBox(width: 12),
+              
+              // Rating badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -505,14 +567,20 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                     const Icon(Icons.star, color: Colors.amber, size: 14),
                     const SizedBox(width: 2),
                     Text(
-                      restaurant['rating']?.toString() ?? '4.3',
-                      style: TextStyle(fontSize: 12, color: Colors.amber[800], fontWeight: FontWeight.w500),
+                      rating,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12, 
+                        color: Colors.amber[800], 
+                        fontWeight: FontWeight.w500
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+          
+         
         ],
       ),
     );

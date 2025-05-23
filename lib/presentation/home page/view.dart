@@ -131,12 +131,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF8F9FF),
-            // Commenting out to avoid asset loading error
-            // image: DecorationImage(
-            //   image: AssetImage('assets/images/subtle_pattern.png'),
-            //   repeat: ImageRepeat.repeat,
-            //   opacity: 0.05,
-            // ),
+        
           ),
         ),
         

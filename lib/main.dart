@@ -1,3 +1,4 @@
+// main.dart
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/presentation/loginPage/bloc.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'presentation/restaurant_profile/bloc.dart';
 import 'presentation/splash_screen/view.dart';
+import 'service/firebase_services.dart';
 
 void main() async {
   // Ensure Flutter bindings are initialized
@@ -16,6 +18,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize Notification Service
+  await NotificationService().initialize();
   
   // Your existing SVG configuration
   svg.cacheColorFilterOverride = false;
@@ -40,6 +45,8 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        // Add navigator key for notification navigation
+        navigatorKey: NotificationService.navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'Bird',
         theme: ThemeData(

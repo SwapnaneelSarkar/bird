@@ -1,6 +1,7 @@
 // constants/router/router.dart
 import 'package:bird/presentation/DeliveryAddressPage/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
+import 'package:bird/presentation/order_confirmation/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
 import 'package:bird/presentation/profile_view/view.dart';
 import 'package:bird/presentation/restaurant_menu/view.dart';
@@ -23,14 +24,16 @@ class Routes {
   static const String settings = '/settings';
   static const String restaurantMenu = '/restaurantMenu';
   static const String restaurantProfile = '/restaurantProfile';
+  static const String orderConfirmation = '/orderConfirmation';
+
   static const String blank = '/blank';
 }
 
 class RouteGenerator {
   static Route<dynamic> getRoute(RouteSettings routeSettings) {
     switch (routeSettings.name) {
-      case Routes.splash:
-        return MaterialPageRoute(builder: (_) => const SplashScreen());
+      // case Routes.splash:
+      //   return MaterialPageRoute(builder: (_) => const SplashScreen());
 
       case Routes.login:
         return MaterialPageRoute(builder: (_) => LoginPage());
@@ -124,6 +127,9 @@ class RouteGenerator {
         return MaterialPageRoute(
           builder: (_) => const RestaurantProfileView(restaurantId: ""),
         );
+
+      case Routes.orderConfirmation:
+        return MaterialPageRoute(builder: (_) => const OrderConfirmationView());
 
       default:
         return unDefinedRoute();

@@ -1,6 +1,7 @@
 // main.dart
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/presentation/loginPage/bloc.dart';
+import 'package:bird/presentation/order_confirmation/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -53,7 +54,7 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: Colors.white,
           useMaterial3: true,
         ),
-        home: const SplashScreen(), // Start with splash screen
+        home: const OrderConfirmationView(), // Start with splash screen
         onGenerateRoute: (RouteSettings settings) {
           final Route<dynamic> route = RouteGenerator.getRoute(settings);
           return route;

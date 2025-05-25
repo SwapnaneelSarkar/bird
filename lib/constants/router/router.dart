@@ -1,5 +1,6 @@
 // constants/router/router.dart
 import 'package:bird/presentation/DeliveryAddressPage/view.dart';
+import 'package:bird/presentation/chat/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
 import 'package:bird/presentation/order_confirmation/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
@@ -25,6 +26,7 @@ class Routes {
   static const String restaurantMenu = '/restaurantMenu';
   static const String restaurantProfile = '/restaurantProfile';
   static const String orderConfirmation = '/orderConfirmation';
+  static const String chat = '/orderConfirmation';
 
   static const String blank = '/blank';
 }
@@ -130,6 +132,9 @@ class RouteGenerator {
 
       case Routes.orderConfirmation:
         return MaterialPageRoute(builder: (_) => const OrderConfirmationView());
+
+      case Routes.chat:
+        return MaterialPageRoute(builder: (_) => const ChatView(orderId: '',));
 
       default:
         return unDefinedRoute();

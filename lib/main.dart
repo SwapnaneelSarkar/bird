@@ -1,5 +1,6 @@
 // main.dart
 import 'package:bird/constants/router/router.dart';
+import 'package:bird/presentation/chat/view.dart';
 import 'package:bird/presentation/loginPage/bloc.dart';
 import 'package:bird/presentation/order_confirmation/view.dart';
 import 'package:flutter/material.dart';
@@ -54,7 +55,7 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: Colors.white,
           useMaterial3: true,
         ),
-        home: const OrderConfirmationView(), // Start with splash screen
+        home: const ChatView(orderId: '',), // Start with splash screen
         onGenerateRoute: (RouteSettings settings) {
           final Route<dynamic> route = RouteGenerator.getRoute(settings);
           return route;

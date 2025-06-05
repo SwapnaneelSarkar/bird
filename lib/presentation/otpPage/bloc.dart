@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:async';
 
 import '../../service/auth_service.dart';
 import '../../service/token_service.dart';
@@ -11,7 +12,8 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthService _authService = AuthService();
   
-  // Add a flag to prevent multiple concurrent resend requests
+  // Store the current verification ID (can be updated after resend)
+  String? _currentVerificationId;
   bool _isResending = false;
 
   OtpBloc() : super(OtpInitialState()) {
@@ -32,9 +34,14 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
     emit(OtpVerificationLoadingState());
     
     try {
+      // Use the current verification ID if available, otherwise use the provided one
+      final verificationIdToUse = _currentVerificationId ?? event.verificationId;
+      
+      debugPrint('OtpBloc: Verifying OTP with verification ID: $verificationIdToUse');
+      
       // Create a PhoneAuthCredential with the code
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: event.verificationId,
+        verificationId: verificationIdToUse,
         smsCode: event.otp,
       );
 
@@ -115,56 +122,102 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
     }
     
     _isResending = true;
-    debugPrint('=== STARTING OTP RESEND PROCESS ===');
+    debugPrint('=== STARTING FRESH OTP REQUEST (RESEND) ===');
     debugPrint('Phone number: ${event.phoneNumber}');
     
     try {
-      // Simple approach: Use the same logic as LoginBloc but simplified
-      debugPrint('Calling Firebase verifyPhoneNumber for resend...');
+      // Set up Firebase Auth settings
+      _auth.setSettings(
+        appVerificationDisabledForTesting: false,
+        forceRecaptchaFlow: true,
+      );
       
-      // Use a simpler approach without complex state management
-      bool resendSuccess = false;
-      String? errorMessage;
+      // Use a completer to properly handle the async callbacks
+      final completer = Completer<Map<String, dynamic>>();
+      bool callbackTriggered = false;
+      
+      debugPrint('Calling Firebase verifyPhoneNumber as fresh request...');
       
       await _auth.verifyPhoneNumber(
         phoneNumber: event.phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) {
-          debugPrint('Auto-verification completed during resend');
-          // Handle auto-verification if it happens
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          debugPrint('Auto-verification completed during fresh request');
+          if (!callbackTriggered && !completer.isCompleted) {
+            callbackTriggered = true;
+            completer.complete({
+              'success': true,
+              'autoVerified': true,
+            });
+          }
         },
         verificationFailed: (FirebaseAuthException e) {
-          debugPrint('Firebase verification failed: ${e.code} - ${e.message}');
-          errorMessage = _getUserFriendlyError(e);
+          debugPrint('Firebase verification failed during fresh request: ${e.code} - ${e.message}');
+          if (!callbackTriggered && !completer.isCompleted) {
+            callbackTriggered = true;
+            completer.complete({
+              'success': false,
+              'error': _getUserFriendlyError(e),
+            });
+          }
         },
         codeSent: (String verificationId, int? resendToken) {
-          debugPrint('Code sent successfully during resend. Verification ID: $verificationId');
+          debugPrint('Fresh OTP code sent successfully');
+          debugPrint('New verification ID: $verificationId');
           debugPrint('Resend token: $resendToken');
-          resendSuccess = true;
+          
+          // Update the current verification ID
+          _currentVerificationId = verificationId;
+          
+          if (!callbackTriggered && !completer.isCompleted) {
+            callbackTriggered = true;
+            completer.complete({
+              'success': true,
+              'verificationId': verificationId,
+            });
+          }
         },
         codeAutoRetrievalTimeout: (String verificationId) {
           debugPrint('Auto retrieval timeout: $verificationId');
+          // Don't complete here, this is just a timeout notification
         },
-        timeout: const Duration(seconds: 60),
+        timeout: const Duration(seconds: 120),
+        forceResendingToken: null, // Don't use any resend token, treat as fresh
       );
       
-      // Wait a moment for the callbacks to be triggered
-      await Future.delayed(const Duration(seconds: 2));
+      // Wait for one of the callbacks with a longer timeout
+      final result = await completer.future.timeout(
+        const Duration(seconds: 15), // Increased timeout to 15 seconds
+        onTimeout: () {
+          debugPrint('Fresh OTP request timed out after 15 seconds');
+          return {
+            'success': false,
+            'error': 'Request timed out. Please try again.',
+          };
+        },
+      );
       
-      if (resendSuccess) {
-        debugPrint('OTP resent successfully');
-        emit(OtpResentState());
-      } else if (errorMessage != null) {
-        debugPrint('Resend failed with error: $errorMessage');
-        emit(OtpVerificationFailureState(errorMessage: errorMessage!));
+      debugPrint('Fresh OTP request result: $result');
+      
+      if (result['success'] == true) {
+        if (result['autoVerified'] == true) {
+          debugPrint('Auto-verification occurred during fresh request');
+          emit(OtpVerificationSuccessState(
+            otp: 'auto-verified',
+            isLogin: false, // Will be determined by API call
+          ));
+        } else {
+          debugPrint('Fresh OTP sent successfully');
+          emit(OtpResentState());
+        }
       } else {
-        debugPrint('Resend completed but no clear success/failure callback');
-        // Assume success if no error occurred
-        emit(OtpResentState());
+        final errorMessage = result['error'] ?? 'Failed to send OTP';
+        debugPrint('Fresh OTP request failed: $errorMessage');
+        emit(OtpVerificationFailureState(errorMessage: errorMessage));
       }
       
     } catch (e) {
-      debugPrint('Error during OTP resend: $e');
-      String errorMessage = 'Failed to resend OTP. Please try again.';
+      debugPrint('Error during fresh OTP request: $e');
+      String errorMessage = 'Failed to send OTP. Please try again.';
       
       if (e.toString().toLowerCase().contains('network')) {
         errorMessage = 'Network error. Please check your internet connection.';
@@ -177,7 +230,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
       emit(OtpVerificationFailureState(errorMessage: errorMessage));
     } finally {
       _isResending = false;
-      debugPrint('=== OTP RESEND PROCESS COMPLETED ===');
+      debugPrint('=== FRESH OTP REQUEST (RESEND) COMPLETED ===');
     }
   }
 

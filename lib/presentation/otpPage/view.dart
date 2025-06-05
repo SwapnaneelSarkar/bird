@@ -48,7 +48,7 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _startTimer() {
-    _countdown = 30; // 30 seconds cooldown
+    _countdown = 60; // 60 seconds cooldown
     _canResend = false;
     
     _timer?.cancel();
@@ -69,7 +69,7 @@ class _OtpScreenState extends State<OtpScreen> {
   void _handleResendTap(BuildContext context) {
     // Prevent multiple rapid taps
     final now = DateTime.now();
-    if (_lastResendTap != null && now.difference(_lastResendTap!).inSeconds < 2) {
+    if (_lastResendTap != null && now.difference(_lastResendTap!).inSeconds < 3) {
       debugPrint('Ignoring rapid resend tap');
       return;
     }
@@ -87,8 +87,11 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
     
-    debugPrint('Processing resend request for: ${widget.phoneNumber}');
+    debugPrint('Processing fresh OTP request for: ${widget.phoneNumber}');
     _isResendingInProgress = true;
+    
+    // Clear the current OTP field
+    otpController.clear();
     
     context.read<OtpBloc>().add(ResendOtpEvent(phoneNumber: widget.phoneNumber));
   }
@@ -134,7 +137,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 );
               }
             } else if (state is OtpResentState) {
-              debugPrint('OTP Resent Successfully');
+              debugPrint('Fresh OTP request completed successfully');
               _isResendingInProgress = false;
               
               ScaffoldMessenger.of(context).showSnackBar(
@@ -143,16 +146,15 @@ class _OtpScreenState extends State<OtpScreen> {
                     children: [
                       Icon(Icons.check_circle, color: Colors.white, size: 20),
                       SizedBox(width: 12),
-                      Text("OTP Resent Successfully"),
+                      Text("New OTP sent successfully!"),
                     ],
                   ),
                   backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
+                  duration: Duration(seconds: 3),
                 ),
               );
               
-              // Clear OTP field and restart timer
-              otpController.clear();
+              // Restart timer
               _startTimer();
               
             } else if (state is OtpVerificationFailureState) {
@@ -169,7 +171,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     ],
                   ),
                   backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 3),
+                  duration: const Duration(seconds: 4),
                 ),
               );
             }
@@ -237,64 +239,83 @@ class _OtpScreenState extends State<OtpScreen> {
                             ),
                           const SizedBox(height: 24),
                           
-                          // Resend Section with improved debouncing
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Didn't receive code? ",
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: (_canResend && !isVerifying && !_isResendingInProgress)
-                                    ? () => _handleResendTap(context)
-                                    : null,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (_isResendingInProgress) ...[
-                                        SizedBox(
-                                          width: 12,
-                                          height: 12,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
-                                            valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Sending...',
-                                          style: TextStyle(
-                                            color: ColorManager.primary,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ] else ...[
-                                        Text(
-                                          _canResend ? 'Resend' : 'Resend in ${_countdown}s',
-                                          style: TextStyle(
-                                            color: _canResend && !isVerifying
-                                                ? ColorManager.primary
-                                                : Colors.grey,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            decoration: _canResend && !isVerifying 
-                                                ? TextDecoration.underline 
-                                                : null,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                          // Resend Section with improved UI
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  "Didn't receive the code?",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 12),
+                                GestureDetector(
+                                  onTap: (_canResend && !isVerifying && !_isResendingInProgress)
+                                      ? () => _handleResendTap(context)
+                                      : null,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: (_canResend && !isVerifying && !_isResendingInProgress)
+                                          ? ColorManager.primary
+                                          : Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_isResendingInProgress) ...[
+                                          SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Sending new OTP...',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ] else ...[
+                                          Icon(
+                                            Icons.refresh,
+                                            color: (_canResend && !isVerifying)
+                                                ? Colors.white
+                                                : Colors.grey[600],
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _canResend ? 'Send New OTP' : 'Wait ${_countdown}s',
+                                            style: TextStyle(
+                                              color: (_canResend && !isVerifying)
+                                                  ? Colors.white
+                                                  : Colors.grey[600],
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 40),
                         ],

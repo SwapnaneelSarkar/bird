@@ -24,8 +24,13 @@ class FoodItemCard extends StatelessWidget {
     num price = item['price'] ?? 0;
     String description = item['description'] ?? '';
     
+    final screenWidth = MediaQuery.of(context).size.width;
+    
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(
+        vertical: screenWidth * 0.03,
+        horizontal: screenWidth * 0.04,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -49,13 +54,13 @@ class FoodItemCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              width: 100,
-              height: 100,
+              width: screenWidth * 0.24,
+              height: screenWidth * 0.24,
               child: CachedImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                width: 100,
-                height: 100,
+                width: screenWidth * 0.24,
+                height: screenWidth * 0.24,
                 placeholder: (context) => Container(
                   color: Colors.grey[200],
                   child: Center(
@@ -81,7 +86,7 @@ class FoodItemCard extends StatelessWidget {
             ),
           ),
           
-          const SizedBox(width: 12),
+          SizedBox(width: screenWidth * 0.03),
           
           // Food details section with absolute positioned dot
           Expanded(
@@ -100,7 +105,7 @@ class FoodItemCard extends StatelessWidget {
                           child: Text(
                             name,
                             style: GoogleFonts.poppins(
-                              fontSize: 18,
+                              fontSize: screenWidth * 0.045,
                               fontWeight: FontWeight.w600,
                               color: Colors.black87,
                               letterSpacing: -0.5,
@@ -110,23 +115,24 @@ class FoodItemCard extends StatelessWidget {
                       ],
                     ),
                     
-                    const SizedBox(height: 6),
+                    SizedBox(height: screenWidth * 0.015),
                     
                     // Description
                     if (description.isNotEmpty)
-                      Text(
-                        description,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w400,
-                          height: 1.3,
+                      Padding(
+                        padding: EdgeInsets.only(bottom: screenWidth * 0.03),
+                        child: Text(
+                          description,
+                          style: GoogleFonts.poppins(
+                            fontSize: screenWidth * 0.035,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w400,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    
-                    const SizedBox(height: 12),
                     
                     // Price and quantity selector in a row
                     Row(
@@ -137,7 +143,7 @@ class FoodItemCard extends StatelessWidget {
                         Text(
                           '₹${price.toString()}',
                           style: GoogleFonts.poppins(
-                            fontSize: 18,
+                            fontSize: screenWidth * 0.045,
                             fontWeight: FontWeight.w700,
                             color: Colors.black,
                             letterSpacing: -0.5,
@@ -147,8 +153,8 @@ class FoodItemCard extends StatelessWidget {
                         // Quantity controls or Add button
                         quantity == 0 
                         ? Container(
-                            height: 38,
-                            margin: const EdgeInsets.only(right: 10), // Added right margin to move button left
+                            height: screenWidth * 0.1,
+                            margin: EdgeInsets.only(right: screenWidth * 0.025),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
@@ -173,24 +179,27 @@ class FoodItemCard extends StatelessWidget {
                                 onTap: () => onQuantityChanged(1),
                                 borderRadius: BorderRadius.circular(20),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenWidth * 0.04, 
+                                    vertical: screenWidth * 0.02
+                                  ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         'Add',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 14,
+                                          fontSize: screenWidth * 0.035,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.white,
                                           letterSpacing: 0.3,
                                         ),
                                       ),
-                                      const SizedBox(width: 5),
-                                      const Icon(
+                                      SizedBox(width: screenWidth * 0.012),
+                                      Icon(
                                         Icons.add_shopping_cart_rounded,
                                         color: Colors.white,
-                                        size: 16,
+                                        size: screenWidth * 0.04,
                                       ),
                                     ],
                                   ),
@@ -220,13 +229,13 @@ class FoodItemCard extends StatelessWidget {
                                   onTap: () => onQuantityChanged(quantity > 0 ? quantity - 1 : 0),
                                   borderRadius: BorderRadius.circular(50),
                                   child: Container(
-                                    width: 36,
-                                    height: 36,
+                                    width: screenWidth * 0.09,
+                                    height: screenWidth * 0.09,
                                     alignment: Alignment.center,
                                     child: Text(
                                       '-',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20,
+                                        fontSize: screenWidth * 0.05,
                                         color: Colors.grey,
                                         fontWeight: FontWeight.w400,
                                       ),
@@ -236,12 +245,12 @@ class FoodItemCard extends StatelessWidget {
                                 
                                 // Quantity text
                                 SizedBox(
-                                  width: 30,
+                                  width: screenWidth * 0.075,
                                   child: Text(
                                     quantity.toString(),
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 16,
+                                      fontSize: screenWidth * 0.04,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -252,13 +261,13 @@ class FoodItemCard extends StatelessWidget {
                                   onTap: () => onQuantityChanged(quantity + 1),
                                   borderRadius: BorderRadius.circular(50),
                                   child: Container(
-                                    width: 36,
-                                    height: 36,
+                                    width: screenWidth * 0.09,
+                                    height: screenWidth * 0.09,
                                     alignment: Alignment.center,
                                     child: Text(
                                       '+',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20,
+                                        fontSize: screenWidth * 0.05,
                                         color: ColorManager.primary,
                                         fontWeight: FontWeight.w400,
                                       ),
@@ -276,10 +285,10 @@ class FoodItemCard extends StatelessWidget {
                 // Veg indicator absolutely positioned at top and centered above button
                 Positioned(
                   top: 0,
-                  right: quantity == 0 ? 60 : 54, // Adjusted to match shifted button
+                  right: quantity == 0 ? screenWidth * 0.15 : screenWidth * 0.135,
                   child: Container(
-                    width: 16,
-                    height: 16,
+                    width: screenWidth * 0.04,
+                    height: screenWidth * 0.04,
                     decoration: BoxDecoration(
                       color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
                       shape: BoxShape.circle,

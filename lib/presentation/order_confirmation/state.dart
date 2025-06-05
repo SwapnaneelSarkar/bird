@@ -14,19 +14,23 @@ class OrderConfirmationLoading extends OrderConfirmationState {}
 
 class OrderConfirmationLoaded extends OrderConfirmationState {
   final OrderSummary orderSummary;
+  final Map<String, dynamic> cartMetadata;
   
   const OrderConfirmationLoaded({
     required this.orderSummary,
+    required this.cartMetadata,
   });
   
   @override
-  List<Object?> get props => [orderSummary];
+  List<Object?> get props => [orderSummary, cartMetadata];
   
   OrderConfirmationLoaded copyWith({
     OrderSummary? orderSummary,
+    Map<String, dynamic>? cartMetadata,
   }) {
     return OrderConfirmationLoaded(
       orderSummary: orderSummary ?? this.orderSummary,
+      cartMetadata: cartMetadata ?? this.cartMetadata,
     );
   }
 }

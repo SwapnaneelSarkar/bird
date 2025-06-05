@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/order_confirmation_model.dart';
+import '../../../service/cart_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -24,70 +25,67 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       debugPrint('OrderConfirmationBloc: Loading order confirmation data');
       debugPrint('OrderConfirmationBloc: Order ID: ${event.orderId}');
       
-      // Simulate API delay
-      await Future.delayed(const Duration(milliseconds: 800));
+      // Load cart data from CartService
+      final cart = await CartService.getCart();
       
-      // Hardcoded data for now - this will be replaced with API call later
-      final orderItems = [
-        OrderItem(
-          id: 'item_001',
-          name: 'Classic Cheeseburger',
-          imageUrl: 'assets/images/burger.png',
-          quantity: 2,
-          price: 12.99,
-        ),
-        OrderItem(
-          id: 'item_002',
-          name: 'Crispy French Fries',
-          imageUrl: 'assets/images/fries.png',
-          quantity: 2,
-          price: 3.99,
-        ),
-        OrderItem(
-          id: 'item_003',
-          name: 'Chocolate Milkshake',
-          imageUrl: 'assets/images/milkshake.png',
-          quantity: 2,
-          price: 5.99,
-        ),
-        OrderItem(
-          id: 'item_004',
-          name: 'Buffalo Chicken Wings',
-          imageUrl: 'assets/images/wings.png',
-          quantity: 1,
-          price: 14.99,
-        ),
-        OrderItem(
-          id: 'item_005',
-          name: 'Fresh Garden Salad',
-          imageUrl: 'assets/images/salad.png',
-          quantity: 1,
-          price: 9.99,
-        ),
-      ];
+      if (cart == null || cart['items'] == null || (cart['items'] as List).isEmpty) {
+        debugPrint('OrderConfirmationBloc: No cart data found or cart is empty');
+        emit(OrderConfirmationError('Your cart is empty. Please add items to continue.'));
+        return;
+      }
+      
+      debugPrint('OrderConfirmationBloc: Cart loaded successfully');
+      debugPrint('OrderConfirmationBloc: Partner ID: ${cart['partner_id']}');
+      debugPrint('OrderConfirmationBloc: Restaurant: ${cart['restaurant_name']}');
+      debugPrint('OrderConfirmationBloc: Items count: ${(cart['items'] as List).length}');
+      
+      // Convert cart items to OrderItem objects
+      final cartItems = cart['items'] as List<dynamic>;
+      final orderItems = cartItems.map((item) {
+        debugPrint('Converting cart item: ${item['name']}, Price: ${item['price']}, Qty: ${item['quantity']}');
+        
+        return OrderItem(
+          id: item['menu_id'] ?? '',
+          name: item['name'] ?? '',
+          imageUrl: item['image_url'] ?? 'assets/images/placeholder.png',
+          quantity: item['quantity'] ?? 1,
+          price: (item['price'] as num?)?.toDouble() ?? 0.0,
+        );
+      }).toList();
       
       debugPrint('OrderConfirmationBloc: Created ${orderItems.length} order items');
       
       // Print each item details for debugging
       for (var item in orderItems) {
-        debugPrint('Item: ${item.name}, Price: \${item.price}, Qty: ${item.quantity}, Total: \${item.totalPrice}');
+        debugPrint('Item: ${item.name}, Price: ₹${item.price}, Qty: ${item.quantity}, Total: ₹${item.totalPrice}');
       }
       
       final orderSummary = OrderSummary(
         items: orderItems,
-        deliveryFee: 3.99,
+        deliveryFee: (cart['delivery_fees'] as num?)?.toDouble() ?? 50.0,
         taxAmount: 0.0,
         discountAmount: 0.0,
       );
       
       debugPrint('OrderConfirmationBloc: Order loaded successfully');
       debugPrint('OrderConfirmationBloc: Total items: ${orderSummary.items.length}');
-      debugPrint('OrderConfirmationBloc: Subtotal: \${orderSummary.subtotal.toStringAsFixed(2)}');
-      debugPrint('OrderConfirmationBloc: Delivery Fee: \${orderSummary.deliveryFee.toStringAsFixed(2)}');
-      debugPrint('OrderConfirmationBloc: Total: \${orderSummary.total.toStringAsFixed(2)}');
+      debugPrint('OrderConfirmationBloc: Subtotal: ₹${orderSummary.subtotal.toStringAsFixed(2)}');
+      debugPrint('OrderConfirmationBloc: Delivery Fee: ₹${orderSummary.deliveryFee.toStringAsFixed(2)}');
+      debugPrint('OrderConfirmationBloc: Total: ₹${orderSummary.total.toStringAsFixed(2)}');
+      
+      // Store cart metadata for order placement
+      final cartMetadata = {
+        'partner_id': cart['partner_id'],
+        'restaurant_name': cart['restaurant_name'],
+        'user_id': cart['user_id'],
+        'address': cart['address'] ?? '',
+      };
       
       // Ensure we emit the loaded state
-      emit(OrderConfirmationLoaded(orderSummary: orderSummary));
+      emit(OrderConfirmationLoaded(
+        orderSummary: orderSummary,
+        cartMetadata: cartMetadata,
+      ));
       
       debugPrint('OrderConfirmationBloc: Emitted OrderConfirmationLoaded state');
       
@@ -111,7 +109,10 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         // Simulate API call to proceed with order
         await Future.delayed(const Duration(milliseconds: 1500));
         
-        debugPrint('OrderConfirmationBloc: Order processed successfully, proceeding to chat');
+        // Clear cart after successful order
+        await CartService.clearCart();
+        
+        debugPrint('OrderConfirmationBloc: Order processed successfully, cart cleared, proceeding to chat');
         emit(OrderConfirmationSuccess('Order confirmed! Proceeding to chat...'));
         
       } catch (e) {
@@ -136,6 +137,43 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       try {
         debugPrint('OrderConfirmationBloc: Updating quantity for item ${event.itemId} to ${event.newQuantity}');
         
+        // Update cart in storage
+        final cart = await CartService.getCart();
+        if (cart != null) {
+          final items = List<Map<String, dynamic>>.from(cart['items']);
+          final itemIndex = items.indexWhere((item) => item['menu_id'] == event.itemId);
+          
+          if (itemIndex >= 0) {
+            if (event.newQuantity <= 0) {
+              items.removeAt(itemIndex);
+              debugPrint('OrderConfirmationBloc: Removed item from cart');
+            } else {
+              items[itemIndex]['quantity'] = event.newQuantity;
+              items[itemIndex]['total_price'] = items[itemIndex]['price'] * event.newQuantity;
+              debugPrint('OrderConfirmationBloc: Updated item quantity in cart');
+            }
+            
+            // Update cart totals
+            cart['items'] = items;
+            double subtotal = 0.0;
+            for (var item in items) {
+              subtotal += (item['total_price'] as num).toDouble();
+            }
+            cart['subtotal'] = subtotal;
+            cart['total_price'] = subtotal + (cart['delivery_fees'] as num).toDouble();
+            
+            // Save updated cart or clear if empty
+            if (items.isEmpty) {
+              await CartService.clearCart();
+              emit(OrderConfirmationError('Your cart is empty. Please add items to continue.'));
+              return;
+            } else {
+              await CartService.saveCart(cart);
+            }
+          }
+        }
+        
+        // Update UI state
         final updatedItems = currentState.orderSummary.items.map((item) {
           if (item.id == event.itemId) {
             return OrderItem(
@@ -147,7 +185,12 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             );
           }
           return item;
-        }).toList();
+        }).where((item) => item.quantity > 0).toList();
+        
+        if (updatedItems.isEmpty) {
+          emit(OrderConfirmationError('Your cart is empty. Please add items to continue.'));
+          return;
+        }
         
         final updatedOrderSummary = OrderSummary(
           items: updatedItems,
@@ -156,8 +199,8 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           discountAmount: currentState.orderSummary.discountAmount,
         );
         
-        debugPrint('OrderConfirmationBloc: Updated subtotal: \$${updatedOrderSummary.subtotal.toStringAsFixed(2)}');
-        debugPrint('OrderConfirmationBloc: Updated total: \$${updatedOrderSummary.total.toStringAsFixed(2)}');
+        debugPrint('OrderConfirmationBloc: Updated subtotal: ₹${updatedOrderSummary.subtotal.toStringAsFixed(2)}');
+        debugPrint('OrderConfirmationBloc: Updated total: ₹${updatedOrderSummary.total.toStringAsFixed(2)}');
         
         emit(currentState.copyWith(orderSummary: updatedOrderSummary));
         
@@ -178,6 +221,31 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       try {
         debugPrint('OrderConfirmationBloc: Removing item ${event.itemId}');
         
+        // Update cart in storage
+        final cart = await CartService.getCart();
+        if (cart != null) {
+          final items = List<Map<String, dynamic>>.from(cart['items']);
+          items.removeWhere((item) => item['menu_id'] == event.itemId);
+          
+          if (items.isEmpty) {
+            await CartService.clearCart();
+            emit(OrderConfirmationError('Your cart is empty. Please add items to continue.'));
+            return;
+          } else {
+            // Update cart totals
+            cart['items'] = items;
+            double subtotal = 0.0;
+            for (var item in items) {
+              subtotal += (item['total_price'] as num).toDouble();
+            }
+            cart['subtotal'] = subtotal;
+            cart['total_price'] = subtotal + (cart['delivery_fees'] as num).toDouble();
+            
+            await CartService.saveCart(cart);
+          }
+        }
+        
+        // Update UI state
         final updatedItems = currentState.orderSummary.items
             .where((item) => item.id != event.itemId)
             .toList();
@@ -197,7 +265,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         
         debugPrint('OrderConfirmationBloc: Item removed successfully');
         debugPrint('OrderConfirmationBloc: Remaining items: ${updatedItems.length}');
-        debugPrint('OrderConfirmationBloc: Updated total: \$${updatedOrderSummary.total.toStringAsFixed(2)}');
+        debugPrint('OrderConfirmationBloc: Updated total: ₹${updatedOrderSummary.total.toStringAsFixed(2)}');
         
         emit(currentState.copyWith(orderSummary: updatedOrderSummary));
         

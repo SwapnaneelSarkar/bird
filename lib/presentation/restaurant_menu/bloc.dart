@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../../../service/token_service.dart';
+import '../../../service/cart_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../../utils/distance_util.dart';
 import 'event.dart';
@@ -14,7 +15,10 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
   RestaurantDetailsBloc() : super(RestaurantDetailsInitial()) {
     on<LoadRestaurantDetails>(_onLoadRestaurantDetails);
     on<AddItemToCart>(_onAddItemToCart);
+    on<ReplaceCartWithNewRestaurant>(_onReplaceCartWithNewRestaurant);
     on<ToggleFavorite>(_onToggleFavorite);
+    on<LoadCartData>(_onLoadCartData);
+    on<DismissCartConflict>(_onDismissCartConflict);
   }
   
   Future<void> _onLoadRestaurantDetails(
@@ -204,11 +208,25 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
       final favoriteRestaurants = prefs.getStringList('favorite_restaurants') ?? [];
       final isFavorite = favoriteRestaurants.contains(restaurantName);
       
+      // Load cart data to show current quantities
+      final cart = await CartService.getCart();
+      Map<String, int> cartQuantities = {};
+      
+      if (cart != null && cart['partner_id'] == partnerId) {
+        final items = cart['items'] as List<dynamic>? ?? [];
+        for (var item in items) {
+          cartQuantities[item['menu_id']] = item['quantity'] ?? 0;
+        }
+        debugPrint('RestaurantDetailsBloc: Loaded cart with ${items.length} items');
+      }
+      
       emit(RestaurantDetailsLoaded(
         restaurant: restaurant,
         menu: menuItems,
-        cartItems: [],
+        cartQuantities: cartQuantities,
         isFavorite: isFavorite,
+        cartItemCount: await CartService.getCartItemCount(),
+        cartTotal: await CartService.getCartTotal(),
       ));
       
     } catch (e) {
@@ -224,42 +242,227 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
     try {
       if (state is RestaurantDetailsLoaded) {
         final currentState = state as RestaurantDetailsLoaded;
+        final restaurant = currentState.restaurant;
         
-        // Check if item already in cart
-        final existingItemIndex = currentState.cartItems.indexWhere(
-          (item) => item['id'] == event.item['id']
+        final partnerId = restaurant['partnerId'] ?? 
+                         restaurant['partner_id'] ?? 
+                         restaurant['id'] ?? '';
+        
+        final restaurantName = restaurant['restaurantName'] ?? 
+                              restaurant['restaurant_name'] ?? 
+                              restaurant['name'] ?? '';
+        
+        debugPrint('RestaurantDetailsBloc: Adding item to cart');
+        debugPrint('RestaurantDetailsBloc: Partner ID: $partnerId');
+        debugPrint('RestaurantDetailsBloc: Item: ${event.item['name']}, Quantity: ${event.quantity}');
+        
+        final result = await CartService.addItemToCart(
+          partnerId: partnerId,
+          restaurantName: restaurantName,
+          menuId: event.item['id'] ?? '',
+          itemName: event.item['name'] ?? '',
+          price: (event.item['price'] as num?)?.toDouble() ?? 0.0,
+          quantity: event.quantity,
+          imageUrl: event.item['imageUrl'],
         );
         
-        List<Map<String, dynamic>> updatedCart = List.from(currentState.cartItems);
-        
-        if (existingItemIndex >= 0) {
-          // Update quantity
-          final existingItem = updatedCart[existingItemIndex];
-          final updatedItem = {...existingItem};
-          updatedItem['quantity'] = event.quantity;
+        if (result['success'] == true) {
+          // Update cart quantities
+          Map<String, int> updatedQuantities = Map.from(currentState.cartQuantities);
           
-          if (event.quantity > 0) {
-            updatedCart[existingItemIndex] = updatedItem;
+          if (event.quantity <= 0) {
+            updatedQuantities.remove(event.item['id']);
           } else {
-            // Remove item if quantity is 0
-            updatedCart.removeAt(existingItemIndex);
+            updatedQuantities[event.item['id']] = event.quantity;
           }
-        } else if (event.quantity > 0) {
-          // Add new item
-          updatedCart.add({
-            ...event.item,
-            'quantity': event.quantity,
+          
+          // Emit success message first
+          emit(CartUpdateSuccess(result['message'] ?? 'Cart updated'));
+          
+          // Then emit updated state
+          emit(currentState.copyWith(
+            cartQuantities: updatedQuantities,
+            cartItemCount: result['total_items'] ?? 0,
+            cartTotal: result['cart']?['total_price']?.toDouble() ?? 0.0,
+          ));
+        } else if (result['message'] == 'different_restaurant') {
+          // Emit state to show dialog
+          emit(CartConflictDetected(
+            currentRestaurant: result['current_restaurant'] ?? '',
+            newRestaurant: result['new_restaurant'] ?? '',
+            pendingItem: event.item,
+            pendingQuantity: event.quantity,
+            previousState: currentState,
+          ));
+        } else {
+          emit(CartUpdateError(result['message'] ?? 'Failed to update cart'));
+          
+          // Return to loaded state
+          Future.delayed(const Duration(seconds: 2), () {
+            if (!emit.isDone) {
+              emit(currentState);
+            }
           });
         }
-        
-        // First emit success message for the snackbar
-        emit(CartUpdateSuccess('Item added to cart'));
-        
-        // Then emit updated state
-        emit(currentState.copyWith(cartItems: updatedCart));
       }
     } catch (e) {
       debugPrint('RestaurantDetailsBloc: Error updating cart: $e');
+      emit(CartUpdateError('Error updating cart'));
+    }
+  }
+  
+  Future<void> _onReplaceCartWithNewRestaurant(
+    ReplaceCartWithNewRestaurant event, 
+    Emitter<RestaurantDetailsState> emit
+  ) async {
+    try {
+      debugPrint('RestaurantDetailsBloc: Replacing cart with new restaurant');
+      debugPrint('RestaurantDetailsBloc: Item: ${event.item['name']}, Quantity: ${event.quantity}');
+      
+      RestaurantDetailsLoaded? currentState;
+      
+      // Get the current state - either from loaded state or conflict state
+      if (state is RestaurantDetailsLoaded) {
+        currentState = state as RestaurantDetailsLoaded;
+      } else if (state is CartConflictDetected) {
+        currentState = (state as CartConflictDetected).previousState;
+      }
+      
+      if (currentState == null) {
+        debugPrint('RestaurantDetailsBloc: No valid current state found');
+        emit(RestaurantDetailsError('Unable to replace cart. Please try again.'));
+        return;
+      }
+      
+      final restaurant = currentState.restaurant;
+      
+      final partnerId = restaurant['partnerId'] ?? 
+                       restaurant['partner_id'] ?? 
+                       restaurant['id'] ?? '';
+      
+      final restaurantName = restaurant['restaurantName'] ?? 
+                            restaurant['restaurant_name'] ?? 
+                            restaurant['name'] ?? '';
+      
+      debugPrint('RestaurantDetailsBloc: Partner ID: $partnerId');
+      debugPrint('RestaurantDetailsBloc: Restaurant Name: $restaurantName');
+      
+      final result = await CartService.replaceCartWithNewRestaurant(
+        partnerId: partnerId,
+        restaurantName: restaurantName,
+        menuId: event.item['id'] ?? '',
+        itemName: event.item['name'] ?? '',
+        price: (event.item['price'] as num?)?.toDouble() ?? 0.0,
+        quantity: event.quantity,
+        imageUrl: event.item['imageUrl'],
+      );
+      
+      debugPrint('RestaurantDetailsBloc: Replace cart result: $result');
+      
+      if (result['success'] == true) {
+        // Update cart quantities - clear all and add new item
+        Map<String, int> updatedQuantities = {
+          event.item['id']: event.quantity,
+        };
+        
+        debugPrint('RestaurantDetailsBloc: Cart replaced successfully');
+        debugPrint('RestaurantDetailsBloc: New cart total items: ${result['total_items']}');
+        debugPrint('RestaurantDetailsBloc: New cart total price: ${result['cart']?['total_price']}');
+        
+        emit(CartUpdateSuccess(result['message'] ?? 'Cart updated with new restaurant'));
+        
+        emit(currentState.copyWith(
+          cartQuantities: updatedQuantities,
+          cartItemCount: result['total_items'] ?? 0,
+          cartTotal: result['cart']?['total_price']?.toDouble() ?? 0.0,
+        ));
+      } else {
+        debugPrint('RestaurantDetailsBloc: Failed to replace cart: ${result['message']}');
+        emit(CartUpdateError(result['message'] ?? 'Failed to update cart'));
+        
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!emit.isDone) {
+            emit(currentState!);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('RestaurantDetailsBloc: Error replacing cart: $e');
+      emit(CartUpdateError('Error updating cart'));
+    }
+  }
+  
+  Future<void> _onLoadCartData(
+    LoadCartData event, 
+    Emitter<RestaurantDetailsState> emit
+  ) async {
+    try {
+      if (state is RestaurantDetailsLoaded) {
+        final currentState = state as RestaurantDetailsLoaded;
+        final restaurant = currentState.restaurant;
+        
+        final partnerId = restaurant['partnerId'] ?? 
+                         restaurant['partner_id'] ?? 
+                         restaurant['id'] ?? '';
+        
+        // Load cart data
+        final cart = await CartService.getCart();
+        Map<String, int> cartQuantities = {};
+        
+        if (cart != null && cart['partner_id'] == partnerId) {
+          final items = cart['items'] as List<dynamic>? ?? [];
+          for (var item in items) {
+            cartQuantities[item['menu_id']] = item['quantity'] ?? 0;
+          }
+        }
+        
+        emit(currentState.copyWith(
+          cartQuantities: cartQuantities,
+          cartItemCount: await CartService.getCartItemCount(),
+          cartTotal: await CartService.getCartTotal(),
+        ));
+      }
+    } catch (e) {
+      debugPrint('RestaurantDetailsBloc: Error loading cart data: $e');
+    }
+  }
+  
+  Future<void> _onDismissCartConflict(
+    DismissCartConflict event, 
+    Emitter<RestaurantDetailsState> emit
+  ) async {
+    try {
+      // If we're in a conflict state, return to the previous loaded state
+      if (state is CartConflictDetected) {
+        final conflictState = state as CartConflictDetected;
+        
+        // Reload cart data to ensure we have the latest cart state
+        final cart = await CartService.getCart();
+        final restaurant = conflictState.previousState.restaurant;
+        
+        final partnerId = restaurant['partnerId'] ?? 
+                         restaurant['partner_id'] ?? 
+                         restaurant['id'] ?? '';
+        
+        Map<String, int> cartQuantities = {};
+        
+        if (cart != null && cart['partner_id'] == partnerId) {
+          final items = cart['items'] as List<dynamic>? ?? [];
+          for (var item in items) {
+            cartQuantities[item['menu_id']] = item['quantity'] ?? 0;
+          }
+        }
+        
+        emit(conflictState.previousState.copyWith(
+          cartQuantities: cartQuantities,
+          cartItemCount: await CartService.getCartItemCount(),
+          cartTotal: await CartService.getCartTotal(),
+        ));
+      }
+    } catch (e) {
+      debugPrint('RestaurantDetailsBloc: Error dismissing cart conflict: $e');
+      // Fallback to loading cart data
+      add(const LoadCartData());
     }
   }
   

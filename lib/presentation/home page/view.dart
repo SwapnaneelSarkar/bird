@@ -4,12 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
-
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/constants/color/colorConstant.dart';
-import 'package:bird/constants/font/fontManager.dart';
-import '../../../service/token_service.dart';
-import '../../../utils/distance_util.dart';
 import '../../../widgets/restaurant_card.dart';
 import '../address bottomSheet/view.dart';
 import '../restaurant_menu/view.dart';

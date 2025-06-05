@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../constants/font/fontManager.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/food_item_card.dart';
+import '../../widgets/cart_dialog.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -77,6 +78,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   String _searchQuery = '';
   String _sortOption = 'none';
   bool _isFilterMenuOpen = false;
+  bool _isShowingConflictDialog = false; // Add this flag
   
   @override
   void initState() {
@@ -146,6 +148,23 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                 duration: const Duration(seconds: 2)
               ),
             );
+          } else if (state is CartUpdateError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message), 
+                backgroundColor: Colors.red, 
+                duration: const Duration(seconds: 2)
+              ),
+            );
+          } else if (state is CartConflictDetected && !_isShowingConflictDialog) {
+            // Prevent multiple dialogs
+            _isShowingConflictDialog = true;
+            // Handle the dialog in the next frame to avoid state conflicts
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showCartConflictDialog(context, state).then((_) {
+                _isShowingConflictDialog = false;
+              });
+            });
           }
         },
         builder: (context, state) {
@@ -153,6 +172,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
             return const Center(child: CircularProgressIndicator());
           } else if (state is RestaurantDetailsLoaded) {
             return _buildUpdatedContent(context, state);
+          } else if (state is CartConflictDetected) {
+            // While dialog is being handled, show the previous loaded content
+            return _buildUpdatedContent(context, state.previousState);
           } else if (state is RestaurantDetailsError) {
             return Center(
               child: Column(
@@ -171,6 +193,114 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
           
           return const Center(child: CircularProgressIndicator());
         },
+      ),
+      // Add floating cart button
+      floatingActionButton: BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+        builder: (context, state) {
+          if (state is RestaurantDetailsLoaded && state.cartItemCount > 0) {
+            return _buildCartFloatingButton(context, state);
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Future<void> _showCartConflictDialog(BuildContext context, CartConflictDetected state) async {
+    try {
+      debugPrint('RestaurantDetailsView: Showing cart conflict dialog');
+      debugPrint('RestaurantDetailsView: Current restaurant: ${state.currentRestaurant}');
+      debugPrint('RestaurantDetailsView: New restaurant: ${state.newRestaurant}');
+      
+      final result = await CartConflictDialog.show(
+        context: context,
+        currentRestaurant: state.currentRestaurant,
+        newRestaurant: state.newRestaurant,
+      );
+      
+      debugPrint('RestaurantDetailsView: Dialog result: $result');
+      
+      if (result == true) {
+        // User chose to replace cart
+        debugPrint('RestaurantDetailsView: User chose to replace cart');
+        context.read<RestaurantDetailsBloc>().add(
+          ReplaceCartWithNewRestaurant(
+            item: state.pendingItem,
+            quantity: state.pendingQuantity,
+          ),
+        );
+      } else {
+        // User chose to keep current cart or dismissed dialog
+        debugPrint('RestaurantDetailsView: User chose to keep current cart');
+        context.read<RestaurantDetailsBloc>().add(const DismissCartConflict());
+      }
+    } catch (e) {
+      debugPrint('RestaurantDetailsView: Error in cart conflict dialog: $e');
+      // Fallback to dismiss conflict
+      context.read<RestaurantDetailsBloc>().add(const DismissCartConflict());
+    }
+  }
+
+  Widget _buildCartFloatingButton(BuildContext context, RestaurantDetailsLoaded state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return Container(
+      width: screenWidth * 0.9,
+      height: 56,
+      margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.pushNamed(context, Routes.orderConfirmation);
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: ColorManager.primary,
+          foregroundColor: Colors.white,
+          elevation: 8,
+          shadowColor: ColorManager.primary.withOpacity(0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${state.cartItemCount}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'View Cart',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              '₹${state.cartTotal.toStringAsFixed(2)}',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -327,11 +457,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                     itemCount: filteredAndSortedMenu.length,
                     itemBuilder: (context, index) {
                       final menuItem = filteredAndSortedMenu[index];
-                      final cartItem = state.cartItems.firstWhere(
-                        (item) => item['id'] == menuItem['id'],
-                        orElse: () => {"quantity": 0},
-                      );
-                      final quantity = cartItem['quantity'] ?? 0;
+                      final quantity = state.cartQuantities[menuItem['id']] ?? 0;
                       
                       return FoodItemCard(
                         item: menuItem,

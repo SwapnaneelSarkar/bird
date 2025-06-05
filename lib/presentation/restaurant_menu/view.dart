@@ -251,7 +251,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
       margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
       child: ElevatedButton(
         onPressed: () {
-          Navigator.pushNamed(context, Routes.orderConfirmation);
+          Navigator.pushReplacementNamed(context, Routes.orderConfirmation);
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: ColorManager.primary,

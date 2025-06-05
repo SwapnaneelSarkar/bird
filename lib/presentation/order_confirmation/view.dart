@@ -78,6 +78,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             );
             
             debugPrint('OrderConfirmationView: Navigating to chat...');
+            Navigator.of(context).pushReplacementNamed('/chat');
           } else if (state is OrderConfirmationError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

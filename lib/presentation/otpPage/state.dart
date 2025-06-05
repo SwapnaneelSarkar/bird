@@ -28,4 +28,18 @@ class OtpVerificationFailureState extends OtpState {
   OtpVerificationFailureState({required this.errorMessage});
 }
 
+// Old state for backward compatibility
 class OtpResentState extends OtpState {}
+
+// New improved resend states
+class OtpResendingState extends OtpState {}
+
+class OtpResentSuccessState extends OtpState {
+  final String message;
+  final String newVerificationId;
+  
+  OtpResentSuccessState({
+    required this.message,
+    required this.newVerificationId,
+  });
+}

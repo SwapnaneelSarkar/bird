@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // At the top of your notification_service.dart file
 @pragma('vm:entry-point')
@@ -16,7 +17,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('From: ${message.from}');
   print('Message Type: ${message.messageType}');
 }
-// Top-level function for background message handling
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -29,9 +29,15 @@ class NotificationService {
   // Navigation context for handling notification clicks
   static GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   
+  // SharedPreferences keys for tracking permission state
+  static const String _permissionRequestedKey = 'notification_permission_requested';
+  static const String _permissionGrantedKey = 'notification_permission_granted';
+  
   Future<void> initialize() async {
-    // Request permissions
-    await _requestPermissions();
+    print('🔧 Initializing NotificationService...');
+    
+    // Check and request permissions only if needed
+    await _checkAndRequestPermissions();
     
     // Initialize local notifications
     await _initializeLocalNotifications();
@@ -41,40 +47,124 @@ class NotificationService {
     
     // Get and print the FCM token
     await _printFCMToken();
+    
+    print('✅ NotificationService initialization complete');
   }
 
-  Future<void> _requestPermissions() async {
-    if (Platform.isIOS) {
-      // Request iOS permissions
-      await _firebaseMessaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
-    }
-    
-    // Request notification permission for Android 13+
-    if (Platform.isAndroid) {
-      final status = await Permission.notification.request();
-      if (status != PermissionStatus.granted) {
-        print('Notification permission denied');
+  Future<void> _checkAndRequestPermissions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Check if we've already handled permissions
+      final hasRequestedBefore = prefs.getBool(_permissionRequestedKey) ?? false;
+      final wasGrantedBefore = prefs.getBool(_permissionGrantedKey) ?? false;
+      
+      print('📱 Permission status - Requested before: $hasRequestedBefore, Granted before: $wasGrantedBefore');
+      
+      if (Platform.isIOS) {
+        // Check current iOS permission status
+        final settings = await _firebaseMessaging.getNotificationSettings();
+        print('📱 iOS current authorization status: ${settings.authorizationStatus}');
+        
+        if (settings.authorizationStatus == AuthorizationStatus.notDetermined || 
+            (!hasRequestedBefore && settings.authorizationStatus == AuthorizationStatus.denied)) {
+          
+          print('📱 Requesting iOS notification permissions...');
+          final newSettings = await _firebaseMessaging.requestPermission(
+            alert: true,
+            announcement: false,
+            badge: true,
+            carPlay: false,
+            criticalAlert: false,
+            provisional: false,
+            sound: true,
+          );
+          
+          // Save permission state
+          await prefs.setBool(_permissionRequestedKey, true);
+          final isGranted = newSettings.authorizationStatus == AuthorizationStatus.authorized ||
+                           newSettings.authorizationStatus == AuthorizationStatus.provisional;
+          await prefs.setBool(_permissionGrantedKey, isGranted);
+          
+          print('📱 iOS permission result: ${newSettings.authorizationStatus}');
+        } else {
+          print('📱 iOS permissions already handled - Status: ${settings.authorizationStatus}');
+        }
       }
+      
+      if (Platform.isAndroid) {
+        // Check current Android permission status
+        final currentStatus = await Permission.notification.status;
+        print('📱 Android current permission status: $currentStatus');
+        
+        // Only request if permission is not determined and we haven't requested before
+        if (currentStatus.isDenied && !hasRequestedBefore) {
+          print('📱 Requesting Android notification permissions...');
+          final newStatus = await Permission.notification.request();
+          
+          // Save permission state
+          await prefs.setBool(_permissionRequestedKey, true);
+          await prefs.setBool(_permissionGrantedKey, newStatus.isGranted);
+          
+          print('📱 Android permission result: $newStatus');
+          
+          if (newStatus.isDenied) {
+            print('⚠️ Android notification permission denied');
+          }
+        } else if (currentStatus.isPermanentlyDenied) {
+          print('⚠️ Android notification permission permanently denied');
+          // Optionally show dialog to open app settings
+          _showPermissionDeniedDialog();
+        } else {
+          print('📱 Android permissions already handled - Status: $currentStatus');
+        }
+      }
+    } catch (e) {
+      print('❌ Error checking/requesting permissions: $e');
+    }
+  }
+  
+  void _showPermissionDeniedDialog() {
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Notification Permission'),
+            content: const Text(
+              'Notifications are disabled. To receive updates about your orders, please enable notifications in your device settings.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Later'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+                child: const Text('Settings'),
+              ),
+            ],
+          );
+        },
+      );
     }
   }
 
   Future<void> _initializeLocalNotifications() async {
+    print('🔧 Initializing local notifications...');
+    
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@drawable/ic_notification');
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false, // Don't request again here
+      requestBadgePermission: false, // Don't request again here
+      requestSoundPermission: false, // Don't request again here
     );
 
     const InitializationSettings initializationSettings =
@@ -92,6 +182,8 @@ class NotificationService {
     if (Platform.isAndroid) {
       await _createNotificationChannels();
     }
+    
+    print('✅ Local notifications initialized');
   }
 
   Future<void> _createNotificationChannels() async {
@@ -107,11 +199,11 @@ class NotificationService {
     await _localNotifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+    
+    print('✅ Android notification channels created');
   }
 
-  // lib/services/notification_service.dart - Add these debug methods
-
-Future<void> _configureFirebaseMessaging() async {
+  Future<void> _configureFirebaseMessaging() async {
     print('🔧 Configuring Firebase Messaging...');
     
     // Set background message handler
@@ -209,7 +301,7 @@ Future<void> _configureFirebaseMessaging() async {
     }
   }
 
-  // Add this test method
+  // Test method for manual notification testing
   Future<void> testLocalNotificationManually() async {
     print('🧪 Testing local notification manually...');
     await _showLocalNotification(
@@ -217,9 +309,6 @@ Future<void> _configureFirebaseMessaging() async {
       body: 'This is a direct test of local notifications',
     );
   }
-  
-
-  
 
   void _onNotificationTapped(NotificationResponse response) {
     print('Notification tapped with payload: ${response.payload}');
@@ -314,5 +403,41 @@ Future<void> _configureFirebaseMessaging() async {
   Future<void> deleteToken() async {
     await _firebaseMessaging.deleteToken();
     print('FCM token deleted');
+  }
+  
+  // Method to check current permission status (useful for debugging)
+  Future<Map<String, dynamic>> getPermissionStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasRequested = prefs.getBool(_permissionRequestedKey) ?? false;
+    final wasGranted = prefs.getBool(_permissionGrantedKey) ?? false;
+    
+    if (Platform.isIOS) {
+      final settings = await _firebaseMessaging.getNotificationSettings();
+      return {
+        'platform': 'iOS',
+        'hasRequestedBefore': hasRequested,
+        'wasGrantedBefore': wasGranted,
+        'currentStatus': settings.authorizationStatus.toString(),
+        'isAuthorized': settings.authorizationStatus == AuthorizationStatus.authorized ||
+                       settings.authorizationStatus == AuthorizationStatus.provisional,
+      };
+    } else {
+      final status = await Permission.notification.status;
+      return {
+        'platform': 'Android',
+        'hasRequestedBefore': hasRequested,
+        'wasGrantedBefore': wasGranted,
+        'currentStatus': status.toString(),
+        'isGranted': status.isGranted,
+      };
+    }
+  }
+  
+  // Method to reset permission tracking (useful for testing)
+  Future<void> resetPermissionTracking() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_permissionRequestedKey);
+    await prefs.remove(_permissionGrantedKey);
+    print('🔄 Permission tracking reset');
   }
 }

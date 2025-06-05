@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,16 +25,74 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  // Single controller for the OTP field
   final TextEditingController otpController = TextEditingController();
+  Timer? _timer;
+  int _countdown = 0;
+  bool _canResend = true;
+  
+  // Add debouncing for resend button
+  bool _isResendingInProgress = false;
+  DateTime? _lastResendTap;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
 
   @override
   void dispose() {
     otpController.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  // Get the complete OTP directly from the controller
+  void _startTimer() {
+    _countdown = 30; // 30 seconds cooldown
+    _canResend = false;
+    
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_countdown > 0) {
+            _countdown--;
+          } else {
+            _canResend = true;
+            timer.cancel();
+          }
+        });
+      }
+    });
+  }
+
+  void _handleResendTap(BuildContext context) {
+    // Prevent multiple rapid taps
+    final now = DateTime.now();
+    if (_lastResendTap != null && now.difference(_lastResendTap!).inSeconds < 2) {
+      debugPrint('Ignoring rapid resend tap');
+      return;
+    }
+    _lastResendTap = now;
+    
+    // Check if already in progress
+    if (_isResendingInProgress) {
+      debugPrint('Resend already in progress, ignoring tap');
+      return;
+    }
+    
+    // Check if can resend
+    if (!_canResend) {
+      debugPrint('Cannot resend yet, ${_countdown}s remaining');
+      return;
+    }
+    
+    debugPrint('Processing resend request for: ${widget.phoneNumber}');
+    _isResendingInProgress = true;
+    
+    context.read<OtpBloc>().add(ResendOtpEvent(phoneNumber: widget.phoneNumber));
+  }
+
   String get completeOtp => otpController.text;
 
   @override
@@ -44,6 +103,11 @@ class _OtpScreenState extends State<OtpScreen> {
         create: (_) => OtpBloc(),
         child: BlocConsumer<OtpBloc, OtpState>(
           listener: (context, state) {
+            // Reset resending flag when state changes
+            if (_isResendingInProgress && state is! OtpVerificationLoadingState) {
+              _isResendingInProgress = false;
+            }
+            
             if (state is OtpVerificationSuccessState) {
               debugPrint('OTP Verification Successful');
               debugPrint('Is Login: ${state.isLogin}');
@@ -51,7 +115,6 @@ class _OtpScreenState extends State<OtpScreen> {
               debugPrint('Token: ${state.token}');
               
               if (state.isLogin) {
-                // User is logging in, navigate to home page
                 Navigator.pushReplacementNamed(
                   context,
                   Routes.home,
@@ -61,7 +124,6 @@ class _OtpScreenState extends State<OtpScreen> {
                   },
                 );
               } else {
-                // User is signing up, navigate to profile complete page
                 Navigator.pushReplacementNamed(
                   context,
                   Routes.profileComplete,
@@ -72,19 +134,49 @@ class _OtpScreenState extends State<OtpScreen> {
                 );
               }
             } else if (state is OtpResentState) {
+              debugPrint('OTP Resent Successfully');
+              _isResendingInProgress = false;
+              
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("OTP Resent")),
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      SizedBox(width: 12),
+                      Text("OTP Resent Successfully"),
+                    ],
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
               );
+              
+              // Clear OTP field and restart timer
+              otpController.clear();
+              _startTimer();
+              
             } else if (state is OtpVerificationFailureState) {
+              debugPrint('OTP Error: ${state.errorMessage}');
+              _isResendingInProgress = false;
+              
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(state.errorMessage),
+                  content: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.white, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(child: Text(state.errorMessage)),
+                    ],
+                  ),
                   backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
                 ),
               );
             }
           },
           builder: (context, state) {
+            final isVerifying = state is OtpVerificationLoadingState;
+            
             return SafeArea(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
@@ -120,17 +212,20 @@ class _OtpScreenState extends State<OtpScreen> {
                           ),
                           SizedBox(height: MediaQuery.of(context).size.height * 0.04),
                           
-                          // Replace the Wrap with a single OtpField
+                          // OTP Field
                           _buildOtpField(context),
                           
                           SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                          if (state is OtpVerificationLoadingState)
+                          
+                          // Verify Button
+                          if (isVerifying)
                             CircularProgressIndicator(color: ColorManager.primary)
                           else
                             CustomLargeButton(
                               text: 'Verify',
                               onPressed: completeOtp.length == 6
                                   ? () {
+                                      debugPrint('Verifying OTP: $completeOtp with verification ID: ${widget.verificationId}');
                                       context.read<OtpBloc>().add(
                                             VerifyOtpEvent(
                                               otp: completeOtp,
@@ -141,6 +236,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                   : () {}, // Empty function when disabled
                             ),
                           const SizedBox(height: 24),
+                          
+                          // Resend Section with improved debouncing
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -152,21 +249,48 @@ class _OtpScreenState extends State<OtpScreen> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: state is OtpVerificationLoadingState
-                                    ? null
-                                    : () {
-                                        context.read<OtpBloc>().add(
-                                            ResendOtpEvent(
-                                                phoneNumber: widget.phoneNumber));
-                                      },
-                                child: Text(
-                                  'Resend',
-                                  style: TextStyle(
-                                    color: state is OtpVerificationLoadingState
-                                        ? Colors.grey
-                                        : ColorManager.primary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
+                                onTap: (_canResend && !isVerifying && !_isResendingInProgress)
+                                    ? () => _handleResendTap(context)
+                                    : null,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (_isResendingInProgress) ...[
+                                        SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Sending...',
+                                          style: TextStyle(
+                                            color: ColorManager.primary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        Text(
+                                          _canResend ? 'Resend' : 'Resend in ${_countdown}s',
+                                          style: TextStyle(
+                                            color: _canResend && !isVerifying
+                                                ? ColorManager.primary
+                                                : Colors.grey,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            decoration: _canResend && !isVerifying 
+                                                ? TextDecoration.underline 
+                                                : null,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ),
@@ -205,7 +329,7 @@ class _OtpScreenState extends State<OtpScreen> {
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: ColorManager.black,
-          letterSpacing: 8.0, // Adding letter spacing for OTP-like appearance
+          letterSpacing: 8.0,
         ),
         decoration: InputDecoration(
           hintText: "000000",

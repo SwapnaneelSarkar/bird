@@ -10,6 +10,9 @@ import 'state.dart';
 class OtpBloc extends Bloc<OtpEvent, OtpState> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthService _authService = AuthService();
+  
+  // Add a flag to prevent multiple concurrent resend requests
+  bool _isResending = false;
 
   OtpBloc() : super(OtpInitialState()) {
     on<OtpChangedEvent>(_onOtpChanged);      
@@ -105,39 +108,80 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   }
 
   Future<void> _onResendOtp(ResendOtpEvent event, Emitter<OtpState> emit) async {
+    // Prevent multiple concurrent resend requests
+    if (_isResending) {
+      debugPrint('Resend already in progress, ignoring duplicate request');
+      return;
+    }
+    
+    _isResending = true;
+    debugPrint('=== STARTING OTP RESEND PROCESS ===');
+    debugPrint('Phone number: ${event.phoneNumber}');
+    
     try {
+      // Simple approach: Use the same logic as LoginBloc but simplified
+      debugPrint('Calling Firebase verifyPhoneNumber for resend...');
+      
+      // Use a simpler approach without complex state management
+      bool resendSuccess = false;
+      String? errorMessage;
+      
       await _auth.verifyPhoneNumber(
         phoneNumber: event.phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verification (only happens on Android)
+        verificationCompleted: (PhoneAuthCredential credential) {
           debugPrint('Auto-verification completed during resend');
-          UserCredential userCredential = await _auth.signInWithCredential(credential);
-          if (userCredential.user != null) {
-            emit(OtpVerificationSuccessState(otp: ''));
-          }
+          // Handle auto-verification if it happens
         },
         verificationFailed: (FirebaseAuthException e) {
-          debugPrint('Firebase Auth Error during resend: ${e.code} - ${e.message}');
-          emit(OtpVerificationFailureState(errorMessage: _getUserFriendlyError(e)));
+          debugPrint('Firebase verification failed: ${e.code} - ${e.message}');
+          errorMessage = _getUserFriendlyError(e);
         },
         codeSent: (String verificationId, int? resendToken) {
-          debugPrint('OTP resent successfully. New verification ID: $verificationId');
-          emit(OtpResentState());
+          debugPrint('Code sent successfully during resend. Verification ID: $verificationId');
+          debugPrint('Resend token: $resendToken');
+          resendSuccess = true;
         },
         codeAutoRetrievalTimeout: (String verificationId) {
-          debugPrint('Auto retrieval timeout for verification ID: $verificationId');
+          debugPrint('Auto retrieval timeout: $verificationId');
         },
         timeout: const Duration(seconds: 60),
       );
+      
+      // Wait a moment for the callbacks to be triggered
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (resendSuccess) {
+        debugPrint('OTP resent successfully');
+        emit(OtpResentState());
+      } else if (errorMessage != null) {
+        debugPrint('Resend failed with error: $errorMessage');
+        emit(OtpVerificationFailureState(errorMessage: errorMessage!));
+      } else {
+        debugPrint('Resend completed but no clear success/failure callback');
+        // Assume success if no error occurred
+        emit(OtpResentState());
+      }
+      
     } catch (e) {
       debugPrint('Error during OTP resend: $e');
-      debugPrint('Stack trace: ${e is Error ? e.stackTrace : 'No stack trace available'}');
-      emit(OtpVerificationFailureState(errorMessage: 'Failed to resend OTP. Please check your connection.'));
+      String errorMessage = 'Failed to resend OTP. Please try again.';
+      
+      if (e.toString().toLowerCase().contains('network')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (e.toString().toLowerCase().contains('too-many-requests')) {
+        errorMessage = 'Too many requests. Please wait before requesting another OTP.';
+      } else if (e.toString().toLowerCase().contains('quota')) {
+        errorMessage = 'SMS quota exceeded. Please try again later.';
+      }
+      
+      emit(OtpVerificationFailureState(errorMessage: errorMessage));
+    } finally {
+      _isResending = false;
+      debugPrint('=== OTP RESEND PROCESS COMPLETED ===');
     }
   }
 
   String _getUserFriendlyError(FirebaseAuthException e) {
-    // Log detailed error information
     debugPrint('FirebaseAuthException Code: ${e.code}');
     debugPrint('FirebaseAuthException Message: ${e.message}');
     
@@ -152,10 +196,25 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
         return 'Network error. Please check your internet connection.';
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
+      case 'quota-exceeded':
+        return 'SMS quota exceeded. Please try again later.';
+      case 'app-not-authorized':
+        return 'Service temporarily unavailable. Please try again later.';
+      case 'operation-not-allowed':
+        return 'Phone authentication is not enabled. Please contact support.';
+      case 'captcha-check-failed':
+        return 'Security verification failed. Please try again.';
+      case 'invalid-app-credential':
+        return 'App verification failed. Please try again.';
+      case 'web-context-cancelled':
+        return 'Verification cancelled. Please try again.';
+      case 'missing-verification-code':
+        return 'Please enter the OTP code.';
+      case 'invalid-phone-number':
+        return 'Invalid phone number format.';
       default:
-        // For SSL/certificate errors or other technical errors
         if (e.message?.contains('java.security.cert.CertPathValidatorException') ?? false) {
-          return 'Error occurred. Please check your internet connection.';
+          return 'Connection error. Please check your internet connection.';
         }
         if (e.message?.contains('Unable to resolve host') ?? false) {
           return 'Cannot connect to server. Please check your internet connection.';

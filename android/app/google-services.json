@@ -8,9 +8,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:6842df4603b2fdf75e9298",
+        "mobilesdk_app_id": "1:1062805760329:android:15a772c886c0dd425e9298",
         "android_client_info": {
-          "package_name": "com.example.bird"
+          "package_name": "com.bird.app"
         }
       },
       "oauth_client": [
@@ -44,20 +44,12 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:1b668a206362c8345e9298",
+        "mobilesdk_app_id": "1:1062805760329:android:519f35b42c536f6c5e9298",
         "android_client_info": {
-          "package_name": "com.example.bird_partner_app"
+          "package_name": "com.example.bird"
         }
       },
       "oauth_client": [
-        {
-          "client_id": "1062805760329-ahv20chvtn4l0dkrnu5cq3eut5htckj0.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.bird_partner_app",
-            "certificate_hash": "fc014aa3ef928ef31264171abe08071766428648"
-          }
-        },
         {
           "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
           "client_type": 3

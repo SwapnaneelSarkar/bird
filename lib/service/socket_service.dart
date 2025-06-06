@@ -131,38 +131,45 @@ class SocketService {
       _errorStreamController.add('Socket error: $error');
     });
 
-  // Listen for new messages
-    _socket!.on('new-message', (data) {
-      debugPrint('SocketService: Received new message: $data');
-      try {
-        final messageData = data as Map<String, dynamic>;
-        _messageStreamController.add(messageData);
-      } catch (e) {
-        debugPrint('SocketService: Error parsing message data: $e');
-      }
-    });
+    // ENHANCED: Listen for all possible message events
+    final messageEvents = [
+      'new-message',
+      'message-sent',
+      'message-delivered',
+      'message',
+      'chat-message',
+      'receive-message'
+    ];
 
-    // Listen for message confirmations
-    _socket!.on('message-sent', (data) {
-      debugPrint('SocketService: Message sent confirmation: $data');
-      try {
-        final messageData = data as Map<String, dynamic>;
-        _messageStreamController.add(messageData);
-      } catch (e) {
-        debugPrint('SocketService: Error parsing message confirmation: $e');
-      }
-    });
-    
-    // Listen for message delivery confirmations
-    _socket!.on('message-delivered', (data) {
-      debugPrint('SocketService: Message delivered: $data');
-      try {
-        final messageData = data as Map<String, dynamic>;
-        _messageStreamController.add(messageData);
-      } catch (e) {
-        debugPrint('SocketService: Error parsing message delivery: $e');
-      }
-    });
+    for (final eventName in messageEvents) {
+      _socket!.on(eventName, (data) {
+        debugPrint('SocketService: Received $eventName event: $data');
+        try {
+          Map<String, dynamic> messageData;
+          
+          if (data is Map<String, dynamic>) {
+            messageData = data;
+          } else if (data is List && data.isNotEmpty && data[0] is Map<String, dynamic>) {
+            messageData = data[0] as Map<String, dynamic>;
+          } else {
+            debugPrint('SocketService: Unexpected data format for $eventName: $data');
+            return;
+          }
+          
+          // Ensure we have the required fields for a message
+          if (messageData.containsKey('_id') || 
+              messageData.containsKey('id') || 
+              messageData.containsKey('content')) {
+            debugPrint('SocketService: Broadcasting message from $eventName');
+            _messageStreamController.add(messageData);
+          } else {
+            debugPrint('SocketService: Invalid message format from $eventName: $messageData');
+          }
+        } catch (e) {
+          debugPrint('SocketService: Error parsing $eventName data: $e');
+        }
+      });
+    }
 
     // Listen for room events
     _socket!.on('room-joined', (data) {
@@ -178,15 +185,13 @@ class SocketService {
       debugPrint('SocketService: User typing: $data');
     });
     
-    // Listen for generic message events
-    _socket!.on('message', (data) {
-      debugPrint('SocketService: Generic message event: $data');
-      try {
-        final messageData = data as Map<String, dynamic>;
-        _messageStreamController.add(messageData);
-      } catch (e) {
-        debugPrint('SocketService: Error parsing generic message: $e');
-      }
+    // Listen for connection events
+    _socket!.on('connect', (_) {
+      debugPrint('SocketService: Socket connected event received');
+    });
+    
+    _socket!.on('disconnect', (reason) {
+      debugPrint('SocketService: Socket disconnected event received: $reason');
     });
   }
 
@@ -195,6 +200,10 @@ class SocketService {
       _currentRoomId = roomId;
       _socket!.emit('join-room', roomId);
       debugPrint('SocketService: Joining room: $roomId');
+      
+      // Also try alternative room join event names
+      _socket!.emit('joinRoom', roomId);
+      _socket!.emit('join_room', roomId);
     } else {
       debugPrint('SocketService: Cannot join room - not connected');
     }
@@ -203,6 +212,8 @@ class SocketService {
   void leaveRoom() {
     if (_socket != null && _isConnected && _currentRoomId != null) {
       _socket!.emit('leave-room', _currentRoomId);
+      _socket!.emit('leaveRoom', _currentRoomId);
+      _socket!.emit('leave_room', _currentRoomId);
       debugPrint('SocketService: Leaving room: $_currentRoomId');
       _currentRoomId = null;
     }
@@ -218,10 +229,16 @@ class SocketService {
         'roomId': roomId,
         'content': content,
         'messageType': messageType,
+        'timestamp': DateTime.now().toIso8601String(),
       };
       
+      // Try multiple event names for sending messages
       _socket!.emit('send-message', messageData);
-      debugPrint('SocketService: Sending message: $content');
+      _socket!.emit('sendMessage', messageData);
+      _socket!.emit('send_message', messageData);
+      _socket!.emit('message', messageData);
+      
+      debugPrint('SocketService: Sending message via socket: $content');
       return true;
     } else {
       debugPrint('SocketService: Cannot send message - not connected');

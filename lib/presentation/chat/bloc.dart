@@ -17,6 +17,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   StreamSubscription? _messageSubscription;
   StreamSubscription? _connectionSubscription;
   bool _isSocketConnected = false;
+  int _lastMessageCount = 0;
   
   ChatBloc() : super(ChatInitial()) {
     _socketService = SocketService();
@@ -39,15 +40,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   
   void _startPolling() {
     _pollingTimer?.cancel();
-    // Only use polling as fallback if socket is not connected
-    if (!_isSocketConnected) {
-      _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-        if (state is ChatLoaded && _currentRoomId != null) {
-          add(const RefreshMessages());
-        }
-      });
-      debugPrint('ChatBloc: Started polling for new messages (fallback)');
-    }
+    // Use more frequent polling for better real-time experience
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (state is ChatLoaded && _currentRoomId != null) {
+        debugPrint('ChatBloc: Polling for new messages...');
+        add(const RefreshMessages());
+      }
+    });
+    debugPrint('ChatBloc: Started polling every 2 seconds');
   }
   
   void _stopPolling() {
@@ -59,26 +59,38 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     // Listen for socket connection status
     _connectionSubscription = _socketService.connectionStream.listen((connected) {
       _isSocketConnected = connected;
+      debugPrint('ChatBloc: Socket connection status changed: $connected');
+      
       if (connected) {
-        debugPrint('ChatBloc: Socket connected, stopping polling');
-        _stopPolling();
+        debugPrint('ChatBloc: Socket connected, but keeping polling as backup');
+        // Keep polling but reduce frequency when socket is connected
+        _pollingTimer?.cancel();
+        _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+          if (state is ChatLoaded && _currentRoomId != null) {
+            add(const RefreshMessages());
+          }
+        });
+        
         // Join the room if we have one
         if (_currentRoomId != null) {
           _socketService.joinRoom(_currentRoomId!);
         }
       } else {
-        debugPrint('ChatBloc: Socket disconnected, starting polling fallback');
-        _startPolling();
+        debugPrint('ChatBloc: Socket disconnected, increasing polling frequency');
+        _startPolling(); // More frequent polling when socket is down
       }
     });
     
     // Listen for incoming messages
     _messageSubscription = _socketService.messageStream.listen((messageData) {
       try {
+        debugPrint('ChatBloc: Received socket message data: $messageData');
         final message = ChatMessage.fromJson(messageData);
+        debugPrint('ChatBloc: Parsed socket message: ${message.content} from ${message.senderType}');
         add(ReceiveMessage(message));
       } catch (e) {
         debugPrint('ChatBloc: Error parsing socket message: $e');
+        debugPrint('ChatBloc: Raw message data: $messageData');
         // Fallback to refreshing all messages
         add(const RefreshMessages());
       }
@@ -130,6 +142,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Sort messages by creation time
         messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
+        _lastMessageCount = messages.length;
         debugPrint('ChatBloc: Loaded ${messages.length} messages');
       } else {
         debugPrint('ChatBloc: Failed to load chat history: ${historyResult['message']}');
@@ -146,6 +159,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _setupSocketListeners();
       add(const ConnectSocket());
       
+      // Start polling immediately as primary method for real-time updates
+      _startPolling();
+      
       debugPrint('ChatBloc: Chat data loaded successfully');
     } catch (e, stackTrace) {
       debugPrint('ChatBloc: Error loading chat data: $e');
@@ -158,23 +174,43 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (state is ChatLoaded && _currentRoomId != null && _currentUserId != null) {
       final currentState = state as ChatLoaded;
       
-      // Show sending state
-      emit(currentState.copyWith(isSendingMessage: true));
+      debugPrint('ChatBloc: Sending message: "${event.content}"');
+      
+      // OPTIMISTIC UPDATE: Add message immediately to UI
+      final optimisticMessage = ChatMessage(
+        id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        roomId: _currentRoomId!,
+        senderId: _currentUserId!,
+        senderType: 'user',
+        content: event.content,
+        messageType: 'text',
+        readBy: [],
+        createdAt: DateTime.now(),
+      );
+      
+      // Add the optimistic message to the UI immediately
+      final updatedMessages = [...currentState.messages, optimisticMessage];
+      updatedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
+      emit(currentState.copyWith(
+        messages: updatedMessages,
+        isSendingMessage: true,
+      ));
       
       try {
-        debugPrint('ChatBloc: Sending message: ${event.content}');
-        
-        // Always try HTTP API first for reliability
+        // Send via HTTP API
         debugPrint('ChatBloc: Sending message via HTTP API');
         final result = await ChatService.sendMessage(
           roomId: _currentRoomId!,
           content: event.content,
         );
         
+        debugPrint('ChatBloc: HTTP send result: ${result['success']}');
+        
         if (result['success'] == true) {
           debugPrint('ChatBloc: Message sent successfully via HTTP');
           
-          // Also try to send via socket for real-time updates
+          // Also try to send via socket for real-time updates to other users
           if (_isSocketConnected) {
             debugPrint('ChatBloc: Also sending via socket for real-time update');
             _socketService.sendMessage(
@@ -183,43 +219,44 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             );
           }
           
-          // Refresh messages to show the sent message
-          add(const RefreshMessages());
+          // Wait a moment then refresh to get the real message from server
+          await Future.delayed(const Duration(milliseconds: 800));
           
-          // Reset sending state
-          emit(currentState.copyWith(isSendingMessage: false));
+          if (!emit.isDone && state is ChatLoaded) {
+            add(const RefreshMessages());
+          }
+          
         } else {
           debugPrint('ChatBloc: Failed to send message via HTTP: ${result['message']}');
-          emit(currentState.copyWith(isSendingMessage: false));
           
-          // Show error message to user
-          // You could emit a different state here to show error
+          // Remove the optimistic message since sending failed
+          final messagesWithoutOptimistic = currentState.messages
+              .where((msg) => msg.id != optimisticMessage.id)
+              .toList();
+          
+          emit(currentState.copyWith(
+            messages: messagesWithoutOptimistic,
+            isSendingMessage: false,
+          ));
+          
+          debugPrint('ChatBloc: Message send failed, removed optimistic update');
         }
         
       } catch (e) {
         debugPrint('ChatBloc: Error sending message: $e');
-        emit(currentState.copyWith(isSendingMessage: false));
+        
+        // Remove the optimistic message since sending failed
+        final messagesWithoutOptimistic = currentState.messages
+            .where((msg) => msg.id != optimisticMessage.id)
+            .toList();
+        
+        emit(currentState.copyWith(
+          messages: messagesWithoutOptimistic,
+          isSendingMessage: false,
+        ));
       }
-    }
-  }
-  
-  Future<void> _sendViaHttp(String content, ChatLoaded currentState, Emitter<ChatState> emit) async {
-    final result = await ChatService.sendMessage(
-      roomId: _currentRoomId!,
-      content: content,
-    );
-    
-    if (result['success'] == true) {
-      debugPrint('ChatBloc: Message sent successfully via HTTP');
-      
-      // Wait a moment for the server to process
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Refresh messages to show the sent message
-      add(const RefreshMessages());
     } else {
-      debugPrint('ChatBloc: Failed to send message via HTTP: ${result['message']}');
-      emit(currentState.copyWith(isSendingMessage: false));
+      debugPrint('ChatBloc: Cannot send message - invalid state or missing room/user ID');
     }
   }
   
@@ -228,8 +265,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final currentState = state as ChatLoaded;
       
       try {
-        debugPrint('ChatBloc: Refreshing messages for room: $_currentRoomId');
-        
         // Get updated chat history
         final historyResult = await ChatService.getChatHistory(_currentRoomId!);
         
@@ -242,24 +277,26 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           // Sort messages by creation time
           messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
           
-          debugPrint('ChatBloc: Refreshed with ${messages.length} messages');
-          
           // Check if we have new messages
-          final hadNewMessages = messages.length != currentState.messages.length;
+          final hasNewMessages = messages.length != _lastMessageCount;
+          
+          if (hasNewMessages) {
+            debugPrint('ChatBloc: Found ${messages.length - _lastMessageCount} new messages');
+            _lastMessageCount = messages.length;
+          } else {
+            debugPrint('ChatBloc: No new messages found (${messages.length} total)');
+          }
+          
+          // Filter out any temporary optimistic messages and show real messages
+          final realMessages = messages
+              .where((msg) => !msg.id.startsWith('temp_'))
+              .toList();
           
           emit(currentState.copyWith(
-            messages: messages,
+            messages: realMessages,
             isSendingMessage: false,
           ));
           
-          // If no new messages and we're not sending, try again after a delay
-          if (!hadNewMessages && currentState.isSendingMessage) {
-            debugPrint('ChatBloc: No new messages found, retrying in 1 second...');
-            await Future.delayed(const Duration(seconds: 1));
-            if (state is ChatLoaded && _currentRoomId != null) {
-              add(const RefreshMessages());
-            }
-          }
         } else {
           debugPrint('ChatBloc: Failed to refresh messages: ${historyResult['message']}');
           emit(currentState.copyWith(isSendingMessage: false));
@@ -284,12 +321,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           _socketService.joinRoom(_currentRoomId!);
         }
       } else {
-        debugPrint('ChatBloc: Socket connection failed, using polling fallback');
-        _startPolling();
+        debugPrint('ChatBloc: Socket connection failed, relying on polling');
       }
     } catch (e) {
       debugPrint('ChatBloc: Error connecting socket: $e');
-      _startPolling();
     }
   }
   
@@ -303,18 +338,30 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       
+      debugPrint('ChatBloc: Processing received message: ${event.message.content}');
+      debugPrint('ChatBloc: Message from: ${event.message.senderType} (ID: ${event.message.senderId})');
+      
       // Check if message is already in the list to avoid duplicates
       final existingMessageIndex = currentState.messages
           .indexWhere((msg) => msg.id == event.message.id);
       
       if (existingMessageIndex == -1) {
+        // Remove any temporary optimistic messages that might match this content
+        final messagesWithoutOptimistic = currentState.messages
+            .where((msg) => !(msg.id.startsWith('temp_') && 
+                            msg.content == event.message.content &&
+                            msg.senderId == event.message.senderId))
+            .toList();
+        
         // Add new message to the list
-        final updatedMessages = [...currentState.messages, event.message];
+        final updatedMessages = [...messagesWithoutOptimistic, event.message];
         
         // Sort by creation time
         updatedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
-        debugPrint('ChatBloc: Added new message from socket: ${event.message.content}');
+        _lastMessageCount = updatedMessages.length;
+        
+        debugPrint('ChatBloc: Added new message from ${event.message.senderType}: ${event.message.content}');
         
         emit(currentState.copyWith(
           messages: updatedMessages,

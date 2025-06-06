@@ -132,7 +132,7 @@ class ChatService {
     }
   }
   
-  // Send a message with the correct API format
+  // Send a message with the correct API format - FIXED VERSION
   static Future<Map<String, dynamic>> sendMessage({
     required String roomId,
     required String content,
@@ -187,13 +187,24 @@ class ChatService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
         
-        if (responseData['status'] == 'SUCCESS' || responseData['status'] == true) {
+        // FIXED: Check for the actual response format from the API
+        // The API returns the message object directly without a status field
+        if (responseData['_id'] != null) {
           debugPrint('ChatService: Message sent successfully');
+          debugPrint('ChatService: Message ID: ${responseData['_id']}');
+          
+          return {
+            'success': true,
+            'message': 'Message sent successfully',
+            'data': responseData,
+          };
+        } else if (responseData['status'] == 'SUCCESS' || responseData['status'] == true) {
+          debugPrint('ChatService: Message sent successfully (with status)');
           
           return {
             'success': true,
             'message': responseData['message'] ?? 'Message sent successfully',
-            'data': responseData['data'],
+            'data': responseData['data'] ?? responseData,
           };
         } else {
           debugPrint('ChatService: Message send failed: ${responseData['message']}');

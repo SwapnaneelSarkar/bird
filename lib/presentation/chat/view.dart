@@ -42,6 +42,10 @@ class _ChatViewState extends State<ChatView> {
 
   @override
   Widget build(BuildContext context) {
+    // Get responsive dimensions
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     // Get orderId from route arguments if not provided directly
     final String orderId = widget.orderId ?? 
         (ModalRoute.of(context)?.settings.arguments as String?) ?? 
@@ -55,7 +59,7 @@ class _ChatViewState extends State<ChatView> {
         backgroundColor: Colors.white,
         body: BlocConsumer<ChatBloc, ChatState>(
           listener: (context, state) {
-            if (state is ChatLoaded && !state.isSendingMessage) {
+            if (state is ChatLoaded) {
               // Scroll to bottom when new messages arrive
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _scrollToBottom();
@@ -64,13 +68,11 @@ class _ChatViewState extends State<ChatView> {
           },
           builder: (context, state) {
             if (state is ChatLoading) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return _buildLoadingState(screenWidth, screenHeight);
             } else if (state is ChatLoaded) {
-              return _buildChatContent(context, state);
+              return _buildChatContent(context, state, screenWidth, screenHeight);
             } else if (state is ChatError) {
-              return _buildErrorState(context, state);
+              return _buildErrorState(context, state, screenWidth, screenHeight);
             }
             
             return const SizedBox.shrink();
@@ -80,17 +82,40 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildChatContent(BuildContext context, ChatLoaded state) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
+  Widget _buildLoadingState(double screenWidth, double screenHeight) {
+    return SafeArea(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+              strokeWidth: 3,
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            Text(
+              'Loading chat...',
+              style: TextStyle(
+                fontSize: screenWidth * 0.04,
+                fontWeight: FontWeightManager.medium,
+                color: Colors.grey[600],
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatContent(BuildContext context, ChatLoaded state, double screenWidth, double screenHeight) {
     return SafeArea(
       child: Column(
         children: [
           _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
           _buildOrderHeader(state.chatRoom, screenWidth, screenHeight),
           Expanded(
-            child: _buildMessagesList(state.messages, state.currentUserId, screenWidth, screenHeight),
+            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight),
           ),
           _buildMessageInput(context, state.isSendingMessage, screenWidth, screenHeight),
         ],
@@ -112,6 +137,13 @@ class _ChatViewState extends State<ChatView> {
             width: 1,
           ),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -129,7 +161,7 @@ class _ChatViewState extends State<ChatView> {
           Expanded(
             child: Center(
               child: Text(
-                'Chat',
+                'Chat Support',
                 style: TextStyle(
                   fontSize: screenWidth * 0.047,
                   fontWeight: FontWeightManager.semiBold,
@@ -139,17 +171,32 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
-          // Refresh button
-          GestureDetector(
-            onTap: () => context.read<ChatBloc>().add(const RefreshMessages()),
-            child: Container(
-              padding: EdgeInsets.all(screenWidth * 0.018),
-              child: Icon(
-                Icons.refresh,
-                size: screenWidth * 0.055,
-                color: ColorManager.black,
+          // Connection status and refresh button
+          Row(
+            children: [
+              // Connection indicator
+              Container(
+                width: screenWidth * 0.025,
+                height: screenWidth * 0.025,
+                decoration: BoxDecoration(
+                  color: Colors.green, // You can make this dynamic based on socket connection
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
+              SizedBox(width: screenWidth * 0.02),
+              // Refresh button
+              GestureDetector(
+                onTap: () => context.read<ChatBloc>().add(const RefreshMessages()),
+                child: Container(
+                  padding: EdgeInsets.all(screenWidth * 0.018),
+                  child: Icon(
+                    Icons.refresh,
+                    size: screenWidth * 0.055,
+                    color: ColorManager.black,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -161,7 +208,7 @@ class _ChatViewState extends State<ChatView> {
       width: double.infinity,
       padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: ColorManager.primary.withOpacity(0.05),
         border: Border(
           bottom: BorderSide(
             color: Colors.grey.shade200,
@@ -177,9 +224,9 @@ class _ChatViewState extends State<ChatView> {
             children: [
               Expanded(
                 child: Text(
-                  'Order ${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
+                  'Order #${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
                   style: TextStyle(
-                    fontSize: screenWidth * 0.048,
+                    fontSize: screenWidth * 0.042,
                     fontWeight: FontWeightManager.bold,
                     color: ColorManager.black,
                     fontFamily: FontFamily.Montserrat,
@@ -191,12 +238,14 @@ class _ChatViewState extends State<ChatView> {
               Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: screenWidth * 0.028,
-                  vertical: screenHeight * 0.004,
+                  vertical: screenHeight * 0.006,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(
-                    screenWidth * 0.035,
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.035),
+                  border: Border.all(
+                    color: Colors.green.withOpacity(0.3),
+                    width: 1,
                   ),
                 ),
                 child: Row(
@@ -206,7 +255,7 @@ class _ChatViewState extends State<ChatView> {
                       width: screenWidth * 0.018,
                       height: screenWidth * 0.018,
                       decoration: const BoxDecoration(
-                        color: Colors.orange,
+                        color: Colors.green,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -214,9 +263,9 @@ class _ChatViewState extends State<ChatView> {
                     Text(
                       'Active',
                       style: TextStyle(
-                        fontSize: screenWidth * 0.033,
+                        fontSize: screenWidth * 0.03,
                         fontWeight: FontWeightManager.medium,
-                        color: Colors.orange,
+                        color: Colors.green,
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
@@ -225,155 +274,88 @@ class _ChatViewState extends State<ChatView> {
               ),
             ],
           ),
-          SizedBox(height: screenHeight * 0.004),
+          SizedBox(height: screenHeight * 0.008),
           Text(
-            'Room: ${chatRoom.roomId.length > 20 ? chatRoom.roomId.substring(0, 20) + '...' : chatRoom.roomId}',
+            'Chat with restaurant support',
             style: TextStyle(
               fontSize: screenWidth * 0.033,
               fontWeight: FontWeightManager.regular,
               color: Colors.grey.shade600,
               fontFamily: FontFamily.Montserrat,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, double screenWidth, double screenHeight) {
-    if (messages.isEmpty) {
+  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight) {
+    if (messages.isEmpty && !isSending) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: screenWidth * 0.12,
-              color: Colors.grey.shade400,
+            Container(
+              padding: EdgeInsets.all(screenWidth * 0.08),
+              decoration: BoxDecoration(
+                color: ColorManager.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.chat_bubble_outline,
+                size: screenWidth * 0.12,
+                color: ColorManager.primary,
+              ),
             ),
             SizedBox(height: screenHeight * 0.02),
             Text(
-              'No messages yet',
+              'Start a conversation',
               style: TextStyle(
-                fontSize: screenWidth * 0.04,
-                fontWeight: FontWeightManager.medium,
-                color: Colors.grey.shade600,
+                fontSize: screenWidth * 0.045,
+                fontWeight: FontWeightManager.semiBold,
+                color: Colors.grey.shade700,
                 fontFamily: FontFamily.Montserrat,
               ),
             ),
             SizedBox(height: screenHeight * 0.01),
             Text(
-              'Start the conversation!',
+              'Send a message to get help with your order',
               style: TextStyle(
                 fontSize: screenWidth * 0.035,
                 fontWeight: FontWeightManager.regular,
                 color: Colors.grey.shade500,
                 fontFamily: FontFamily.Montserrat,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
 
-    return BlocBuilder<ChatBloc, ChatState>(
-      builder: (context, state) {
-        final isSending = state is ChatLoaded && state.isSendingMessage;
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.all(screenWidth * 0.035),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
+        final isOptimistic = message.id.startsWith('temp_');
         
-        return ListView.builder(
-          controller: _scrollController,
-          padding: EdgeInsets.all(screenWidth * 0.035),
-          itemCount: messages.length + (isSending ? 1 : 0),
-          itemBuilder: (context, index) {
-            // Show pending message at the end
-            if (index == messages.length && isSending) {
-              return _buildPendingMessage(screenWidth, screenHeight);
-            }
-            
-            final message = messages[index];
-            final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
-            return _buildMessageBubble(message, isFromCurrentUser, screenWidth, screenHeight);
-          },
+        return _buildMessageBubble(
+          message, 
+          isFromCurrentUser, 
+          isOptimistic,
+          screenWidth, 
+          screenHeight
         );
       },
     );
   }
-  
-  Widget _buildPendingMessage(double screenWidth, double screenHeight) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: screenHeight * 0.012,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Spacer(),
-          Flexible(
-            flex: 7,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.038,
-                    vertical: screenHeight * 0.012,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE17A47).withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(
-                      screenWidth * 0.038,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: screenWidth * 0.03,
-                        height: screenWidth * 0.03,
-                        child: const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                      SizedBox(width: screenWidth * 0.02),
-                      Text(
-                        'Sending...',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.035,
-                          fontWeight: FontWeightManager.regular,
-                          color: Colors.white,
-                          fontFamily: FontFamily.Montserrat,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.004),
-                Text(
-                  'Now',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.028,
-                    fontWeight: FontWeightManager.regular,
-                    color: Colors.grey.shade500,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildMessageBubble(ChatMessage message, bool isFromCurrentUser, double screenWidth, double screenHeight) {
+  Widget _buildMessageBubble(ChatMessage message, bool isFromCurrentUser, bool isOptimistic, double screenWidth, double screenHeight) {
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: screenHeight * 0.012,
-      ),
+      padding: EdgeInsets.only(bottom: screenHeight * 0.012),
       child: Row(
         mainAxisAlignment: isFromCurrentUser 
             ? MainAxisAlignment.end 
@@ -388,6 +370,23 @@ class _ChatViewState extends State<ChatView> {
                   ? CrossAxisAlignment.end 
                   : CrossAxisAlignment.start,
               children: [
+                // Sender type indicator for non-current user messages
+                if (!isFromCurrentUser) ...[
+                  Padding(
+                    padding: EdgeInsets.only(bottom: screenHeight * 0.004),
+                    child: Text(
+                      message.senderType == 'partner' ? 'Restaurant' : 'Support',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.028,
+                        fontWeight: FontWeightManager.medium,
+                        color: ColorManager.primary,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ),
+                ],
+                
+                // Message bubble
                 Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: screenWidth * 0.038,
@@ -395,31 +394,67 @@ class _ChatViewState extends State<ChatView> {
                   ),
                   decoration: BoxDecoration(
                     color: isFromCurrentUser 
-                        ? const Color(0xFFE17A47)
+                        ? (isOptimistic 
+                            ? ColorManager.primary.withOpacity(0.7)
+                            : ColorManager.primary)
                         : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(
-                      screenWidth * 0.038,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(screenWidth * 0.035),
+                      topRight: Radius.circular(screenWidth * 0.035),
+                      bottomLeft: Radius.circular(
+                        isFromCurrentUser ? screenWidth * 0.035 : screenWidth * 0.01
+                      ),
+                      bottomRight: Radius.circular(
+                        isFromCurrentUser ? screenWidth * 0.01 : screenWidth * 0.035
+                      ),
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    message.content,
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeightManager.regular,
-                      color: isFromCurrentUser 
-                          ? Colors.white 
-                          : ColorManager.black,
-                      fontFamily: FontFamily.Montserrat,
-                      height: 1.35,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isOptimistic && isFromCurrentUser) ...[
+                        SizedBox(
+                          width: screenWidth * 0.03,
+                          height: screenWidth * 0.03,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        SizedBox(width: screenWidth * 0.02),
+                      ],
+                      Flexible(
+                        child: Text(
+                          message.content,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeightManager.regular,
+                            color: isFromCurrentUser 
+                                ? Colors.white 
+                                : ColorManager.black,
+                            fontFamily: FontFamily.Montserrat,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                
+                // Time and status
                 SizedBox(height: screenHeight * 0.004),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      message.formattedTime,
+                      isOptimistic ? 'Sending...' : message.formattedTime,
                       style: TextStyle(
                         fontSize: screenWidth * 0.028,
                         fontWeight: FontWeightManager.regular,
@@ -427,17 +462,12 @@ class _ChatViewState extends State<ChatView> {
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
-                    // Show sender type for debugging
-                    if (message.senderType.isNotEmpty) ...[
+                    if (isFromCurrentUser && !isOptimistic) ...[
                       SizedBox(width: screenWidth * 0.01),
-                      Text(
-                        '(${message.senderType})',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.025,
-                          fontWeight: FontWeightManager.regular,
-                          color: Colors.grey.shade400,
-                          fontFamily: FontFamily.Montserrat,
-                        ),
+                      Icon(
+                        Icons.check,
+                        size: screenWidth * 0.03,
+                        color: Colors.grey.shade500,
                       ),
                     ],
                   ],
@@ -462,6 +492,13 @@ class _ChatViewState extends State<ChatView> {
             width: 1,
           ),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -472,8 +509,10 @@ class _ChatViewState extends State<ChatView> {
               ),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(
-                  screenWidth * 0.055,
+                borderRadius: BorderRadius.circular(screenWidth * 0.055),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                  width: 1,
                 ),
               ),
               child: TextField(
@@ -485,7 +524,7 @@ class _ChatViewState extends State<ChatView> {
                   fontFamily: FontFamily.Montserrat,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Type a message...',
+                  hintText: 'Type your message...',
                   hintStyle: TextStyle(
                     fontSize: screenWidth * 0.035,
                     fontWeight: FontWeightManager.regular,
@@ -500,36 +539,37 @@ class _ChatViewState extends State<ChatView> {
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _sendMessage(context),
+                enabled: !isSending,
               ),
             ),
           ),
           SizedBox(width: screenWidth * 0.028),
           GestureDetector(
-            onTap: isSending ? null : () => _sendMessage(context),
+            onTap: (isSending || _messageController.text.trim().isEmpty) 
+                ? null 
+                : () => _sendMessage(context),
             child: Container(
               width: screenWidth * 0.11,
               height: screenWidth * 0.11,
               decoration: BoxDecoration(
-                color: isSending 
+                color: (isSending || _messageController.text.trim().isEmpty)
                     ? Colors.grey.shade400 
-                    : const Color(0xFFE17A47),
+                    : ColorManager.primary,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: ColorManager.primary.withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Center(
-                child: isSending
-                    ? SizedBox(
-                        width: screenWidth * 0.035,
-                        height: screenWidth * 0.035,
-                        child: const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Icon(
-                        Icons.send,
-                        color: Colors.white,
-                        size: screenWidth * 0.045,
-                      ),
+                child: Icon(
+                  Icons.send,
+                  color: Colors.white,
+                  size: screenWidth * 0.045,
+                ),
               ),
             ),
           ),
@@ -538,63 +578,77 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildErrorState(BuildContext context, ChatError state) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.04),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: screenWidth * 0.12,
-              color: Colors.grey.shade400,
-            ),
-            SizedBox(height: screenHeight * 0.015),
-            Text(
-              state.message,
-              style: TextStyle(
-                fontSize: screenWidth * 0.035,
-                fontWeight: FontWeightManager.regular,
-                color: Colors.grey.shade600,
-                fontFamily: FontFamily.Montserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: screenHeight * 0.02),
-            ElevatedButton(
-              onPressed: () {
-                final orderId = widget.orderId ?? 
-                    (ModalRoute.of(context)?.settings.arguments as String?) ?? 
-                    'default_order';
-                context.read<ChatBloc>().add(LoadChatData(orderId));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE17A47),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.06,
-                  vertical: screenHeight * 0.01,
+  Widget _buildErrorState(BuildContext context, ChatError state, double screenWidth, double screenHeight) {
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(screenWidth * 0.04),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: EdgeInsets.all(screenWidth * 0.08),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    screenWidth * 0.015,
-                  ),
+                child: Icon(
+                  Icons.error_outline,
+                  size: screenWidth * 0.12,
+                  color: Colors.red,
                 ),
               ),
-              child: Text(
-                'Retry',
+              SizedBox(height: screenHeight * 0.02),
+              Text(
+                'Something went wrong',
                 style: TextStyle(
-                  fontSize: screenWidth * 0.032,
-                  fontWeight: FontWeightManager.medium,
+                  fontSize: screenWidth * 0.045,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: Colors.grey.shade700,
                   fontFamily: FontFamily.Montserrat,
                 ),
               ),
-            ),
-          ],
+              SizedBox(height: screenHeight * 0.01),
+              Text(
+                state.message,
+                style: TextStyle(
+                  fontSize: screenWidth * 0.035,
+                  fontWeight: FontWeightManager.regular,
+                  color: Colors.grey.shade600,
+                  fontFamily: FontFamily.Montserrat,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: screenHeight * 0.03),
+              ElevatedButton(
+                onPressed: () {
+                  final orderId = widget.orderId ?? 
+                      (ModalRoute.of(context)?.settings.arguments as String?) ?? 
+                      'default_order';
+                  context.read<ChatBloc>().add(LoadChatData(orderId));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorManager.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.08,
+                    vertical: screenHeight * 0.015,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                  ),
+                ),
+                child: Text(
+                  'Try Again',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    fontWeight: FontWeightManager.semiBold,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

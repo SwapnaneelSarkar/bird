@@ -494,6 +494,12 @@
       "languageVersion": "3.6"
     },
     {
+      "name": "logging",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/logging-1.3.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "lottie",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/lottie-3.3.1",
       "packageUri": "lib/",
@@ -710,6 +716,18 @@
       "languageVersion": "3.7"
     },
     {
+      "name": "socket_io_client",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/socket_io_client-3.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "socket_io_common",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/socket_io_common-3.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "source_span",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/source_span-1.10.1",
       "packageUri": "lib/",
@@ -866,7 +884,7 @@
       "languageVersion": "3.6"
     }
   ],
-  "generated": "2025-06-06T11:22:31.773553Z",
+  "generated": "2025-06-06T20:10:10.953722Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.29.3/flutter",

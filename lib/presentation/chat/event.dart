@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../models/chat_models.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
@@ -27,4 +28,21 @@ class SendMessage extends ChatEvent {
 
 class RefreshMessages extends ChatEvent {
   const RefreshMessages();
+}
+
+class ConnectSocket extends ChatEvent {
+  const ConnectSocket();
+}
+
+class DisconnectSocket extends ChatEvent {
+  const DisconnectSocket();
+}
+
+class ReceiveMessage extends ChatEvent {
+  final ChatMessage message;
+  
+  const ReceiveMessage(this.message);
+  
+  @override
+  List<Object?> get props => [message];
 }

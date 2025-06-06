@@ -239,80 +239,6 @@ class _ChatViewState extends State<ChatView> {
         ],
       ),
     );
-  } BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade200,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Order ${chatRoom.orderId}',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.048,
-                  fontWeight: FontWeightManager.bold,
-                  color: ColorManager.black,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.028,
-                  vertical: screenHeight * 0.004,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(
-                    screenWidth * 0.035,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: screenWidth * 0.018,
-                      height: screenWidth * 0.018,
-                      decoration: const BoxDecoration(
-                        color: Colors.orange,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: screenWidth * 0.018),
-                    Text(
-                      'Active',
-                      style: TextStyle(
-                        fontSize: screenWidth * 0.033,
-                        fontWeight: FontWeightManager.medium,
-                        color: Colors.orange,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: screenHeight * 0.004),
-          Text(
-            'Room ID: ${chatRoom.roomId}',
-            style: TextStyle(
-              fontSize: screenWidth * 0.033,
-              fontWeight: FontWeightManager.regular,
-              color: Colors.grey.shade600,
-              fontFamily: FontFamily.Montserrat,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, double screenWidth, double screenHeight) {
@@ -351,15 +277,95 @@ class _ChatViewState extends State<ChatView> {
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: EdgeInsets.all(screenWidth * 0.035),
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final message = messages[index];
-        final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
-        return _buildMessageBubble(message, isFromCurrentUser, screenWidth, screenHeight);
+    return BlocBuilder<ChatBloc, ChatState>(
+      builder: (context, state) {
+        final isSending = state is ChatLoaded && state.isSendingMessage;
+        
+        return ListView.builder(
+          controller: _scrollController,
+          padding: EdgeInsets.all(screenWidth * 0.035),
+          itemCount: messages.length + (isSending ? 1 : 0),
+          itemBuilder: (context, index) {
+            // Show pending message at the end
+            if (index == messages.length && isSending) {
+              return _buildPendingMessage(screenWidth, screenHeight);
+            }
+            
+            final message = messages[index];
+            final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
+            return _buildMessageBubble(message, isFromCurrentUser, screenWidth, screenHeight);
+          },
+        );
       },
+    );
+  }
+  
+  Widget _buildPendingMessage(double screenWidth, double screenHeight) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: screenHeight * 0.012,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Spacer(),
+          Flexible(
+            flex: 7,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.038,
+                    vertical: screenHeight * 0.012,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE17A47).withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(
+                      screenWidth * 0.038,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: screenWidth * 0.03,
+                        height: screenWidth * 0.03,
+                        child: const CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.02),
+                      Text(
+                        'Sending...',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.035,
+                          fontWeight: FontWeightManager.regular,
+                          color: Colors.white,
+                          fontFamily: FontFamily.Montserrat,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.004),
+                Text(
+                  'Now',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.028,
+                    fontWeight: FontWeightManager.regular,
+                    color: Colors.grey.shade500,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -409,14 +415,32 @@ class _ChatViewState extends State<ChatView> {
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.004),
-                Text(
-                  message.formattedTime,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.028,
-                    fontWeight: FontWeightManager.regular,
-                    color: Colors.grey.shade500,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message.formattedTime,
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.028,
+                        fontWeight: FontWeightManager.regular,
+                        color: Colors.grey.shade500,
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                    // Show sender type for debugging
+                    if (message.senderType.isNotEmpty) ...[
+                      SizedBox(width: screenWidth * 0.01),
+                      Text(
+                        '(${message.senderType})',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.025,
+                          fontWeight: FontWeightManager.regular,
+                          color: Colors.grey.shade400,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -475,12 +499,13 @@ class _ChatViewState extends State<ChatView> {
                 ),
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (_) => _sendMessage(context),
               ),
             ),
           ),
           SizedBox(width: screenWidth * 0.028),
           GestureDetector(
-            onTap: isSending ? null : _sendMessage,
+            onTap: isSending ? null : () => _sendMessage(context),
             child: Container(
               width: screenWidth * 0.11,
               height: screenWidth * 0.11,
@@ -575,7 +600,7 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  void _sendMessage() {
+  void _sendMessage(BuildContext context) {
     final message = _messageController.text.trim();
     if (message.isNotEmpty) {
       context.read<ChatBloc>().add(SendMessage(message));

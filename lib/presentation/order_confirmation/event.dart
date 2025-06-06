@@ -20,6 +20,10 @@ class ProceedToChat extends OrderConfirmationEvent {
   const ProceedToChat();
 }
 
+class PlaceOrder extends OrderConfirmationEvent {
+  const PlaceOrder();
+}
+
 class UpdateOrderQuantity extends OrderConfirmationEvent {
   final String itemId;
   final int newQuantity;

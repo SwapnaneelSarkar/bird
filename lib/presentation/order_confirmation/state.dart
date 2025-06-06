@@ -48,9 +48,20 @@ class OrderConfirmationProcessing extends OrderConfirmationState {}
 
 class OrderConfirmationSuccess extends OrderConfirmationState {
   final String message;
+  final String orderId;
   
-  const OrderConfirmationSuccess(this.message);
+  const OrderConfirmationSuccess(this.message, this.orderId);
   
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, orderId];
+}
+
+class ChatRoomCreated extends OrderConfirmationState {
+  final String orderId;
+  final String roomId;
+  
+  const ChatRoomCreated(this.orderId, this.roomId);
+  
+  @override
+  List<Object?> get props => [orderId, roomId];
 }

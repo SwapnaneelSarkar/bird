@@ -7,11 +7,11 @@ import 'event.dart';
 import 'state.dart';
 
 class ChatView extends StatefulWidget {
-  final String orderId;
+  final String? orderId;
   
   const ChatView({
     Key? key,
-    required this.orderId,
+    this.orderId,
   }) : super(key: key);
 
   @override
@@ -41,8 +41,15 @@ class _ChatViewState extends State<ChatView> {
 
   @override
   Widget build(BuildContext context) {
+    // Get orderId from route arguments if not provided directly
+    final String orderId = widget.orderId ?? 
+        (ModalRoute.of(context)?.settings.arguments as String?) ?? 
+        'default_order';
+        
+    debugPrint('ChatView: Building with order ID: $orderId');
+    
     return BlocProvider(
-      create: (context) => ChatBloc()..add(LoadChatData(widget.orderId)),
+      create: (context) => ChatBloc()..add(LoadChatData(orderId)),
       child: Scaffold(
         backgroundColor: Colors.white,
         body: BlocConsumer<ChatBloc, ChatState>(
@@ -73,25 +80,28 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildChatContent(BuildContext context, ChatLoaded state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return SafeArea(
       child: Column(
         children: [
-          _buildAppBar(context, state.orderInfo),
-          _buildOrderHeader(state.orderInfo),
+          _buildAppBar(context, state.orderInfo, screenWidth, screenHeight),
+          _buildOrderHeader(state.orderInfo, screenWidth, screenHeight),
           Expanded(
-            child: _buildMessagesList(state.messages),
+            child: _buildMessagesList(state.messages, screenWidth, screenHeight),
           ),
-          _buildMessageInput(context, state.isSendingMessage),
+          _buildMessageInput(context, state.isSendingMessage, screenWidth, screenHeight),
         ],
       ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ChatOrderInfo orderInfo) {
+  Widget _buildAppBar(BuildContext context, ChatOrderInfo orderInfo, double screenWidth, double screenHeight) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: MediaQuery.of(context).size.width * 0.04,
-        vertical: MediaQuery.of(context).size.height * 0.012,
+        horizontal: screenWidth * 0.04,
+        vertical: screenHeight * 0.012,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -107,10 +117,10 @@ class _ChatViewState extends State<ChatView> {
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
-              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.018),
+              padding: EdgeInsets.all(screenWidth * 0.018),
               child: Icon(
                 Icons.arrow_back,
-                size: MediaQuery.of(context).size.width * 0.055,
+                size: screenWidth * 0.055,
                 color: ColorManager.black,
               ),
             ),
@@ -120,7 +130,7 @@ class _ChatViewState extends State<ChatView> {
               child: Text(
                 'Chat',
                 style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.047,
+                  fontSize: screenWidth * 0.047,
                   fontWeight: FontWeightManager.semiBold,
                   color: ColorManager.black,
                   fontFamily: FontFamily.Montserrat,
@@ -128,16 +138,16 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
-          SizedBox(width: MediaQuery.of(context).size.width * 0.073),
+          SizedBox(width: screenWidth * 0.073),
         ],
       ),
     );
   }
 
-  Widget _buildOrderHeader(ChatOrderInfo orderInfo) {
+  Widget _buildOrderHeader(ChatOrderInfo orderInfo, double screenWidth, double screenHeight) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+      padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -156,7 +166,7 @@ class _ChatViewState extends State<ChatView> {
               Text(
                 'Order ${orderInfo.orderId}',
                 style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.048,
+                  fontSize: screenWidth * 0.048,
                   fontWeight: FontWeightManager.bold,
                   color: ColorManager.black,
                   fontFamily: FontFamily.Montserrat,
@@ -164,31 +174,31 @@ class _ChatViewState extends State<ChatView> {
               ),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width * 0.028,
-                  vertical: MediaQuery.of(context).size.height * 0.004,
+                  horizontal: screenWidth * 0.028,
+                  vertical: screenHeight * 0.004,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(
-                    MediaQuery.of(context).size.width * 0.035,
+                    screenWidth * 0.035,
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: MediaQuery.of(context).size.width * 0.018,
-                      height: MediaQuery.of(context).size.width * 0.018,
+                      width: screenWidth * 0.018,
+                      height: screenWidth * 0.018,
                       decoration: const BoxDecoration(
                         color: Colors.orange,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    SizedBox(width: MediaQuery.of(context).size.width * 0.018),
+                    SizedBox(width: screenWidth * 0.018),
                     Text(
                       orderInfo.status,
                       style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.width * 0.033,
+                        fontSize: screenWidth * 0.033,
                         fontWeight: FontWeightManager.medium,
                         color: Colors.orange,
                         fontFamily: FontFamily.Montserrat,
@@ -199,11 +209,11 @@ class _ChatViewState extends State<ChatView> {
               ),
             ],
           ),
-          SizedBox(height: MediaQuery.of(context).size.height * 0.004),
+          SizedBox(height: screenHeight * 0.004),
           Text(
             '${orderInfo.restaurantName} • Estimated delivery: ${orderInfo.estimatedDelivery}',
             style: TextStyle(
-              fontSize: MediaQuery.of(context).size.width * 0.033,
+              fontSize: screenWidth * 0.033,
               fontWeight: FontWeightManager.regular,
               color: Colors.grey.shade600,
               fontFamily: FontFamily.Montserrat,
@@ -214,22 +224,22 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessagesList(List<ChatMessage> messages) {
+  Widget _buildMessagesList(List<ChatMessage> messages, double screenWidth, double screenHeight) {
     return ListView.builder(
       controller: _scrollController,
-      padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.035),
+      padding: EdgeInsets.all(screenWidth * 0.035),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
-        return _buildMessageBubble(message);
+        return _buildMessageBubble(message, screenWidth, screenHeight);
       },
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessageBubble(ChatMessage message, double screenWidth, double screenHeight) {
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).size.height * 0.012,
+        bottom: screenHeight * 0.012,
       ),
       child: Row(
         mainAxisAlignment: message.isUserMessage 
@@ -247,21 +257,21 @@ class _ChatViewState extends State<ChatView> {
               children: [
                 Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width * 0.038,
-                    vertical: MediaQuery.of(context).size.height * 0.012,
+                    horizontal: screenWidth * 0.038,
+                    vertical: screenHeight * 0.012,
                   ),
                   decoration: BoxDecoration(
                     color: message.isUserMessage 
                         ? const Color(0xFFE17A47)
                         : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(
-                      MediaQuery.of(context).size.width * 0.038,
+                      screenWidth * 0.038,
                     ),
                   ),
                   child: Text(
                     message.message,
                     style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.035,
+                      fontSize: screenWidth * 0.035,
                       fontWeight: FontWeightManager.regular,
                       color: message.isUserMessage 
                           ? Colors.white 
@@ -271,11 +281,11 @@ class _ChatViewState extends State<ChatView> {
                     ),
                   ),
                 ),
-                SizedBox(height: MediaQuery.of(context).size.height * 0.004),
+                SizedBox(height: screenHeight * 0.004),
                 Text(
                   message.time,
                   style: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.028,
+                    fontSize: screenWidth * 0.028,
                     fontWeight: FontWeightManager.regular,
                     color: Colors.grey.shade500,
                     fontFamily: FontFamily.Montserrat,
@@ -290,9 +300,9 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessageInput(BuildContext context, bool isSending) {
+  Widget _buildMessageInput(BuildContext context, bool isSending, double screenWidth, double screenHeight) {
     return Container(
-      padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.035),
+      padding: EdgeInsets.all(screenWidth * 0.035),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -307,18 +317,18 @@ class _ChatViewState extends State<ChatView> {
           Expanded(
             child: Container(
               padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.of(context).size.width * 0.038,
+                horizontal: screenWidth * 0.038,
               ),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(
-                  MediaQuery.of(context).size.width * 0.055,
+                  screenWidth * 0.055,
                 ),
               ),
               child: TextField(
                 controller: _messageController,
                 style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.035,
+                  fontSize: screenWidth * 0.035,
                   fontWeight: FontWeightManager.regular,
                   color: ColorManager.black,
                   fontFamily: FontFamily.Montserrat,
@@ -326,14 +336,14 @@ class _ChatViewState extends State<ChatView> {
                 decoration: InputDecoration(
                   hintText: 'Type a message...',
                   hintStyle: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.035,
+                    fontSize: screenWidth * 0.035,
                     fontWeight: FontWeightManager.regular,
                     color: Colors.grey.shade500,
                     fontFamily: FontFamily.Montserrat,
                   ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
-                    vertical: MediaQuery.of(context).size.height * 0.012,
+                    vertical: screenHeight * 0.012,
                   ),
                 ),
                 maxLines: null,
@@ -341,12 +351,12 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
-          SizedBox(width: MediaQuery.of(context).size.width * 0.028),
+          SizedBox(width: screenWidth * 0.028),
           GestureDetector(
             onTap: isSending ? null : _sendMessage,
             child: Container(
-              width: MediaQuery.of(context).size.width * 0.11,
-              height: MediaQuery.of(context).size.width * 0.11,
+              width: screenWidth * 0.11,
+              height: screenWidth * 0.11,
               decoration: BoxDecoration(
                 color: isSending 
                     ? Colors.grey.shade400 
@@ -356,8 +366,8 @@ class _ChatViewState extends State<ChatView> {
               child: Center(
                 child: isSending
                     ? SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.035,
-                        height: MediaQuery.of(context).size.width * 0.035,
+                        width: screenWidth * 0.035,
+                        height: screenWidth * 0.035,
                         child: const CircularProgressIndicator(
                           color: Colors.white,
                           strokeWidth: 2,
@@ -366,7 +376,7 @@ class _ChatViewState extends State<ChatView> {
                     : Icon(
                         Icons.send,
                         color: Colors.white,
-                        size: MediaQuery.of(context).size.width * 0.045,
+                        size: screenWidth * 0.045,
                       ),
               ),
             ),
@@ -377,50 +387,56 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildErrorState(BuildContext context, ChatError state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+        padding: EdgeInsets.all(screenWidth * 0.04),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
-              size: MediaQuery.of(context).size.width * 0.12,
+              size: screenWidth * 0.12,
               color: Colors.grey.shade400,
             ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.015),
+            SizedBox(height: screenHeight * 0.015),
             Text(
               state.message,
               style: TextStyle(
-                fontSize: MediaQuery.of(context).size.width * 0.035,
+                fontSize: screenWidth * 0.035,
                 fontWeight: FontWeightManager.regular,
                 color: Colors.grey.shade600,
                 fontFamily: FontFamily.Montserrat,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+            SizedBox(height: screenHeight * 0.02),
             ElevatedButton(
               onPressed: () {
-                context.read<ChatBloc>().add(LoadChatData(widget.orderId));
+                final orderId = widget.orderId ?? 
+                    (ModalRoute.of(context)?.settings.arguments as String?) ?? 
+                    'default_order';
+                context.read<ChatBloc>().add(LoadChatData(orderId));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE17A47),
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width * 0.06,
-                  vertical: MediaQuery.of(context).size.height * 0.01,
+                  horizontal: screenWidth * 0.06,
+                  vertical: screenHeight * 0.01,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(
-                    MediaQuery.of(context).size.width * 0.015,
+                    screenWidth * 0.015,
                   ),
                 ),
               ),
               child: Text(
                 'Retry',
                 style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.032,
+                  fontSize: screenWidth * 0.032,
                   fontWeight: FontWeightManager.medium,
                   fontFamily: FontFamily.Montserrat,
                 ),

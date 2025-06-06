@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../widgets/custom_button_large.dart';
+import '../../widgets/custom_button_large.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_card.dart';
@@ -56,7 +56,7 @@ class _OrderConfirmationContent extends StatelessWidget {
         title: Text(
           'Order Confirmation',
           style: TextStyle(
-            fontSize: 18.0,
+            fontSize: screenWidth * 0.045,
             fontWeight: FontWeightManager.bold,
             fontFamily: FontFamily.Montserrat,
             color: ColorManager.black,
@@ -77,8 +77,11 @@ class _OrderConfirmationContent extends StatelessWidget {
               ),
             );
             
-            debugPrint('OrderConfirmationView: Navigating to chat...');
-            Navigator.of(context).pushReplacementNamed('/chat');
+            debugPrint('OrderConfirmationView: Navigating to chat for order: ${state.orderId}');
+            Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
+          } else if (state is ChatRoomCreated) {
+            debugPrint('OrderConfirmationView: Chat room created, navigating to chat...');
+            Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
           } else if (state is OrderConfirmationError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -125,7 +128,7 @@ class _OrderConfirmationContent extends StatelessWidget {
           Text(
             'Loading order details...',
             style: TextStyle(
-              fontSize: (screenWidth * 0.04).clamp(14.0, 18.0),
+              fontSize: screenWidth * 0.04,
               fontWeight: FontWeightManager.regular,
               fontFamily: FontFamily.Montserrat,
               color: Colors.grey[600],
@@ -142,6 +145,7 @@ class _OrderConfirmationContent extends StatelessWidget {
       child: Center(
         child: Container(
           padding: EdgeInsets.all(screenWidth * 0.08),
+          margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -156,11 +160,12 @@ class _OrderConfirmationContent extends StatelessWidget {
               Text(
                 'Processing your order...',
                 style: TextStyle(
-                  fontSize: (screenWidth * 0.04).clamp(14.0, 18.0),
+                  fontSize: screenWidth * 0.04,
                   fontWeight: FontWeightManager.medium,
                   fontFamily: FontFamily.Montserrat,
                   color: ColorManager.black,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -190,7 +195,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             Text(
               state.message,
               style: TextStyle(
-                fontSize: (screenWidth * 0.04).clamp(14.0, 18.0),
+                fontSize: screenWidth * 0.04,
                 fontWeight: FontWeightManager.regular,
                 fontFamily: FontFamily.Montserrat,
                 color: Colors.red,
@@ -228,11 +233,16 @@ class _OrderConfirmationContent extends StatelessWidget {
               children: [
                 // Section Title
                 Padding(
-                  padding: EdgeInsets.fromLTRB(screenWidth * 0.06, screenWidth * 0.04, screenWidth * 0.06, screenWidth * 0.03), // Reduced padding
+                  padding: EdgeInsets.fromLTRB(
+                    screenWidth * 0.06, 
+                    screenWidth * 0.04, 
+                    screenWidth * 0.06, 
+                    screenWidth * 0.03
+                  ),
                   child: Text(
                     'Selected Items',
                     style: TextStyle(
-                      fontSize: 20.0, // Slightly smaller
+                      fontSize: screenWidth * 0.05,
                       fontWeight: FontWeightManager.bold,
                       fontFamily: FontFamily.Montserrat,
                       color: ColorManager.black,
@@ -240,7 +250,7 @@ class _OrderConfirmationContent extends StatelessWidget {
                   ),
                 ),
 
-                // Items List - More compact spacing
+                // Items List
                 ...state.orderSummary.items.asMap().entries.map((entry) {
                   final index = entry.key;
                   final item = entry.value;
@@ -251,16 +261,16 @@ class _OrderConfirmationContent extends StatelessWidget {
                     imageUrl: item.imageUrl,
                     name: item.name,
                     quantity: item.quantity,
-                    price: item.totalPrice, // Use totalPrice instead of price
+                    price: item.totalPrice,
                   );
                 }).toList(),
 
-                SizedBox(height: screenHeight * 0.02), // Reduced space
+                SizedBox(height: screenHeight * 0.02),
 
                 // Order Summary
                 _buildOrderSummary(state, screenWidth, screenHeight),
 
-                SizedBox(height: screenHeight * 0.015), // Reduced space for button
+                SizedBox(height: screenHeight * 0.015),
               ],
             ),
           ),
@@ -281,7 +291,7 @@ class _OrderConfirmationContent extends StatelessWidget {
       margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
       padding: EdgeInsets.symmetric(
         horizontal: screenWidth * 0.05,
-        vertical: screenHeight * 0.02, // Reduced padding
+        vertical: screenHeight * 0.02,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -305,7 +315,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             isTotal: false,
           ),
           
-          SizedBox(height: screenHeight * 0.01), // Reduced spacing
+          SizedBox(height: screenHeight * 0.01),
           
           // Delivery Fee
           _buildSummaryRow(
@@ -315,7 +325,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             isTotal: false,
           ),
           
-          SizedBox(height: screenHeight * 0.015), // Reduced spacing
+          SizedBox(height: screenHeight * 0.015),
           
           // Divider
           Divider(
@@ -324,7 +334,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             height: 1,
           ),
           
-          SizedBox(height: screenHeight * 0.015), // Reduced spacing
+          SizedBox(height: screenHeight * 0.015),
           
           // Total
           _buildSummaryRow(
@@ -352,7 +362,7 @@ class _OrderConfirmationContent extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: isTotal ? 15.0 : 13.0, // Smaller fonts
+              fontSize: isTotal ? screenWidth * 0.04 : screenWidth * 0.035,
               fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.regular,
               fontFamily: FontFamily.Montserrat,
               color: isTotal ? ColorManager.black : Colors.grey[600],
@@ -364,7 +374,7 @@ class _OrderConfirmationContent extends StatelessWidget {
           child: Text(
             amount,
             style: TextStyle(
-              fontSize: isTotal ? 16.0 : 13.0, // Smaller fonts
+              fontSize: isTotal ? screenWidth * 0.042 : screenWidth * 0.035,
               fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.semiBold,
               fontFamily: FontFamily.Montserrat,
               color: isTotal ? const Color(0xFFD2691E) : ColorManager.black,
@@ -386,7 +396,7 @@ class _OrderConfirmationContent extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(
         screenWidth * 0.06,
-        screenHeight * 0.015, // Reduced padding
+        screenHeight * 0.015,
         screenWidth * 0.06,
         screenHeight * 0.015,
       ),
@@ -404,7 +414,7 @@ class _OrderConfirmationContent extends StatelessWidget {
       child: SafeArea(
         child: SizedBox(
           width: double.infinity,
-          height: 50, // Slightly smaller button
+          height: screenHeight * 0.065,
           child: ElevatedButton(
             onPressed: () {
               context.read<OrderConfirmationBloc>().add(const ProceedToChat());
@@ -420,7 +430,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             child: Text(
               'Proceed to Chat  →',
               style: TextStyle(
-                fontSize: 15.0, // Slightly smaller font
+                fontSize: screenWidth * 0.04,
                 fontWeight: FontWeightManager.semiBold,
                 fontFamily: FontFamily.Montserrat,
                 letterSpacing: 0.5,

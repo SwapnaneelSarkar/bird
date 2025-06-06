@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/order_confirmation_model.dart';
 import '../../../service/cart_service.dart';
+import '../../../service/order_service.dart';
+import '../../../service/token_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -10,6 +12,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
     debugPrint('OrderConfirmationBloc: Constructor called');
     on<LoadOrderConfirmationData>(_onLoadOrderConfirmationData);
     on<ProceedToChat>(_onProceedToChat);
+    on<PlaceOrder>(_onPlaceOrder);
     on<UpdateOrderQuantity>(_onUpdateOrderQuantity);
     on<RemoveOrderItem>(_onRemoveOrderItem);
     debugPrint('OrderConfirmationBloc: Event handlers registered');
@@ -101,25 +104,114 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
     Emitter<OrderConfirmationState> emit,
   ) async {
     if (state is OrderConfirmationLoaded) {
+      // Trigger order placement
+      add(const PlaceOrder());
+    }
+  }
+
+  Future<void> _onPlaceOrder(
+    PlaceOrder event,
+    Emitter<OrderConfirmationState> emit,
+  ) async {
+    if (state is OrderConfirmationLoaded) {
+      final currentState = state as OrderConfirmationLoaded;
+      
       emit(OrderConfirmationProcessing());
       
       try {
-        debugPrint('OrderConfirmationBloc: Processing order for chat...');
+        debugPrint('OrderConfirmationBloc: Starting order placement process...');
         
-        // Simulate API call to proceed with order
-        await Future.delayed(const Duration(milliseconds: 1500));
+        // Get user ID and address
+        final userId = await TokenService.getUserId();
+        if (userId == null) {
+          emit(const OrderConfirmationError('User authentication required. Please login again.'));
+          return;
+        }
         
-        // Clear cart after successful order
-        await CartService.clearCart();
+        final cartMetadata = currentState.cartMetadata;
+        final partnerId = cartMetadata['partner_id']?.toString() ?? '';
+        String address = cartMetadata['address']?.toString() ?? '';
         
-        debugPrint('OrderConfirmationBloc: Order processed successfully, cart cleared, proceeding to chat');
-        emit(OrderConfirmationSuccess('Order confirmed! Proceeding to chat...'));
+        // If address is empty, try to get from user profile
+        if (address.isEmpty) {
+          final userData = await TokenService.getUserData();
+          address = userData?['address']?.toString() ?? '';
+        }
         
-      } catch (e) {
-        debugPrint('OrderConfirmationBloc: Error processing order: $e');
-        emit(OrderConfirmationError('Failed to process order. Please try again.'));
+        if (address.isEmpty) {
+          emit(const OrderConfirmationError('Delivery address is required. Please add your address.'));
+          return;
+        }
         
-        // Return to loaded state
+        // Prepare order items
+        final orderItems = currentState.orderSummary.items.map((item) => {
+          'menu_id': item.id,
+          'quantity': item.quantity,
+          'price': item.price,
+        }).toList();
+        
+        debugPrint('OrderConfirmationBloc: Placing order with:');
+        debugPrint('  Partner ID: $partnerId');
+        debugPrint('  User ID: $userId');
+        debugPrint('  Items: ${orderItems.length}');
+        debugPrint('  Total: ₹${currentState.orderSummary.total}');
+        debugPrint('  Address: $address');
+        
+        // Place order
+        final orderResult = await OrderService.placeOrder(
+          partnerId: partnerId,
+          userId: userId,
+          items: orderItems,
+          totalPrice: currentState.orderSummary.total,
+          address: address,
+          deliveryFees: currentState.orderSummary.deliveryFee,
+          subtotal: currentState.orderSummary.subtotal,
+        );
+        
+        if (orderResult['success'] == true) {
+          final orderData = orderResult['data'];
+          final orderId = orderData['order_id'].toString();
+          
+          debugPrint('OrderConfirmationBloc: Order placed successfully - Order ID: $orderId');
+          
+          // Create chat room
+          debugPrint('OrderConfirmationBloc: Creating chat room for order: $orderId');
+          final chatResult = await OrderService.createChatRoom(orderId);
+          
+          if (chatResult['success'] == true) {
+            final chatData = chatResult['data'];
+            final roomId = chatData['roomId'].toString();
+            
+            debugPrint('OrderConfirmationBloc: Chat room created - Room ID: $roomId');
+            
+            // Clear cart after successful order
+            await CartService.clearCart();
+            debugPrint('OrderConfirmationBloc: Cart cleared after successful order');
+            
+            emit(ChatRoomCreated(orderId, roomId));
+          } else {
+            debugPrint('OrderConfirmationBloc: Chat room creation failed: ${chatResult['message']}');
+            // Even if chat room creation fails, order was placed successfully
+            await CartService.clearCart();
+            emit(OrderConfirmationSuccess(
+              'Order placed successfully! Order ID: $orderId',
+              orderId,
+            ));
+          }
+        } else {
+          debugPrint('OrderConfirmationBloc: Order placement failed: ${orderResult['message']}');
+          emit(OrderConfirmationError(orderResult['message'] ?? 'Failed to place order. Please try again.'));
+          
+          // Return to loaded state on error
+          emit(currentState);
+        }
+        
+      } catch (e, stackTrace) {
+        debugPrint('OrderConfirmationBloc: Error during order placement: $e');
+        debugPrint('OrderConfirmationBloc: Stack trace: $stackTrace');
+        emit(const OrderConfirmationError('An error occurred while placing your order. Please try again.'));
+        
+        // Return to loaded state on error
         if (state is OrderConfirmationLoaded) {
           emit(state as OrderConfirmationLoaded);
         }

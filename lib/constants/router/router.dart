@@ -136,7 +136,10 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => const OrderConfirmationView());
 
       case Routes.chat:
-        return MaterialPageRoute(builder: (_) => const ChatView(orderId: '',));
+        final orderId = routeSettings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => ChatView(orderId: orderId),
+        );
 
       case Routes.orderHistory:
         return MaterialPageRoute(builder: (_) => const OrderHistoryView());

@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAlUitAQ_hDTk_EhmmAP1-fbn8h6KRr8Jo',
-    appId: '1:1062805760329:android:15a772c886c0dd425e9298',
+    appId: '1:1062805760329:android:a5eeca109dab4ef05e9298',
     messagingSenderId: '1062805760329',
     projectId: 'bird-2a331',
     databaseURL: 'https://bird-2a331-default-rtdb.firebaseio.com',
@@ -60,14 +60,14 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBx1K8vzcXZHxOP0jm_qFQPg8iTnDK93gY',
-    appId: '1:1062805760329:ios:5db3a538e4339cc85e9298',
+    appId: '1:1062805760329:ios:ce0347aa9b9d7c8e5e9298',
     messagingSenderId: '1062805760329',
     projectId: 'bird-2a331',
     databaseURL: 'https://bird-2a331-default-rtdb.firebaseio.com',
     storageBucket: 'bird-2a331.firebasestorage.app',
     androidClientId: '1062805760329-21h3vboi0kei20bljdrhj2lv9u2ps173.apps.googleusercontent.com',
-    iosClientId: '1062805760329-rt76ic1fu3ghjkljc1rt4q03gbk23ptl.apps.googleusercontent.com',
-    iosBundleId: 'com.bird.app',
+    iosClientId: '1062805760329-kb1fhhbcfko7ts0s79lpvjfv34vjsmmj.apps.googleusercontent.com',
+    iosBundleId: 'com.birduser.app',
   );
 
 }

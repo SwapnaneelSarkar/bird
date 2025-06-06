@@ -13,7 +13,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.bird.app"
+    namespace = "com.birduser.app"
     compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
@@ -29,7 +29,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.bird.app"
+        applicationId = "com.birduser.app"
         minSdkVersion 23
         targetSdkVersion 34
         versionCode = flutter.versionCode

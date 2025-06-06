@@ -8,9 +8,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:15a772c886c0dd425e9298",
+        "mobilesdk_app_id": "1:1062805760329:android:a5eeca109dab4ef05e9298",
         "android_client_info": {
-          "package_name": "com.bird.app"
+          "package_name": "com.birduser.app"
         }
       },
       "oauth_client": [
@@ -44,7 +44,7 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1062805760329:android:519f35b42c536f6c5e9298",
+        "mobilesdk_app_id": "1:1062805760329:android:d421f8f7c8a308535e9298",
         "android_client_info": {
           "package_name": "com.example.bird"
         }

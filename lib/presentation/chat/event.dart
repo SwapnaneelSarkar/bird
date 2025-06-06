@@ -17,19 +17,14 @@ class LoadChatData extends ChatEvent {
 }
 
 class SendMessage extends ChatEvent {
-  final String message;
+  final String content;
   
-  const SendMessage(this.message);
+  const SendMessage(this.content);
   
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [content];
 }
 
-class ReceiveMessage extends ChatEvent {
-  final String message;
-  
-  const ReceiveMessage(this.message);
-  
-  @override
-  List<Object?> get props => [message];
+class RefreshMessages extends ChatEvent {
+  const RefreshMessages();
 }

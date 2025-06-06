@@ -58,7 +58,8 @@ class OrderService {
       debugPrint('OrderService: Response Status: ${response.statusCode}');
       debugPrint('OrderService: Response Body: ${response.body}');
       
-      if (response.statusCode == 200) {
+      // Fix: Accept both 200 and 201 status codes as successful
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
         
         if (responseData['status'] == true) {
@@ -121,10 +122,11 @@ class OrderService {
       debugPrint('OrderService: Chat room response status: ${response.statusCode}');
       debugPrint('OrderService: Chat room response body: ${response.body}');
       
-      if (response.statusCode == 200) {
+      // Fix: Accept both 200 and 201 status codes as successful
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
         
-        if (responseData['status'] == 'SUCCESS') {
+        if (responseData['status'] == 'SUCCESS' || responseData['status'] == true) {
           debugPrint('OrderService: Chat room created successfully');
           debugPrint('OrderService: Room ID: ${responseData['data']['roomId']}');
           

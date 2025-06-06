@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
+import '../../models/chat_models.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -50,30 +51,32 @@ class _ChatViewState extends State<ChatView> {
     
     return BlocProvider(
       create: (context) => ChatBloc()..add(LoadChatData(orderId)),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: BlocConsumer<ChatBloc, ChatState>(
-          listener: (context, state) {
-            if (state is ChatLoaded) {
-              // Scroll to bottom when new messages arrive
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _scrollToBottom();
-              });
-            }
-          },
-          builder: (context, state) {
-            if (state is ChatLoading) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            } else if (state is ChatLoaded) {
-              return _buildChatContent(context, state);
-            } else if (state is ChatError) {
-              return _buildErrorState(context, state);
-            }
-            
-            return const SizedBox.shrink();
-          },
+      child: Builder(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.white,
+          body: BlocConsumer<ChatBloc, ChatState>(
+            listener: (context, state) {
+              if (state is ChatLoaded && !state.isSendingMessage) {
+                // Scroll to bottom when new messages arrive
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToBottom();
+                });
+              }
+            },
+            builder: (context, state) {
+              if (state is ChatLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              } else if (state is ChatLoaded) {
+                return _buildChatContent(context, state);
+              } else if (state is ChatError) {
+                return _buildErrorState(context, state);
+              }
+              
+              return const SizedBox.shrink();
+            },
+          ),
         ),
       ),
     );
@@ -86,10 +89,10 @@ class _ChatViewState extends State<ChatView> {
     return SafeArea(
       child: Column(
         children: [
-          _buildAppBar(context, state.orderInfo, screenWidth, screenHeight),
-          _buildOrderHeader(state.orderInfo, screenWidth, screenHeight),
+          _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
+          _buildOrderHeader(state.chatRoom, screenWidth, screenHeight),
           Expanded(
-            child: _buildMessagesList(state.messages, screenWidth, screenHeight),
+            child: _buildMessagesList(state.messages, state.currentUserId, screenWidth, screenHeight),
           ),
           _buildMessageInput(context, state.isSendingMessage, screenWidth, screenHeight),
         ],
@@ -97,7 +100,7 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ChatOrderInfo orderInfo, double screenWidth, double screenHeight) {
+  Widget _buildAppBar(BuildContext context, ChatRoom chatRoom, double screenWidth, double screenHeight) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: screenWidth * 0.04,
@@ -138,13 +141,24 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
-          SizedBox(width: screenWidth * 0.073),
+          // Refresh button
+          GestureDetector(
+            onTap: () => context.read<ChatBloc>().add(const RefreshMessages()),
+            child: Container(
+              padding: EdgeInsets.all(screenWidth * 0.018),
+              child: Icon(
+                Icons.refresh,
+                size: screenWidth * 0.055,
+                color: ColorManager.black,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildOrderHeader(ChatOrderInfo orderInfo, double screenWidth, double screenHeight) {
+  Widget _buildOrderHeader(ChatRoom chatRoom, double screenWidth, double screenHeight) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(screenWidth * 0.04),
@@ -161,10 +175,95 @@ class _ChatViewState extends State<ChatView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Order ${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.048,
+                    fontWeight: FontWeightManager.bold,
+                    color: ColorManager.black,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: screenWidth * 0.02),
+              Flexible(
+                flex: 2,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.028,
+                    vertical: screenHeight * 0.004,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(
+                      screenWidth * 0.035,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: screenWidth * 0.018,
+                        height: screenWidth * 0.018,
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.015),
+                      Flexible(
+                        child: Text(
+                          'Active',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.03,
+                            fontWeight: FontWeightManager.medium,
+                            color: Colors.orange,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: screenHeight * 0.004),
+          Text(
+            'Room: ${chatRoom.roomId.length > 20 ? chatRoom.roomId.substring(0, 20) + '...' : chatRoom.roomId}',
+            style: TextStyle(
+              fontSize: screenWidth * 0.033,
+              fontWeight: FontWeightManager.regular,
+              color: Colors.grey.shade600,
+              fontFamily: FontFamily.Montserrat,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  } BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Order ${orderInfo.orderId}',
+                'Order ${chatRoom.orderId}',
                 style: TextStyle(
                   fontSize: screenWidth * 0.048,
                   fontWeight: FontWeightManager.bold,
@@ -196,7 +295,7 @@ class _ChatViewState extends State<ChatView> {
                     ),
                     SizedBox(width: screenWidth * 0.018),
                     Text(
-                      orderInfo.status,
+                      'Active',
                       style: TextStyle(
                         fontSize: screenWidth * 0.033,
                         fontWeight: FontWeightManager.medium,
@@ -211,7 +310,7 @@ class _ChatViewState extends State<ChatView> {
           ),
           SizedBox(height: screenHeight * 0.004),
           Text(
-            '${orderInfo.restaurantName} • Estimated delivery: ${orderInfo.estimatedDelivery}',
+            'Room ID: ${chatRoom.roomId}',
             style: TextStyle(
               fontSize: screenWidth * 0.033,
               fontWeight: FontWeightManager.regular,
@@ -224,34 +323,70 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessagesList(List<ChatMessage> messages, double screenWidth, double screenHeight) {
+  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, double screenWidth, double screenHeight) {
+    if (messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: screenWidth * 0.12,
+              color: Colors.grey.shade400,
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            Text(
+              'No messages yet',
+              style: TextStyle(
+                fontSize: screenWidth * 0.04,
+                fontWeight: FontWeightManager.medium,
+                color: Colors.grey.shade600,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.01),
+            Text(
+              'Start the conversation!',
+              style: TextStyle(
+                fontSize: screenWidth * 0.035,
+                fontWeight: FontWeightManager.regular,
+                color: Colors.grey.shade500,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(screenWidth * 0.035),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
-        return _buildMessageBubble(message, screenWidth, screenHeight);
+        final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
+        return _buildMessageBubble(message, isFromCurrentUser, screenWidth, screenHeight);
       },
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message, double screenWidth, double screenHeight) {
+  Widget _buildMessageBubble(ChatMessage message, bool isFromCurrentUser, double screenWidth, double screenHeight) {
     return Padding(
       padding: EdgeInsets.only(
         bottom: screenHeight * 0.012,
       ),
       child: Row(
-        mainAxisAlignment: message.isUserMessage 
+        mainAxisAlignment: isFromCurrentUser 
             ? MainAxisAlignment.end 
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message.isUserMessage) const Spacer(),
+          if (isFromCurrentUser) const Spacer(),
           Flexible(
             flex: 7,
             child: Column(
-              crossAxisAlignment: message.isUserMessage 
+              crossAxisAlignment: isFromCurrentUser 
                   ? CrossAxisAlignment.end 
                   : CrossAxisAlignment.start,
               children: [
@@ -261,7 +396,7 @@ class _ChatViewState extends State<ChatView> {
                     vertical: screenHeight * 0.012,
                   ),
                   decoration: BoxDecoration(
-                    color: message.isUserMessage 
+                    color: isFromCurrentUser 
                         ? const Color(0xFFE17A47)
                         : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(
@@ -269,11 +404,11 @@ class _ChatViewState extends State<ChatView> {
                     ),
                   ),
                   child: Text(
-                    message.message,
+                    message.content,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
                       fontWeight: FontWeightManager.regular,
-                      color: message.isUserMessage 
+                      color: isFromCurrentUser 
                           ? Colors.white 
                           : ColorManager.black,
                       fontFamily: FontFamily.Montserrat,
@@ -283,7 +418,7 @@ class _ChatViewState extends State<ChatView> {
                 ),
                 SizedBox(height: screenHeight * 0.004),
                 Text(
-                  message.time,
+                  message.formattedTime,
                   style: TextStyle(
                     fontSize: screenWidth * 0.028,
                     fontWeight: FontWeightManager.regular,
@@ -294,7 +429,7 @@ class _ChatViewState extends State<ChatView> {
               ],
             ),
           ),
-          if (!message.isUserMessage) const Spacer(),
+          if (!isFromCurrentUser) const Spacer(),
         ],
       ),
     );

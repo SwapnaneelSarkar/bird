@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:intl/intl.dart';
 import '../../constants/api_constant.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/profile_tile.dart';
@@ -76,6 +77,7 @@ class ProfileView extends StatelessWidget {
             
             if (state is ProfileLoaded) {
               final userData = state.userData;
+              final orderHistory = state.orderHistory;
               
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -211,18 +213,29 @@ class ProfileView extends StatelessWidget {
                               )
                             ],
                           ),
-                          const _OrderTile(
-                            image: 'assets/images/burger.jpg',
-                            title: 'Burger Combo',
-                            date: 'Apr 25, 2025',
-                            price: '\$24.99',
-                          ),
-                          const _OrderTile(
-                            image: 'assets/images/pizza.jpg',
-                            title: 'Margherita Pizza',
-                            date: 'Apr 24, 2025',
-                            price: '\$18.99',
-                          ),
+                          // Show recent orders from API
+                          if (orderHistory.isNotEmpty) ...[
+                            ...orderHistory.take(2).map((order) => _OrderTile(
+                              image: order['restaurant_picture'],
+                              title: order['restaurant_name'] ?? 'Unknown Restaurant',
+                              date: _formatDate(order['datetime']),
+                              price: '\₹${order['total_price']}',
+                              status: order['order_status'],
+                            )).toList(),
+                          ] else ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: Text(
+                                  'No orders yet',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -291,6 +304,16 @@ class ProfileView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Helper method to format date
+  String _formatDate(String datetime) {
+    try {
+      final date = DateTime.parse(datetime);
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (e) {
+      return 'Unknown date';
+    }
   }
 
   // Helper method to get the full image URL
@@ -511,16 +534,18 @@ class ProfileView extends StatelessWidget {
 }
 
 class _OrderTile extends StatelessWidget {
-  final String image;
+  final String? image;
   final String title;
   final String date;
   final String price;
+  final String? status;
 
   const _OrderTile({
     required this.image,
     required this.title,
     required this.date,
     required this.price,
+    this.status,
   });
 
   @override
@@ -529,10 +554,36 @@ class _OrderTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.asset(image, width: 48, height: 48, fit: BoxFit.cover),
+        child: image != null && image!.isNotEmpty
+            ? Image.network(
+                _getFullImageUrl(image!),
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.restaurant, color: Colors.grey),
+                  );
+                },
+              )
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.restaurant, color: Colors.grey),
+              ),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('Delivered • $date'),
+      subtitle: Text(_getStatusText() + ' • $date'),
       trailing: Text(
         price,
         style: const TextStyle(
@@ -541,6 +592,32 @@ class _OrderTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getStatusText() {
+    switch (status?.toUpperCase()) {
+      case 'PENDING':
+        return 'Pending';
+      case 'CONFIRMED':
+        return 'Confirmed';
+      case 'PREPARING':
+        return 'Preparing';
+      case 'READY':
+        return 'Ready';
+      case 'DELIVERED':
+        return 'Delivered';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return 'Processing';
+    }
+  }
+
+  String _getFullImageUrl(String imagePath) {
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    return '${ApiConstants.baseUrl}/api/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
   }
 }
 

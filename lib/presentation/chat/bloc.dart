@@ -18,6 +18,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   StreamSubscription? _connectionSubscription;
   bool _isSocketConnected = false;
   int _lastMessageCount = 0;
+  DateTime? _lastPollTime;
+  int _pollFailureCount = 0;
+  static const int _maxPollFailures = 3;
   
   ChatBloc() : super(ChatInitial()) {
     _socketService = SocketService();
@@ -40,14 +43,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   
   void _startPolling() {
     _pollingTimer?.cancel();
-    // Use more frequent polling for better real-time experience
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    
+    // Use adaptive polling interval based on recent activity
+    Duration pollInterval = const Duration(seconds: 2);
+    
+    // If we've had recent activity, poll more frequently
+    if (_lastPollTime != null && 
+        DateTime.now().difference(_lastPollTime!) < const Duration(minutes: 2)) {
+      pollInterval = const Duration(milliseconds: 1500);
+    }
+    
+    _pollingTimer = Timer.periodic(pollInterval, (timer) {
       if (state is ChatLoaded && _currentRoomId != null) {
-        debugPrint('ChatBloc: Polling for new messages...');
+        debugPrint('ChatBloc: Polling for messages (primary method) - interval: ${pollInterval.inMilliseconds}ms');
         add(const RefreshMessages());
       }
     });
-    debugPrint('ChatBloc: Started polling every 2 seconds');
+    
+    debugPrint('ChatBloc: Started polling every ${pollInterval.inMilliseconds}ms (primary method)');
   }
   
   void _stopPolling() {
@@ -55,44 +68,51 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     debugPrint('ChatBloc: Stopped polling for messages');
   }
   
+  void _adjustPollingInterval() {
+    if (_pollFailureCount >= _maxPollFailures) {
+      // Slow down polling if we're having issues
+      _pollingTimer?.cancel();
+      _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+        if (state is ChatLoaded && _currentRoomId != null) {
+          debugPrint('ChatBloc: Slow polling due to failures');
+          add(const RefreshMessages());
+        }
+      });
+      debugPrint('ChatBloc: Switched to slow polling due to failures');
+    } else {
+      _startPolling(); // Normal polling
+    }
+  }
+  
   void _setupSocketListeners() {
-    // Listen for socket connection status
+    // Listen for socket connection status (backup only)
     _connectionSubscription = _socketService.connectionStream.listen((connected) {
       _isSocketConnected = connected;
-      debugPrint('ChatBloc: Socket connection status changed: $connected');
+      debugPrint('ChatBloc: Socket connection status: $connected (backup method)');
       
-      if (connected) {
-        debugPrint('ChatBloc: Socket connected, but keeping polling as backup');
-        // Keep polling but reduce frequency when socket is connected
-        _pollingTimer?.cancel();
-        _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-          if (state is ChatLoaded && _currentRoomId != null) {
-            add(const RefreshMessages());
-          }
-        });
-        
-        // Join the room if we have one
-        if (_currentRoomId != null) {
-          _socketService.joinRoom(_currentRoomId!);
-        }
-      } else {
-        debugPrint('ChatBloc: Socket disconnected, increasing polling frequency');
-        _startPolling(); // More frequent polling when socket is down
+      if (connected && _currentRoomId != null) {
+        _socketService.joinRoom(_currentRoomId!);
+        debugPrint('ChatBloc: Socket joined room as backup');
       }
     });
     
-    // Listen for incoming messages
+    // Listen for incoming socket messages (backup method)
     _messageSubscription = _socketService.messageStream.listen((messageData) {
       try {
-        debugPrint('ChatBloc: Received socket message data: $messageData');
+        debugPrint('ChatBloc: Received socket message (backup): $messageData');
         final message = ChatMessage.fromJson(messageData);
-        debugPrint('ChatBloc: Parsed socket message: ${message.content} from ${message.senderType}');
-        add(ReceiveMessage(message));
+        debugPrint('ChatBloc: Parsed socket message (backup): ${message.content}');
+        
+        // Only use socket messages as backup if polling is failing
+        if (_pollFailureCount >= 2) {
+          debugPrint('ChatBloc: Using socket message due to polling issues');
+          add(ReceiveMessage(message));
+        } else {
+          debugPrint('ChatBloc: Ignoring socket message, polling is working fine');
+        }
       } catch (e) {
         debugPrint('ChatBloc: Error parsing socket message: $e');
-        debugPrint('ChatBloc: Raw message data: $messageData');
-        // Fallback to refreshing all messages
-        add(const RefreshMessages());
+        // Don't add refresh here to avoid conflicts with polling
       }
     });
   }
@@ -129,7 +149,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       debugPrint('ChatBloc: Chat room loaded: ${chatRoom.roomId}');
       debugPrint('ChatBloc: Participants: ${chatRoom.participants.length}');
       
-      // Get chat history
+      // Get initial chat history
       final historyResult = await ChatService.getChatHistory(chatRoom.roomId);
       
       List<ChatMessage> messages = [];
@@ -143,10 +163,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
         _lastMessageCount = messages.length;
+        _pollFailureCount = 0; // Reset failure count on success
         debugPrint('ChatBloc: Loaded ${messages.length} messages');
       } else {
         debugPrint('ChatBloc: Failed to load chat history: ${historyResult['message']}');
-        // Continue with empty messages list
+        _pollFailureCount++;
       }
       
       emit(ChatLoaded(
@@ -155,14 +176,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         currentUserId: currentUserId,
       ));
       
-      // Setup socket listeners and try to connect
+      // Setup socket as backup method
       _setupSocketListeners();
       add(const ConnectSocket());
       
-      // Start polling immediately as primary method for real-time updates
+      // Start polling as PRIMARY method for real-time updates
       _startPolling();
       
-      debugPrint('ChatBloc: Chat data loaded successfully');
+      debugPrint('ChatBloc: Chat data loaded, polling started as primary method');
     } catch (e, stackTrace) {
       debugPrint('ChatBloc: Error loading chat data: $e');
       debugPrint('ChatBloc: Stack trace: $stackTrace');
@@ -198,8 +219,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ));
       
       try {
-        // Send via HTTP API
-        debugPrint('ChatBloc: Sending message via HTTP API');
+        // Send via HTTP API (primary method)
+        debugPrint('ChatBloc: Sending message via HTTP API (primary)');
         final result = await ChatService.sendMessage(
           roomId: _currentRoomId!,
           content: event.content,
@@ -210,19 +231,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (result['success'] == true) {
           debugPrint('ChatBloc: Message sent successfully via HTTP');
           
-          // Also try to send via socket for real-time updates to other users
+          // Also try socket as backup for real-time delivery
           if (_isSocketConnected) {
-            debugPrint('ChatBloc: Also sending via socket for real-time update');
+            debugPrint('ChatBloc: Also sending via socket (backup)');
             _socketService.sendMessage(
               roomId: _currentRoomId!,
               content: event.content,
             );
           }
           
-          // Wait a moment then refresh to get the real message from server
-          await Future.delayed(const Duration(milliseconds: 800));
+          // Trigger immediate poll to get the real message
+          await Future.delayed(const Duration(milliseconds: 500));
           
           if (!emit.isDone && state is ChatLoaded) {
+            debugPrint('ChatBloc: Triggering immediate poll after message send');
             add(const RefreshMessages());
           }
           
@@ -265,7 +287,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final currentState = state as ChatLoaded;
       
       try {
-        // Get updated chat history
+        debugPrint('ChatBloc: Polling for new messages...');
+        _lastPollTime = DateTime.now();
+        
+        // Get updated chat history via polling
         final historyResult = await ChatService.getChatHistory(_currentRoomId!);
         
         if (historyResult['success'] == true) {
@@ -278,13 +303,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
           
           // Check if we have new messages
-          final hasNewMessages = messages.length != _lastMessageCount;
+          final previousCount = _lastMessageCount;
+          final hasNewMessages = messages.length != previousCount;
           
           if (hasNewMessages) {
-            debugPrint('ChatBloc: Found ${messages.length - _lastMessageCount} new messages');
+            debugPrint('ChatBloc: Polling found ${messages.length - previousCount} new messages');
             _lastMessageCount = messages.length;
+            _pollFailureCount = 0; // Reset failure count on successful poll with new messages
+            
+            // Adjust polling interval for recent activity
+            if (messages.length > previousCount) {
+              _startPolling(); // Restart with potentially faster interval
+            }
           } else {
-            debugPrint('ChatBloc: No new messages found (${messages.length} total)');
+            debugPrint('ChatBloc: Polling - no new messages (${messages.length} total)');
           }
           
           // Filter out any temporary optimistic messages and show real messages
@@ -297,34 +329,47 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             isSendingMessage: false,
           ));
           
+          _pollFailureCount = 0; // Reset on successful poll
+          
         } else {
-          debugPrint('ChatBloc: Failed to refresh messages: ${historyResult['message']}');
+          debugPrint('ChatBloc: Polling failed: ${historyResult['message']}');
+          _pollFailureCount++;
+          
+          // Adjust polling strategy based on failures
+          if (_pollFailureCount >= _maxPollFailures) {
+            debugPrint('ChatBloc: Too many poll failures, adjusting strategy');
+            _adjustPollingInterval();
+          }
+          
           emit(currentState.copyWith(isSendingMessage: false));
         }
         
       } catch (e) {
-        debugPrint('ChatBloc: Error refreshing messages: $e');
+        debugPrint('ChatBloc: Error during polling: $e');
+        _pollFailureCount++;
+        
+        if (_pollFailureCount >= _maxPollFailures) {
+          _adjustPollingInterval();
+        }
+        
         emit(currentState.copyWith(isSendingMessage: false));
       }
     }
   }
   
   Future<void> _onConnectSocket(ConnectSocket event, Emitter<ChatState> emit) async {
-    debugPrint('ChatBloc: Attempting to connect socket...');
+    debugPrint('ChatBloc: Attempting to connect socket (backup method)...');
     
     try {
       final connected = await _socketService.connect();
       if (connected) {
-        debugPrint('ChatBloc: Socket connected successfully');
-        // If we have a room, join it
-        if (_currentRoomId != null) {
-          _socketService.joinRoom(_currentRoomId!);
-        }
+        debugPrint('ChatBloc: Socket connection attempt completed (backup ready)');
+        // Socket will join room automatically if connection succeeds
       } else {
-        debugPrint('ChatBloc: Socket connection failed, relying on polling');
+        debugPrint('ChatBloc: Socket connection failed, polling continues as primary');
       }
     } catch (e) {
-      debugPrint('ChatBloc: Error connecting socket: $e');
+      debugPrint('ChatBloc: Error connecting socket: $e, polling continues');
     }
   }
   
@@ -367,6 +412,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           messages: updatedMessages,
           isSendingMessage: false,
         ));
+        
+        // Trigger faster polling for recent activity
+        _startPolling();
+        
       } else {
         debugPrint('ChatBloc: Message already exists, ignoring duplicate');
       }

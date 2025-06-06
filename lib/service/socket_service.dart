@@ -12,6 +12,7 @@ class SocketService {
   IO.Socket? _socket;
   bool _isConnected = false;
   String? _currentRoomId;
+  bool _isPollingEnabled = true; // Polling is primary method
   
   // Stream controllers for different events
   final StreamController<Map<String, dynamic>> _messageStreamController = 
@@ -28,16 +29,12 @@ class SocketService {
   
   bool get isConnected => _isConnected;
   String? get currentRoomId => _currentRoomId;
+  bool get isPollingEnabled => _isPollingEnabled;
 
   Future<bool> connect() async {
-    if (_socket != null && _socket!.connected) {
-      debugPrint('SocketService: Already connected');
-      return true;
-    }
-
+    debugPrint('SocketService: Attempting to connect (polling priority mode)...');
+    
     try {
-      debugPrint('SocketService: Attempting to connect...');
-      
       final token = await TokenService.getToken();
       if (token == null) {
         debugPrint('SocketService: No auth token available');
@@ -45,56 +42,53 @@ class SocketService {
         return false;
       }
 
-      _socket = IO.io(
-        ApiConstants.baseUrl,
-        IO.OptionBuilder()
-            .setTransports(['websocket'])
-            .disableAutoConnect()
-            .setExtraHeaders({'Authorization': 'Bearer $token'})
-            .enableReconnection()
-            .setReconnectionAttempts(5)
-            .setReconnectionDelay(2000)
-            .build(),
-      );
+      // Try socket connection but don't fail if it doesn't work
+      try {
+        _socket = IO.io(
+          ApiConstants.baseUrl,
+          IO.OptionBuilder()
+              .setTransports(['websocket'])
+              .disableAutoConnect()
+              .setExtraHeaders({'Authorization': 'Bearer $token'})
+              .enableReconnection()
+              .setReconnectionAttempts(3) // Reduced attempts
+              .setReconnectionDelay(3000)
+              .setTimeout(5000) // Shorter timeout
+              .build(),
+        );
 
-      _setupEventListeners();
-      _socket!.connect();
-      
-      // Wait for connection with timeout
-      final completer = Completer<bool>();
-      Timer? timeoutTimer;
-      
-      final connectionSub = connectionStream.listen((connected) {
-        if (connected && !completer.isCompleted) {
-          timeoutTimer?.cancel();
-          completer.complete(true);
-        }
-      });
-      
-      final errorSub = errorStream.listen((error) {
-        if (!completer.isCompleted) {
-          timeoutTimer?.cancel();
-          completer.complete(false);
-        }
-      });
-      
-      timeoutTimer = Timer(const Duration(seconds: 10), () {
-        if (!completer.isCompleted) {
-          debugPrint('SocketService: Connection timeout');
-          completer.complete(false);
-        }
-      });
-      
-      final result = await completer.future;
-      
-      connectionSub.cancel();
-      errorSub.cancel();
-      timeoutTimer?.cancel();
-      
-      return result;
+        _setupEventListeners();
+        _socket!.connect();
+        
+        // Wait briefly for connection, but don't block
+        Timer(const Duration(seconds: 3), () {
+          if (_socket?.connected == true) {
+            debugPrint('SocketService: Socket connected as backup');
+            _isConnected = true;
+            _connectionStreamController.add(true);
+            
+            if (_currentRoomId != null) {
+              joinRoom(_currentRoomId!);
+            }
+          } else {
+            debugPrint('SocketService: Socket connection failed/timeout, using polling only');
+            _isConnected = false;
+            _connectionStreamController.add(false);
+          }
+        });
+        
+        // Return true immediately since we're using polling as primary
+        return true;
+        
+      } catch (e) {
+        debugPrint('SocketService: Socket connection failed: $e, using polling only');
+        _isConnected = false;
+        _connectionStreamController.add(false);
+        return true; // Still return true because polling works
+      }
       
     } catch (e) {
-      debugPrint('SocketService: Connection error: $e');
+      debugPrint('SocketService: General connection error: $e');
       _errorStreamController.add('Connection failed: $e');
       return false;
     }
@@ -104,7 +98,7 @@ class SocketService {
     if (_socket == null) return;
 
     _socket!.onConnect((_) {
-      debugPrint('SocketService: Connected successfully');
+      debugPrint('SocketService: Socket connected successfully (backup method)');
       _isConnected = true;
       _connectionStreamController.add(true);
       
@@ -115,23 +109,21 @@ class SocketService {
     });
 
     _socket!.onDisconnect((_) {
-      debugPrint('SocketService: Disconnected');
+      debugPrint('SocketService: Socket disconnected (falling back to polling only)');
       _isConnected = false;
       _connectionStreamController.add(false);
     });
 
     _socket!.onConnectError((error) {
-      debugPrint('SocketService: Connection error: $error');
+      debugPrint('SocketService: Socket connection error: $error (polling continues)');
       _isConnected = false;
-      _errorStreamController.add('Connection error: $error');
     });
 
     _socket!.onError((error) {
-      debugPrint('SocketService: Socket error: $error');
-      _errorStreamController.add('Socket error: $error');
+      debugPrint('SocketService: Socket error: $error (polling continues)');
     });
 
-    // ENHANCED: Listen for all possible message events
+    // Listen for socket messages (backup method)
     final messageEvents = [
       'new-message',
       'message-sent',
@@ -143,7 +135,7 @@ class SocketService {
 
     for (final eventName in messageEvents) {
       _socket!.on(eventName, (data) {
-        debugPrint('SocketService: Received $eventName event: $data');
+        debugPrint('SocketService: Received $eventName via socket (backup): $data');
         try {
           Map<String, dynamic> messageData;
           
@@ -152,60 +144,44 @@ class SocketService {
           } else if (data is List && data.isNotEmpty && data[0] is Map<String, dynamic>) {
             messageData = data[0] as Map<String, dynamic>;
           } else {
-            debugPrint('SocketService: Unexpected data format for $eventName: $data');
+            debugPrint('SocketService: Unexpected socket data format for $eventName: $data');
             return;
           }
           
-          // Ensure we have the required fields for a message
+          // Only broadcast socket messages if polling is having issues
           if (messageData.containsKey('_id') || 
               messageData.containsKey('id') || 
               messageData.containsKey('content')) {
-            debugPrint('SocketService: Broadcasting message from $eventName');
+            debugPrint('SocketService: Broadcasting socket message as backup');
             _messageStreamController.add(messageData);
-          } else {
-            debugPrint('SocketService: Invalid message format from $eventName: $messageData');
           }
         } catch (e) {
-          debugPrint('SocketService: Error parsing $eventName data: $e');
+          debugPrint('SocketService: Error parsing socket $eventName data: $e');
         }
       });
     }
 
     // Listen for room events
     _socket!.on('room-joined', (data) {
-      debugPrint('SocketService: Joined room: $data');
+      debugPrint('SocketService: Joined room via socket: $data');
     });
 
     _socket!.on('room-left', (data) {
-      debugPrint('SocketService: Left room: $data');
-    });
-    
-    // Listen for typing indicators (optional)
-    _socket!.on('user-typing', (data) {
-      debugPrint('SocketService: User typing: $data');
-    });
-    
-    // Listen for connection events
-    _socket!.on('connect', (_) {
-      debugPrint('SocketService: Socket connected event received');
-    });
-    
-    _socket!.on('disconnect', (reason) {
-      debugPrint('SocketService: Socket disconnected event received: $reason');
+      debugPrint('SocketService: Left room via socket: $data');
     });
   }
 
   void joinRoom(String roomId) {
+    _currentRoomId = roomId;
+    debugPrint('SocketService: Setting current room to: $roomId');
+    
     if (_socket != null && _isConnected) {
-      _currentRoomId = roomId;
       _socket!.emit('join-room', roomId);
-      debugPrint('SocketService: Joining room: $roomId');
-      
-      // Also try alternative room join event names
       _socket!.emit('joinRoom', roomId);
       _socket!.emit('join_room', roomId);
+      debugPrint('SocketService: Joining room via socket: $roomId');
     } else {
-      debugPrint('SocketService: Cannot join room - not connected');
+      debugPrint('SocketService: Socket not connected, relying on polling for room: $roomId');
     }
   }
 
@@ -214,9 +190,9 @@ class SocketService {
       _socket!.emit('leave-room', _currentRoomId);
       _socket!.emit('leaveRoom', _currentRoomId);
       _socket!.emit('leave_room', _currentRoomId);
-      debugPrint('SocketService: Leaving room: $_currentRoomId');
-      _currentRoomId = null;
+      debugPrint('SocketService: Leaving room via socket: $_currentRoomId');
     }
+    _currentRoomId = null;
   }
 
   bool sendMessage({
@@ -224,26 +200,35 @@ class SocketService {
     required String content,
     String messageType = 'text',
   }) {
+    final messageData = {
+      'roomId': roomId,
+      'content': content,
+      'messageType': messageType,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    
+    // Try socket first if connected
     if (_socket != null && _isConnected) {
-      final messageData = {
-        'roomId': roomId,
-        'content': content,
-        'messageType': messageType,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
-      
-      // Try multiple event names for sending messages
       _socket!.emit('send-message', messageData);
       _socket!.emit('sendMessage', messageData);
       _socket!.emit('send_message', messageData);
       _socket!.emit('message', messageData);
-      
       debugPrint('SocketService: Sending message via socket: $content');
       return true;
     } else {
-      debugPrint('SocketService: Cannot send message - not connected');
+      debugPrint('SocketService: Socket not available, message will be sent via HTTP API');
       return false;
     }
+  }
+
+  void enablePolling() {
+    _isPollingEnabled = true;
+    debugPrint('SocketService: Polling enabled');
+  }
+
+  void disablePolling() {
+    _isPollingEnabled = false;
+    debugPrint('SocketService: Polling disabled');
   }
 
   void disconnect() {

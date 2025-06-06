@@ -6,8 +6,12 @@ class ProfileLoading extends ProfileState {}
 
 class ProfileLoaded extends ProfileState {
   final Map<String, dynamic> userData;
+  final List<Map<String, dynamic>> orderHistory;
   
-  ProfileLoaded({required this.userData});
+  ProfileLoaded({
+    required this.userData,
+    this.orderHistory = const [],
+  });
 }
 
 class ProfileLoggingOut extends ProfileState {}

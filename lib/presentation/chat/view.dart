@@ -51,32 +51,30 @@ class _ChatViewState extends State<ChatView> {
     
     return BlocProvider(
       create: (context) => ChatBloc()..add(LoadChatData(orderId)),
-      child: Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.white,
-          body: BlocConsumer<ChatBloc, ChatState>(
-            listener: (context, state) {
-              if (state is ChatLoaded && !state.isSendingMessage) {
-                // Scroll to bottom when new messages arrive
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _scrollToBottom();
-                });
-              }
-            },
-            builder: (context, state) {
-              if (state is ChatLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              } else if (state is ChatLoaded) {
-                return _buildChatContent(context, state);
-              } else if (state is ChatError) {
-                return _buildErrorState(context, state);
-              }
-              
-              return const SizedBox.shrink();
-            },
-          ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: BlocConsumer<ChatBloc, ChatState>(
+          listener: (context, state) {
+            if (state is ChatLoaded && !state.isSendingMessage) {
+              // Scroll to bottom when new messages arrive
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _scrollToBottom();
+              });
+            }
+          },
+          builder: (context, state) {
+            if (state is ChatLoading) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            } else if (state is ChatLoaded) {
+              return _buildChatContent(context, state);
+            } else if (state is ChatError) {
+              return _buildErrorState(context, state);
+            }
+            
+            return const SizedBox.shrink();
+          },
         ),
       ),
     );
@@ -175,9 +173,9 @@ class _ChatViewState extends State<ChatView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                flex: 3,
                 child: Text(
                   'Order ${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
                   style: TextStyle(
@@ -190,45 +188,39 @@ class _ChatViewState extends State<ChatView> {
                 ),
               ),
               SizedBox(width: screenWidth * 0.02),
-              Flexible(
-                flex: 2,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.028,
-                    vertical: screenHeight * 0.004,
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.028,
+                  vertical: screenHeight * 0.004,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(
+                    screenWidth * 0.035,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(
-                      screenWidth * 0.035,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: screenWidth * 0.018,
+                      height: screenWidth * 0.018,
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: screenWidth * 0.018,
-                        height: screenWidth * 0.018,
-                        decoration: const BoxDecoration(
-                          color: Colors.orange,
-                          shape: BoxShape.circle,
-                        ),
+                    SizedBox(width: screenWidth * 0.018),
+                    Text(
+                      'Active',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.033,
+                        fontWeight: FontWeightManager.medium,
+                        color: Colors.orange,
+                        fontFamily: FontFamily.Montserrat,
                       ),
-                      SizedBox(width: screenWidth * 0.015),
-                      Flexible(
-                        child: Text(
-                          'Active',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.03,
-                            fontWeight: FontWeightManager.medium,
-                            color: Colors.orange,
-                            fontFamily: FontFamily.Montserrat,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],

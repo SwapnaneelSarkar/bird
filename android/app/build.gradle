@@ -31,7 +31,7 @@ android {
     defaultConfig {
         applicationId = "com.birduser.app"
         minSdkVersion 23
-        targetSdkVersion 34
+        targetSdkVersion 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled true
@@ -39,10 +39,12 @@ android {
 
     signingConfigs {
         release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
+            if (keystoreProperties['keyAlias']) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword keystoreProperties['storePassword']
+            }
         }
     }
 
@@ -57,6 +59,26 @@ android {
             minifyEnabled false
             debuggable true
         }
+    }
+
+    // Add this block to resolve dependency conflicts
+    configurations.all {
+        resolutionStrategy {
+            // Force exclude the problematic BouncyCastle version
+            exclude group: 'org.bouncycastle', module: 'bcprov-jdk18on'
+            // Force a compatible version if needed
+            force 'org.bouncycastle:bcprov-jdk15on:1.70'
+        }
+    }
+
+    packagingOptions {
+        pickFirst '**/META-INF/DEPENDENCIES'
+        pickFirst '**/META-INF/LICENSE'
+        pickFirst '**/META-INF/LICENSE.txt'
+        pickFirst '**/META-INF/NOTICE'
+        pickFirst '**/META-INF/NOTICE.txt'
+        pickFirst '**/META-INF/ASL2.0'
+        pickFirst '**/META-INF/LGPL2.1'
     }
 }
 

@@ -1,3 +1,4 @@
+import 'package:bird/presentation/order_history/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
@@ -202,15 +203,21 @@ class ProfileView extends StatelessWidget {
                               ),
                               const Spacer(),
                               TextButton(
-                                onPressed: () {},
-                                child: const Text(
-                                  'View All',
-                                  style: TextStyle(
-                                    color: Color(0xFFE67E22),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              )
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OrderHistoryView()),
+    );
+  },
+  child: const Text(
+    'View All',
+    style: TextStyle(
+      color: Color(0xFFE67E22),
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+)
+
                             ],
                           ),
                           // Show recent orders from API

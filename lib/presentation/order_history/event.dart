@@ -1,3 +1,4 @@
+// lib/presentation/order_history/event.dart
 import 'package:equatable/equatable.dart';
 
 abstract class OrderHistoryEvent extends Equatable {
@@ -24,6 +25,15 @@ class ViewOrderDetails extends OrderHistoryEvent {
   final String orderId;
   
   const ViewOrderDetails(this.orderId);
+  
+  @override
+  List<Object?> get props => [orderId];
+}
+
+class OpenChatForOrder extends OrderHistoryEvent {
+  final String orderId;
+  
+  const OpenChatForOrder(this.orderId);
   
   @override
   List<Object?> get props => [orderId];

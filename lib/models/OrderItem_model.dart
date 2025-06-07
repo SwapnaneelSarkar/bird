@@ -1,56 +1,4 @@
-// lib/presentation/order_history/state.dart - Updated OrderItem model
 import 'package:equatable/equatable.dart';
-
-abstract class OrderHistoryState extends Equatable {
-  const OrderHistoryState();
-  
-  @override
-  List<Object?> get props => [];
-}
-
-class OrderHistoryInitial extends OrderHistoryState {}
-
-class OrderHistoryLoading extends OrderHistoryState {}
-
-class OrderHistoryLoaded extends OrderHistoryState {
-  final List<OrderItem> allOrders;
-  final List<OrderItem> filteredOrders;
-  final String selectedFilter;
-  final List<String> filterTabs;
-
-  const OrderHistoryLoaded({
-    required this.allOrders,
-    required this.filteredOrders,
-    required this.selectedFilter,
-    required this.filterTabs,
-  });
-
-  OrderHistoryLoaded copyWith({
-    List<OrderItem>? allOrders,
-    List<OrderItem>? filteredOrders,
-    String? selectedFilter,
-    List<String>? filterTabs,
-  }) {
-    return OrderHistoryLoaded(
-      allOrders: allOrders ?? this.allOrders,
-      filteredOrders: filteredOrders ?? this.filteredOrders,
-      selectedFilter: selectedFilter ?? this.selectedFilter,
-      filterTabs: filterTabs ?? this.filterTabs,
-    );
-  }
-
-  @override
-  List<Object?> get props => [allOrders, filteredOrders, selectedFilter, filterTabs];
-}
-
-class OrderHistoryError extends OrderHistoryState {
-  final String message;
-
-  const OrderHistoryError(this.message);
-
-  @override
-  List<Object?> get props => [message];
-}
 
 class OrderItem extends Equatable {
   final String id;
@@ -79,12 +27,12 @@ class OrderItem extends Equatable {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      id: json['order_id'] ?? json['_id'] ?? json['id'] ?? '', // FIXED: Use order_id
+      id: json['_id'] ?? json['id'] ?? '',
       name: json['restaurant_name'] ?? 'Order',
       restaurantName: json['restaurant_name'] ?? 'Unknown Restaurant',
       date: _formatDate(json['datetime']),
       price: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
-      status: _mapStatus(json['order_status'] ?? json['status']), // FIXED: Use order_status
+      status: _mapStatus(json['status']),
       imageUrl: json['restaurant_picture'] ?? '',
       dateTime: DateTime.tryParse(json['datetime'] ?? '') ?? DateTime.now(),
       restaurantId: json['restaurant_id'] ?? '',

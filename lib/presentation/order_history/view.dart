@@ -1,8 +1,10 @@
+// lib/presentation/order_history/view.dart - Updated with navigation to order details
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_history_card.dart';
+import '../order_details/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -190,8 +192,13 @@ class OrderHistoryView extends StatelessWidget {
             context.read<OrderHistoryBloc>().add(
               ViewOrderDetails(order.id),
             );
-            // Here you would typically navigate to order details page
-            // Navigator.pushNamed(context, '/order-details', arguments: order.id);
+            // Navigate to order details page
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderDetailsView(orderId: order.id),
+              ),
+            );
           },
         );
       },
@@ -287,7 +294,7 @@ class OrderHistoryView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Retry',
                 style: TextStyle(
                   fontSize: 14,

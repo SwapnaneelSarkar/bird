@@ -120,7 +120,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       await TokenService.clearAll();
       await ProfileService.clearProfileData();
       
-      await Future.delayed(const Duration(seconds: 0));
+      // await Future.delayed(const Duration(seconds: 0));
       emit(ProfileLoggedOut());
     } catch (e) {
       debugPrint('Error during logout: $e');

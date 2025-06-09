@@ -1,27 +1,28 @@
 // lib/presentation/order_details/event.dart
-import 'package:equatable/equatable.dart';
-
-abstract class OrderDetailsEvent extends Equatable {
+abstract class OrderDetailsEvent {
   const OrderDetailsEvent();
-
-  @override
-  List<Object?> get props => [];
 }
 
 class LoadOrderDetails extends OrderDetailsEvent {
   final String orderId;
-
+  
   const LoadOrderDetails(this.orderId);
-
-  @override
-  List<Object?> get props => [orderId];
 }
 
-class LoadMenuItemDetails extends OrderDetailsEvent {
-  final String menuId;
+class RefreshOrderDetails extends OrderDetailsEvent {
+  final String orderId;
+  
+  const RefreshOrderDetails(this.orderId);
+}
 
-  const LoadMenuItemDetails(this.menuId);
+class CancelOrder extends OrderDetailsEvent {
+  final String orderId;
+  
+  const CancelOrder(this.orderId);
+}
 
-  @override
-  List<Object?> get props => [menuId];
+class TrackOrder extends OrderDetailsEvent {
+  final String orderId;
+  
+  const TrackOrder(this.orderId);
 }

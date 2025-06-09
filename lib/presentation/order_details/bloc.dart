@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../constants/api_constant.dart';
 import '../../service/token_service.dart';
 import '../../models/order_details_model.dart';
+import '../../models/menu_model.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -16,6 +17,7 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
     on<RefreshOrderDetails>(_onRefreshOrderDetails);
     on<CancelOrder>(_onCancelOrder);
     on<TrackOrder>(_onTrackOrder);
+    on<LoadMenuItemDetails>(_onLoadMenuItemDetails);
     debugPrint('OrderDetailsBloc: Event handlers registered');
   }
 
@@ -37,7 +39,14 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
         debugPrint('OrderDetailsBloc: Total Amount: ${orderDetails.totalAmount}');
         debugPrint('OrderDetailsBloc: Items Count: ${orderDetails.items.length}');
         
-        emit(OrderDetailsLoaded(orderDetails));
+        emit(OrderDetailsLoaded(orderDetails, {}));
+        
+        // Fetch menu item details for each item that has a menuId
+        for (var item in orderDetails.items) {
+          if (item.menuId != null && item.menuId!.isNotEmpty) {
+            add(LoadMenuItemDetails(item.menuId!));
+          }
+        }
       } else {
         debugPrint('OrderDetailsBloc: Failed to load order details');
         emit(const OrderDetailsError('Failed to load order details. Please try again.'));
@@ -45,6 +54,72 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
     } catch (e) {
       debugPrint('OrderDetailsBloc: Error loading order details: $e');
       emit(const OrderDetailsError('An error occurred while loading order details.'));
+    }
+  }
+
+  Future<void> _onLoadMenuItemDetails(
+    LoadMenuItemDetails event,
+    Emitter<OrderDetailsState> emit,
+  ) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        debugPrint('OrderDetailsBloc: No auth token available for menu item fetch');
+        return;
+      }
+      
+      debugPrint('OrderDetailsBloc: Fetching menu item details for menuId: ${event.menuId}');
+      
+      final url = '${ApiConstants.baseUrl}/api/partner/menu_item/${event.menuId}';
+      debugPrint('OrderDetailsBloc: Menu item API URL: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('OrderDetailsBloc: Menu item API response status: ${response.statusCode}');
+      debugPrint('OrderDetailsBloc: Menu item API response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS') {
+          final menuItemData = responseData['data'];
+          final menuItem = MenuItem.fromJson({
+            'menu_id': event.menuId,
+            'name': menuItemData['name'],
+            'price': menuItemData['price'],
+            'description': menuItemData['description'],
+            'available': true,
+            'category': '',
+            'isVeg': false,
+            'isTaxIncluded': true,
+            'isCancellable': true,
+            'tags': [],
+          });
+          
+          debugPrint('OrderDetailsBloc: Menu item loaded successfully: ${menuItem.name}');
+          
+          // Update state with new menu item
+          if (state is OrderDetailsLoaded) {
+            final currentState = state as OrderDetailsLoaded;
+            final updatedMenuItems = Map<String, MenuItem>.from(currentState.menuItems);
+            updatedMenuItems[event.menuId] = menuItem;
+            
+            emit(OrderDetailsLoaded(currentState.orderDetails, updatedMenuItems));
+          }
+        } else {
+          debugPrint('OrderDetailsBloc: Failed to load menu item: ${responseData['message']}');
+        }
+      } else {
+        debugPrint('OrderDetailsBloc: Failed to fetch menu item. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('OrderDetailsBloc: Error loading menu item details: $e');
     }
   }
 
@@ -59,7 +134,14 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
       
       if (orderDetails != null) {
         debugPrint('OrderDetailsBloc: Order details refreshed successfully');
-        emit(OrderDetailsLoaded(orderDetails));
+        emit(OrderDetailsLoaded(orderDetails, {}));
+        
+        // Fetch menu item details for each item that has a menuId
+        for (var item in orderDetails.items) {
+          if (item.menuId != null && item.menuId!.isNotEmpty) {
+            add(LoadMenuItemDetails(item.menuId!));
+          }
+        }
       } else {
         debugPrint('OrderDetailsBloc: Failed to refresh order details');
         emit(const OrderDetailsError('Failed to refresh order details.'));

@@ -26,3 +26,9 @@ class TrackOrder extends OrderDetailsEvent {
   
   const TrackOrder(this.orderId);
 }
+
+class LoadMenuItemDetails extends OrderDetailsEvent {
+  final String menuId;
+  
+  const LoadMenuItemDetails(this.menuId);
+}

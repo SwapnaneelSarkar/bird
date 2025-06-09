@@ -5,6 +5,7 @@ import '../../widgets/custom_button_large.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/order_details_model.dart';
+import '../../models/menu_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -103,7 +104,7 @@ class _OrderDetailsContent extends StatelessWidget {
           if (state is OrderDetailsLoading) {
             return _buildLoadingView(screenWidth, screenHeight);
           } else if (state is OrderDetailsLoaded) {
-            return _buildLoadedView(context, state.orderDetails, screenWidth, screenHeight);
+            return _buildLoadedView(context, state.orderDetails, state.menuItems, screenWidth, screenHeight);
           } else if (state is OrderCancelling) {
             return _buildCancellingView(screenWidth, screenHeight);
           } else if (state is OrderDetailsError) {
@@ -215,7 +216,7 @@ class _OrderDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadedView(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {
+  Widget _buildLoadedView(BuildContext context, OrderDetails orderDetails, Map<String, MenuItem> menuItems, double screenWidth, double screenHeight) {
     return RefreshIndicator(
       onRefresh: () async {
         context.read<OrderDetailsBloc>().add(RefreshOrderDetails(orderId));
@@ -237,7 +238,7 @@ class _OrderDetailsContent extends StatelessWidget {
             SizedBox(height: screenHeight * 0.02),
             
             // Items List Card
-            _buildOrderItemsCard(orderDetails, screenWidth, screenHeight),
+            _buildOrderItemsCard(orderDetails, menuItems, screenWidth, screenHeight),
             
             SizedBox(height: screenHeight * 0.02),
             
@@ -494,7 +495,7 @@ class _OrderDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderItemsCard(OrderDetails orderDetails, double screenWidth, double screenHeight) {
+  Widget _buildOrderItemsCard(OrderDetails orderDetails, Map<String, MenuItem> menuItems, double screenWidth, double screenHeight) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(screenWidth * 0.04),
@@ -531,7 +532,7 @@ class _OrderDetailsContent extends StatelessWidget {
               children: [
                 if (index > 0) Divider(color: Colors.grey[200]),
                 if (index > 0) SizedBox(height: screenHeight * 0.01),
-                _buildOrderItemRow(item, screenWidth, screenHeight),
+                _buildOrderItemRow(item, menuItems, screenWidth, screenHeight),
                 if (index < orderDetails.items.length - 1) SizedBox(height: screenHeight * 0.01),
               ],
             );
@@ -541,9 +542,15 @@ class _OrderDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderItemRow(OrderDetailsItem item, double screenWidth, double screenHeight) {
+  Widget _buildOrderItemRow(OrderDetailsItem item, Map<String, MenuItem> menuItems, double screenWidth, double screenHeight) {
+    // Get the real menu item name from the fetched data
+    final menuItem = item.menuId != null ? menuItems[item.menuId!] : null;
+    final itemName = menuItem?.name ?? item.itemName ?? 'Menu Item';
+    final isLoadingMenuItem = item.menuId != null && item.menuId!.isNotEmpty && menuItem == null;
+    
     return Row(
       children: [
+        // Item Image
         Container(
           width: screenWidth * 0.12,
           height: screenWidth * 0.12,
@@ -569,20 +576,44 @@ class _OrderDetailsContent extends StatelessWidget {
               : null,
         ),
         SizedBox(width: screenWidth * 0.03),
+        
+        // Item Details
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                item.itemName ?? 'Menu Item',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                  color: ColorManager.black,
-                ),
+              // Item Name with loading indicator
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      itemName,
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.04,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                        color: ColorManager.black,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Show loading indicator while fetching menu item name
+                  if (isLoadingMenuItem)
+                    Container(
+                      margin: EdgeInsets.only(left: screenWidth * 0.02),
+                      width: screenWidth * 0.04,
+                      height: screenWidth * 0.04,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                ],
               ),
               SizedBox(height: screenHeight * 0.005),
+              
+              // Quantity and Price
               Row(
                 children: [
                   Text(
@@ -603,9 +634,28 @@ class _OrderDetailsContent extends StatelessWidget {
                   ),
                 ],
               ),
+              
+              // Show description if available from menu item
+              if (menuItem?.description != null && menuItem!.description!.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(top: screenHeight * 0.005),
+                  child: Text(
+                    menuItem.description!,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.03,
+                      fontFamily: FontFamily.Montserrat,
+                      color: Colors.grey[500],
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
             ],
           ),
         ),
+        
+        // Total Price
         Text(
           '₹${item.totalPrice.toStringAsFixed(2)}',
           style: TextStyle(
@@ -681,11 +731,15 @@ class _OrderDetailsContent extends StatelessWidget {
         // Track Order Button (always visible for non-cancelled orders)
         if (orderDetails.orderStatus.toLowerCase() != 'cancelled' && 
             orderDetails.orderStatus.toLowerCase() != 'delivered')
-          CustomLargeButton(
-            text: 'Track Order',
-            onPressed: () {
-              context.read<OrderDetailsBloc>().add(TrackOrder(orderDetails.orderId));
-            },
+          Container(
+            width: double.infinity,
+            height: screenHeight * 0.06,
+            child: CustomLargeButton(
+              text: 'Track Order',
+              onPressed: () {
+                context.read<OrderDetailsBloc>().add(TrackOrder(orderDetails.orderId));
+              },
+            ),
           ),
         
         // Cancel Order Button (only for pending/preparing orders)

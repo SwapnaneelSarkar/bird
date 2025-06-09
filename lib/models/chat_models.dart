@@ -95,18 +95,21 @@ class ChatMessage {
     return senderId == currentUserId;
   }
 
-  // Helper method to get formatted time
+  // Helper method to get formatted time in IST
   String get formattedTime {
-    final now = DateTime.now();
+    // Convert to IST (UTC+5:30)
+    final istTime = createdAt.add(const Duration(hours: 5, minutes: 30));
+    
+    final now = DateTime.now().add(const Duration(hours: 5, minutes: 30)); // Current IST time
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+    final messageDate = DateTime(istTime.year, istTime.month, istTime.day);
     
     if (messageDate == today) {
-      // Today - show time only
-      return '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+      // Today - show time only in IST
+      return '${istTime.hour.toString().padLeft(2, '0')}:${istTime.minute.toString().padLeft(2, '0')}';
     } else {
-      // Other days - show date and time
-      return '${createdAt.day}/${createdAt.month} ${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+      // Other days - show date and time in IST
+      return '${istTime.day}/${istTime.month} ${istTime.hour.toString().padLeft(2, '0')}:${istTime.minute.toString().padLeft(2, '0')}';
     }
   }
 }

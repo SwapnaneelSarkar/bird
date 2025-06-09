@@ -344,108 +344,167 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     }
   }
 
-  Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Popular Categories',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
-                  ),
+  // Update the _buildCategoriesSection method in your HomePage view
+
+Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
+  return Container(
+    margin: const EdgeInsets.only(top: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Popular Categories',
+                style: GoogleFonts.poppins(
+                  fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
                 ),
-                // Filter button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _showFuturisticFilterDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: ColorManager.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.tune, color: ColorManager.primary, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Filter',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13, fontWeight: FontWeight.w500, color: ColorManager.primary,
+              ),
+              Row(
+                children: [
+                  // Show "All" button when a category is selected
+                  if (state.selectedCategory != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => context.read<HomeBloc>().add(const FilterByCategory(null)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.clear, color: Colors.grey[600], size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Show All',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
+                      ),
+                    ),
+                  // Filter button
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _showFuturisticFilterDialog(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: ColorManager.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.tune, color: ColorManager.primary, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Filter',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13, fontWeight: FontWeight.w500, color: ColorManager.primary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-          SizedBox(
-            height: 140,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              children: _getCategoryItems(state.categories),
-            ),
+        ),
+        SizedBox(
+          height: 140,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            children: _getCategoryItems(state.categories, state.selectedCategory),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
+// Update the _getCategoryItems method to handle selection and filtering
+List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategory) {
+  // Map for known category image associations
+  final Map<String, String> imageMap = {
+    'pizza': 'assets/images/pizza.jpg',
+    'burger': 'assets/images/burger.jpg',
+    'sushi': 'assets/images/sushi.jpg',
+    'dessert': 'assets/images/desert.jpg',
+    'drinks': 'assets/images/drinks.jpg',
+  };
   
-  List<Widget> _getCategoryItems(List<dynamic> categories) {
-    // Map for known category image associations
-    final Map<String, String> imageMap = {
-      'pizza': 'assets/images/pizza.jpg',
-      'burger': 'assets/images/burger.jpg',
-      'sushi': 'assets/images/sushi.jpg',
-      'dessert': 'assets/images/desert.jpg',
-      'drinks': 'assets/images/drinks.jpg',
-    };
+  return categories.map((category) {
+    String categoryName = category['name'].toString().toLowerCase();
+    String categoryDisplayName = category['name'].toString();
+    String? imagePath;
+    bool isSelected = selectedCategory?.toLowerCase() == categoryName;
     
-    return categories.map((category) {
-      String categoryName = category['name'].toString().toLowerCase();
-      String? imagePath;
-      
-      // Try to find exact matching image based on category name
-      for (final entry in imageMap.entries) {
-        if (categoryName == entry.key || 
-            (categoryName.contains(entry.key) && entry.key.length > 3)) {
-          imagePath = entry.value;
-          break;
-        }
+    // Try to find exact matching image based on category name
+    for (final entry in imageMap.entries) {
+      if (categoryName == entry.key || 
+          (categoryName.contains(entry.key) && entry.key.length > 3)) {
+        imagePath = entry.value;
+        break;
       }
-      
-      // If we have an image, build with image
-      if (imagePath != null) {
-        return _buildCategoryItem(category['name'], imagePath, category['color']);
-      } 
-      // Otherwise build with an icon instead
-      else {
-        return _buildCategoryItemWithIcon(
-          category['name'], 
-          _getIconData(category['icon']), 
-          _getCategoryColor(category['color'])
-        );
-      }
-    }).toList();
-  }
+    }
+    
+    // If we have an image, build with image
+    if (imagePath != null) {
+      return _buildCategoryItem(
+        categoryDisplayName, 
+        imagePath, 
+        category['color'],
+        isSelected: isSelected,
+        onTap: () {
+          // Toggle selection - if already selected, show all; otherwise filter by this category
+          final newCategory = isSelected ? null : categoryDisplayName;
+          context.read<HomeBloc>().add(FilterByCategory(newCategory));
+        },
+      );
+    } 
+    // Otherwise build with an icon instead
+    else {
+      return _buildCategoryItemWithIcon(
+        categoryDisplayName,
+        _getIconData(category['icon']), 
+        _getCategoryColor(category['color']),
+        isSelected: isSelected,
+        onTap: () {
+          // Toggle selection - if already selected, show all; otherwise filter by this category
+          final newCategory = isSelected ? null : categoryDisplayName;
+          context.read<HomeBloc>().add(FilterByCategory(newCategory));
+        },
+      );
+    }
+  }).toList();
+}
 
   // New method to create category item with icon instead of image
-  Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor) {
-    return Container(
+  Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor, {bool isSelected = false, VoidCallback? onTap}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       width: 100,
       child: Column(
@@ -460,7 +519,14 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.transparent,
-                  boxShadow: [BoxShadow(color: accentColor.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 6), spreadRadius: 2)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2), 
+                      blurRadius: isSelected ? 16 : 12, 
+                      offset: const Offset(0, 6), 
+                      spreadRadius: isSelected ? 4 : 2
+                    )
+                  ],
                 ),
               ),
               Container(
@@ -469,57 +535,86 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Colors.white, accentColor.withOpacity(0.15)],
+                    colors: isSelected 
+                        ? [accentColor.withOpacity(0.3), accentColor.withOpacity(0.5)]
+                        : [Colors.white, accentColor.withOpacity(0.15)],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
-                  border: Border.all(color: Colors.white, width: 3),
+                  border: Border.all(
+                    color: isSelected ? accentColor : Colors.white, 
+                    width: isSelected ? 4 : 3
+                  ),
                 ),
                 child: Center(
                   child: Icon(
                     icon,
-                    size: 36,
-                    color: accentColor,
+                    size: isSelected ? 40 : 36,
+                    color: isSelected ? accentColor : accentColor,
                   ),
                 ),
               ),
-              // Small light reflection
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+              if (isSelected)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.check, color: Colors.white, size: 14),
+                  ),
+                ),
+              if (!isSelected)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isSelected ? accentColor.withOpacity(0.1) : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-              border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+              border: Border.all(
+                color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3), 
+                width: isSelected ? 2 : 1
+              ),
             ),
             child: Text(
               title,
-              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800]),
+              style: GoogleFonts.poppins(
+                fontSize: 12, 
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
+                color: isSelected ? accentColor : Colors.grey[800]
+              ),
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
+
   IconData _getIconData(String iconName) {
     switch (iconName) {
       case 'local_pizza': return Icons.local_pizza;
@@ -536,10 +631,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       default: return Icons.restaurant;
     }
   }
-  Widget _buildCategoryItem(String title, String imagePath, String colorName) {
-    Color accentColor = _getCategoryColor(colorName);
-    
-    return Container(
+  Widget _buildCategoryItem(String title, String imagePath, String colorName, {bool isSelected = false, VoidCallback? onTap}) {
+  Color accentColor = _getCategoryColor(colorName);
+  
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       width: 100,
       child: Column(
@@ -554,7 +651,14 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.transparent,
-                  boxShadow: [BoxShadow(color: accentColor.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 6), spreadRadius: 2)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2), 
+                      blurRadius: isSelected ? 16 : 12, 
+                      offset: const Offset(0, 6), 
+                      spreadRadius: isSelected ? 4 : 2
+                    )
+                  ],
                 ),
               ),
               Container(
@@ -563,10 +667,15 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Colors.white, accentColor.withOpacity(0.3)],
+                    colors: isSelected 
+                        ? [accentColor.withOpacity(0.3), accentColor.withOpacity(0.5)]
+                        : [Colors.white, accentColor.withOpacity(0.3)],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
-                  border: Border.all(color: Colors.white, width: 3),
+                  border: Border.all(
+                    color: isSelected ? accentColor : Colors.white, 
+                    width: isSelected ? 4 : 3
+                  ),
                 ),
               ),
               Container(
@@ -578,43 +687,68 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   border: Border.all(color: Colors.white, width: 2),
                 ),
               ),
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+              if (isSelected)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.check, color: Colors.white, size: 14),
+                  ),
+                ),
+              if (!isSelected)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.0)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isSelected ? accentColor.withOpacity(0.1) : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-              border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+              border: Border.all(
+                color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3), 
+                width: isSelected ? 2 : 1
+              ),
             ),
             child: Text(
               title,
-              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800]),
+              style: GoogleFonts.poppins(
+                fontSize: 12, 
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
+                color: isSelected ? accentColor : Colors.grey[800]
+              ),
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildRestaurantsSection(BuildContext context, HomeLoaded state) {
     // Apply filters to restaurants

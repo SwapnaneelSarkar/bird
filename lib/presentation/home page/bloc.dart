@@ -20,10 +20,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<LoadHomeData>(_onLoadHomeData);
     on<ToggleVegOnly>(_onToggleVegOnly);
     on<UpdateUserAddress>(_onUpdateUserAddress);
+    on<FilterByCategory>(_onFilterByCategory); // NEW: Add category filtering handler
   }
   
   // Update the _onLoadHomeData method in HomeBloc class:
-
 Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async {
   emit(HomeLoading());
   
@@ -88,6 +88,7 @@ Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async 
           ? restaurants.where((r) => r['isVeg'] == true).toList()
           : restaurants;
       
+      // UPDATED: Include allRestaurants and selectedCategory fields
       emit(HomeLoaded(
         userAddress: userAddress,
         vegOnly: vegOnly,
@@ -95,6 +96,8 @@ Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async 
         categories: categories,
         userLatitude: latitude,  // Include user coordinates
         userLongitude: longitude, // Include user coordinates
+        selectedCategory: null, // No category selected initially
+        allRestaurants: restaurants, // Store all restaurants for filtering
       ));
     } else {
       debugPrint('HomeBloc: User ID or token is null');
@@ -104,6 +107,67 @@ Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async 
   } catch (e) {
     debugPrint('HomeBloc: Error loading home data: $e');
     emit(HomeError('Failed to load data. Please try again.'));
+  }
+}
+
+// NEW: Add category filtering method
+Future<void> _onFilterByCategory(FilterByCategory event, Emitter<HomeState> emit) async {
+  try {
+    if (state is HomeLoaded) {
+      final currentState = state as HomeLoaded;
+      
+      debugPrint('HomeBloc: Filtering by category: ${event.categoryName}');
+      
+      // Start with all restaurants
+      List<dynamic> filteredRestaurants = List.from(currentState.allRestaurants);
+      
+      // Apply category filter if specified
+      if (event.categoryName != null && event.categoryName!.isNotEmpty) {
+        filteredRestaurants = filteredRestaurants.where((restaurant) {
+          // Get restaurant categories - handle different possible field names
+          String restaurantCategories = '';
+          
+          if (restaurant['category'] != null) {
+            restaurantCategories = restaurant['category'].toString().toLowerCase();
+          } else if (restaurant['cuisine'] != null) {
+            restaurantCategories = restaurant['cuisine'].toString().toLowerCase();
+          }
+          
+          // Check if the restaurant's categories contain the selected category
+          final selectedCategory = event.categoryName!.toLowerCase();
+          final categoryMatches = restaurantCategories.contains(selectedCategory);
+          
+          debugPrint('HomeBloc: Restaurant ${restaurant['name']} categories: "$restaurantCategories", matches "$selectedCategory": $categoryMatches');
+          
+          return categoryMatches;
+        }).toList();
+        
+        debugPrint('HomeBloc: After category filter, ${filteredRestaurants.length} restaurants match "${event.categoryName}"');
+      }
+      
+      // Apply veg filter if enabled
+      if (currentState.vegOnly) {
+        filteredRestaurants = filteredRestaurants.where((restaurant) {
+          final isVeg = restaurant['isVegetarian'] as bool? ?? 
+                       restaurant['isVeg'] as bool? ?? 
+                       (restaurant['veg_nonveg']?.toString().toLowerCase() == 'veg') ?? 
+                       false;
+          return isVeg;
+        }).toList();
+        
+        debugPrint('HomeBloc: After veg filter, ${filteredRestaurants.length} restaurants remain');
+      }
+      
+      // Emit updated state with filtered restaurants
+      emit(currentState.copyWith(
+        restaurants: filteredRestaurants,
+        selectedCategory: event.categoryName,
+      ));
+      
+      debugPrint('HomeBloc: Category filter applied. Selected: ${event.categoryName}, Results: ${filteredRestaurants.length}');
+    }
+  } catch (e) {
+    debugPrint('HomeBloc: Error filtering by category: $e');
   }
 }
 
@@ -178,16 +242,36 @@ Future<void> _onUpdateUserAddress(UpdateUserAddress event, Emitter<HomeState> em
         final prefs = await SharedPreferences.getInstance();
         final vegOnly = prefs.getBool('veg_only') ?? false;
         
-        // If vegOnly is true, filter restaurants
+        // Start with all restaurants
+        List<dynamic> baseRestaurants = List.from(restaurants);
+        
+        // Apply category filter if there was one selected
+        if (currentLoadedState.selectedCategory != null && currentLoadedState.selectedCategory!.isNotEmpty) {
+          baseRestaurants = baseRestaurants.where((restaurant) {
+            String restaurantCategories = '';
+            
+            if (restaurant['category'] != null) {
+              restaurantCategories = restaurant['category'].toString().toLowerCase();
+            } else if (restaurant['cuisine'] != null) {
+              restaurantCategories = restaurant['cuisine'].toString().toLowerCase();
+            }
+            
+            final selectedCategory = currentLoadedState!.selectedCategory!.toLowerCase();
+            return restaurantCategories.contains(selectedCategory);
+          }).toList();
+        }
+        
+        // Apply veg filter if enabled
         final filteredRestaurants = vegOnly 
-            ? restaurants.where((r) => r['isVeg'] == true).toList()
-            : restaurants;
+            ? baseRestaurants.where((r) => r['isVeg'] == true).toList()
+            : baseRestaurants;
         
         emit(currentLoadedState.copyWith(
           userAddress: event.address,
           restaurants: filteredRestaurants,
           userLatitude: event.latitude,   // Update user location coordinates
           userLongitude: event.longitude, // Update user location coordinates
+          allRestaurants: restaurants, // Update with new restaurants from new location
         ));
       } else {
         // Reload home data
@@ -257,6 +341,7 @@ Future<void> _onUpdateUserAddress(UpdateUserAddress event, Emitter<HomeState> em
     }
   }
   
+  // UPDATED: Enhanced veg toggle to work with category filtering
   Future<void> _onToggleVegOnly(ToggleVegOnly event, Emitter<HomeState> emit) async {
     try {
       if (state is HomeLoaded) {
@@ -266,16 +351,38 @@ Future<void> _onUpdateUserAddress(UpdateUserAddress event, Emitter<HomeState> em
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('veg_only', event.value);
         
-        // If vegOnly is toggled on, we need to filter restaurants
         if (event.value != currentState.vegOnly) {
           emit(HomeLoading());
           
-          final allRestaurants = currentState.restaurants;
+          // Start with all restaurants or category-filtered restaurants
+          List<dynamic> baseRestaurants = List.from(currentState.allRestaurants);
           
-          // Filter if vegOnly is true
+          // Apply category filter first if there's a selected category
+          if (currentState.selectedCategory != null && currentState.selectedCategory!.isNotEmpty) {
+            baseRestaurants = baseRestaurants.where((restaurant) {
+              String restaurantCategories = '';
+              
+              if (restaurant['category'] != null) {
+                restaurantCategories = restaurant['category'].toString().toLowerCase();
+              } else if (restaurant['cuisine'] != null) {
+                restaurantCategories = restaurant['cuisine'].toString().toLowerCase();
+              }
+              
+              final selectedCategory = currentState.selectedCategory!.toLowerCase();
+              return restaurantCategories.contains(selectedCategory);
+            }).toList();
+          }
+          
+          // Apply veg filter if toggled on
           final filteredRestaurants = event.value 
-              ? allRestaurants.where((r) => r['isVeg'] == true).toList()
-              : allRestaurants;
+              ? baseRestaurants.where((restaurant) {
+                  final isVeg = restaurant['isVegetarian'] as bool? ?? 
+                               restaurant['isVeg'] as bool? ?? 
+                               (restaurant['veg_nonveg']?.toString().toLowerCase() == 'veg') ?? 
+                               false;
+                  return isVeg;
+                }).toList()
+              : baseRestaurants;
           
           emit(currentState.copyWith(
             vegOnly: event.value,

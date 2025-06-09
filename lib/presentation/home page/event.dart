@@ -34,3 +34,13 @@ class UpdateUserAddress extends HomeEvent {
   @override
   List<Object?> get props => [address, latitude, longitude];
 }
+
+// New event for category filtering
+class FilterByCategory extends HomeEvent {
+  final String? categoryName; // null means show all categories
+  
+  const FilterByCategory(this.categoryName);
+  
+  @override
+  List<Object?> get props => [categoryName];
+}

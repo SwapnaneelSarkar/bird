@@ -16,8 +16,10 @@ class HomeLoaded extends HomeState {
   final bool vegOnly;
   final List<dynamic> restaurants;
   final List<dynamic> categories;
-  final double? userLatitude;   // Added user coordinates
-  final double? userLongitude;  // Added user coordinates
+  final double? userLatitude;
+  final double? userLongitude;
+  final String? selectedCategory; // Added for category filtering
+  final List<dynamic> allRestaurants; // Store all restaurants for filtering
   
   const HomeLoaded({
     required this.userAddress,
@@ -26,10 +28,21 @@ class HomeLoaded extends HomeState {
     required this.categories,
     this.userLatitude,
     this.userLongitude,
+    this.selectedCategory,
+    required this.allRestaurants,
   });
   
   @override
-  List<Object?> get props => [userAddress, vegOnly, restaurants, categories, userLatitude, userLongitude];
+  List<Object?> get props => [
+    userAddress, 
+    vegOnly, 
+    restaurants, 
+    categories, 
+    userLatitude, 
+    userLongitude, 
+    selectedCategory,
+    allRestaurants
+  ];
   
   HomeLoaded copyWith({
     String? userAddress,
@@ -38,6 +51,8 @@ class HomeLoaded extends HomeState {
     List<dynamic>? categories,
     double? userLatitude,
     double? userLongitude,
+    String? selectedCategory,
+    List<dynamic>? allRestaurants,
   }) {
     return HomeLoaded(
       userAddress: userAddress ?? this.userAddress,
@@ -46,6 +61,8 @@ class HomeLoaded extends HomeState {
       categories: categories ?? this.categories,
       userLatitude: userLatitude ?? this.userLatitude,
       userLongitude: userLongitude ?? this.userLongitude,
+      selectedCategory: selectedCategory,
+      allRestaurants: allRestaurants ?? this.allRestaurants,
     );
   }
 }

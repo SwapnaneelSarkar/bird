@@ -9,6 +9,7 @@ import 'package:bird/constants/color/colorConstant.dart';
 import '../../../widgets/restaurant_card.dart';
 import '../address bottomSheet/view.dart';
 import '../restaurant_menu/view.dart';
+import '../search_page/bloc.dart';
 import '../search_page/searchPage.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -324,27 +325,27 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   Future<void> _navigateToSearch(BuildContext context, HomeLoaded state) async {
-    debugPrint('HomePage: Navigating to search with user coordinates - Lat: ${state.userLatitude}, Long: ${state.userLongitude}');
-    
-    final result = await Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => SearchPage(
-          restaurants: state.restaurants.map((r) => Map<String, dynamic>.from(r)).toList(),
+  debugPrint('HomePage: Navigating to search with user coordinates - Lat: ${state.userLatitude}, Long: ${state.userLongitude}');
+  
+  final result = await Navigator.of(context).push(
+    PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => BlocProvider(
+        create: (context) => SearchBloc(),
+        child: SearchPage(
           userLatitude: state.userLatitude,
           userLongitude: state.userLongitude,
         ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
       ),
-    );
-    
-    if (result != null && result is Map<String, dynamic>) {
-      _navigateToRestaurantDetails(context, result);
-    }
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+    ),
+  );
+  
+  if (result != null && result is Map<String, dynamic>) {
+    _navigateToRestaurantDetails(context, result);
   }
-
-  // Update the _buildCategoriesSection method in your HomePage view
+}
 
 Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
   return Container(

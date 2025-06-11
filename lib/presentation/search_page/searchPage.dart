@@ -193,11 +193,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     },
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.tune,
-                        color: ColorManager.primary,
-                        size: 22,
-                      ),
+                      // child: Icon(
+                      //   Icons.tune,
+                      //   color: ColorManager.primary,
+                      //   size: 22,
+                      // ),
                     ),
                   ),
                 ),

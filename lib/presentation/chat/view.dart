@@ -22,12 +22,46 @@ class ChatView extends StatefulWidget {
 class _ChatViewState extends State<ChatView> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+  
+  // Add this to track message input state
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to text changes to update send button state
+    _messageController.addListener(_onTextChanged);
+    
+    // Listen to focus changes to handle keyboard
+    _focusNode.addListener(_onFocusChanged);
+  }
 
   @override
   void dispose() {
+    _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onTextChanged() {
+    final hasText = _messageController.text.trim().isNotEmpty;
+    if (hasText != _hasText) {
+      setState(() {
+        _hasText = hasText;
+      });
+    }
+  }
+
+  void _onFocusChanged() {
+    // Scroll to bottom when keyboard appears/disappears
+    if (_focusNode.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -57,6 +91,7 @@ class _ChatViewState extends State<ChatView> {
       create: (context) => ChatBloc()..add(LoadChatData(orderId)),
       child: Scaffold(
         backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: true, // This is important for keyboard handling
         body: BlocConsumer<ChatBloc, ChatState>(
           listener: (context, state) {
             if (state is ChatLoaded) {
@@ -148,7 +183,11 @@ class _ChatViewState extends State<ChatView> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              // Unfocus text field before navigating back
+              _focusNode.unfocus();
+              Navigator.of(context).pop();
+            },
             child: Container(
               padding: EdgeInsets.all(screenWidth * 0.018),
               child: Icon(
@@ -517,6 +556,7 @@ class _ChatViewState extends State<ChatView> {
               ),
               child: TextField(
                 controller: _messageController,
+                focusNode: _focusNode,
                 style: TextStyle(
                   fontSize: screenWidth * 0.035,
                   fontWeight: FontWeightManager.regular,
@@ -544,15 +584,17 @@ class _ChatViewState extends State<ChatView> {
             ),
           ),
           SizedBox(width: screenWidth * 0.028),
+          // FIXED: Use _hasText instead of checking controller directly
           GestureDetector(
-            onTap: (isSending || _messageController.text.trim().isEmpty) 
+            onTap: (isSending || !_hasText) 
                 ? null 
                 : () => _sendMessage(context),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               width: screenWidth * 0.11,
               height: screenWidth * 0.11,
               decoration: BoxDecoration(
-                color: (isSending || _messageController.text.trim().isEmpty)
+                color: (isSending || !_hasText)
                     ? Colors.grey.shade400 
                     : ColorManager.primary,
                 shape: BoxShape.circle,

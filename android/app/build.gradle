@@ -32,8 +32,8 @@ android {
         applicationId = "com.birduser.app"
         minSdkVersion 23
         targetSdkVersion 35
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = 2
+        versionName = 1
         multiDexEnabled true
     }
 

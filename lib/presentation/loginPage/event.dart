@@ -1,7 +1,9 @@
+// lib/presentation/screens/loginPage/event.dart
+
 abstract class LoginEvent {}
 
 class SubmitEvent extends LoginEvent {
-  final String phoneNumber;
+  final String phoneNumber; // Full phone number with country code
 
   SubmitEvent({
     required this.phoneNumber,
@@ -24,4 +26,15 @@ class PhoneCodeSentEvent extends LoginEvent {
   final String verificationId;
 
   PhoneCodeSentEvent({required this.verificationId});
+}
+
+// Additional events for country selection if needed
+class CountrySelectedEvent extends LoginEvent {
+  final String countryCode;
+  final String dialCode;
+
+  CountrySelectedEvent({
+    required this.countryCode, 
+    required this.dialCode,
+  });
 }

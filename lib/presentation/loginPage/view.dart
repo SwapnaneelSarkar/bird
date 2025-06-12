@@ -91,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       SizedBox(height: screenHeight * 0.08),
                       _buildLogo(),
-                      SizedBox(height: screenHeight * 0.06),
+                      SizedBox(height: screenHeight * 0.03),
                       _buildTitle(),
                       SizedBox(height: screenHeight * 0.04),
                       _buildPhoneInput(),
@@ -112,27 +112,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLogo() {
-    return Container(
+    return Image.asset(
+      'assets/logo.png',
       width: 120,
       height: 120,
-      decoration: BoxDecoration(
-        color: ColorManager.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Center(
-        child: Image.asset(
-          'assets/images/logo.png',
-          width: 80,
-          height: 80,
-          errorBuilder: (context, error, stackTrace) {
-            return Icon(
-              Icons.flutter_dash,
-              size: 60,
-              color: ColorManager.primary,
-            );
-          },
-        ),
-      ),
+      errorBuilder: (context, error, stackTrace) {
+        return Icon(
+          Icons.flutter_dash,
+          size: 60,
+          color: ColorManager.primary,
+        );
+      },
     );
   }
 

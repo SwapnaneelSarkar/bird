@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import '../constants/api_constant.dart';
 
 // At the top of your notification_service.dart file
 @pragma('vm:entry-point')
@@ -360,26 +362,72 @@ class NotificationService {
     }
   }
 
+  Future<void> _sendTokenToServer(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      final authToken = prefs.getString('auth_token');
+      
+      // Only send if we have both userId and authToken
+      if (userId != null && authToken != null) {
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/api/user/register-device-token'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $authToken',
+          },
+          body: jsonEncode({
+            'userId': userId,
+            'token': token,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body);
+          if (responseData['status'] == true) {
+            print('✅ Device token registered successfully');
+            // Save that we've registered this token
+            await prefs.setString('registered_fcm_token', token);
+          } else {
+            print('❌ Failed to register device token: ${responseData['message']}');
+          }
+        } else {
+          print('❌ Failed to register device token: HTTP ${response.statusCode}');
+        }
+      } else {
+        print('⚠️ Cannot register device token: Missing userId or authToken');
+      }
+    } catch (e) {
+      print('❌ Error registering device token: $e');
+    }
+  }
+
+  // Method to check if token needs to be registered
+  Future<bool> _shouldRegisterToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    final registeredToken = prefs.getString('registered_fcm_token');
+    return registeredToken != token;
+  }
+
   Future<void> _printFCMToken() async {
     String? token = await _firebaseMessaging.getToken();
     print('FCM Token: $token');
     
     // Listen for token refresh
-    _firebaseMessaging.onTokenRefresh.listen((newToken) {
+    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
       print('FCM Token refreshed: $newToken');
-      // Send the new token to your server
-      _sendTokenToServer(newToken);
+      // Only send if token has changed
+      if (await _shouldRegisterToken(newToken)) {
+        await _sendTokenToServer(newToken);
+      }
     });
     
     if (token != null) {
-      _sendTokenToServer(token);
+      // Only send if token has changed
+      if (await _shouldRegisterToken(token)) {
+        await _sendTokenToServer(token);
+      }
     }
-  }
-
-  Future<void> _sendTokenToServer(String token) async {
-    // TODO: Implement your server API call to save the token
-    // This is where you would send the token to your backend
-    print('TODO: Send token to server: $token');
   }
 
   // Subscribe to a topic

@@ -1,7 +1,9 @@
 // lib/presentation/order_details/view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import '../../widgets/custom_button_large.dart';
+import '../../widgets/review_rating_widget.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/order_details_model.dart';
@@ -228,7 +230,7 @@ class _OrderDetailsContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Order Status Card
-            _buildOrderStatusCard(orderDetails, screenWidth, screenHeight),
+            _buildOrderStatusCard(context, orderDetails, screenWidth, screenHeight),
             
             SizedBox(height: screenHeight * 0.02),
             
@@ -246,11 +248,15 @@ class _OrderDetailsContent extends StatelessWidget {
             if (orderDetails.deliveryAddress != null)
               _buildDeliveryInfoCard(orderDetails, screenWidth, screenHeight),
             
-            SizedBox(height: screenHeight * 0.03),
+            SizedBox(height: screenHeight * 0.02),
             
-            // Action Buttons
-            _buildActionButtons(context, orderDetails, screenWidth, screenHeight),
-            
+            // Review & Rating Section
+            ReviewRatingWidget(
+              orderId: orderDetails.orderId,
+              partnerId: orderDetails.partnerId ?? '',
+              canReview: orderDetails.orderStatus.toLowerCase() == 'delivered',
+            ),
+                        
             SizedBox(height: screenHeight * 0.02),
           ],
         ),
@@ -258,7 +264,7 @@ class _OrderDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderStatusCard(OrderDetails orderDetails, double screenWidth, double screenHeight) {
+  Widget _buildOrderStatusCard(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {
     Color statusColor;
     IconData statusIcon;
     
@@ -361,13 +367,26 @@ class _OrderDetailsContent extends StatelessWidget {
                       color: Colors.grey[600],
                     ),
                   ),
-                  Text(
-                    orderDetails.orderId,
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeightManager.medium,
-                      fontFamily: FontFamily.Montserrat,
-                      color: ColorManager.black,
+                  GestureDetector(
+                    onLongPress: () async {
+                      await Clipboard.setData(ClipboardData(text: orderDetails.orderId));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Order ID copied to clipboard'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      orderDetails.orderId,
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                        color: ColorManager.black,
+                      ),
                     ),
                   ),
                 ],
@@ -722,213 +741,6 @@ class _OrderDetailsContent extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {
-    return Column(
-      children: [
-        // Track Order Button (always visible for non-cancelled orders)
-        if (orderDetails.orderStatus.toLowerCase() != 'cancelled' && 
-            orderDetails.orderStatus.toLowerCase() != 'delivered')
-          Container(
-            width: double.infinity,
-            height: screenHeight * 0.06,
-            child: CustomLargeButton(
-              text: 'Track Order',
-              onPressed: () {
-                context.read<OrderDetailsBloc>().add(TrackOrder(orderDetails.orderId));
-              },
-            ),
-          ),
-        
-        // Cancel Order Button (only for pending/preparing orders)
-        if (orderDetails.canBeCancelled) ...[
-          if (orderDetails.orderStatus.toLowerCase() != 'cancelled' && 
-              orderDetails.orderStatus.toLowerCase() != 'delivered')
-            SizedBox(height: screenHeight * 0.015),
-          SizedBox(
-            width: double.infinity,
-            height: screenHeight * 0.06,
-            child: OutlinedButton(
-              onPressed: () {
-                _showCancelOrderDialog(context, orderDetails.orderId);
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(screenWidth * 0.02),
-                ),
-              ),
-              child: Text(
-                'Cancel Order',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                  color: Colors.red,
-                ),
-              ),
-            ),
-          ),
-        ],
-        
-        // Reorder Button (for delivered orders)
-        if (orderDetails.orderStatus.toLowerCase() == 'delivered') ...[
-          SizedBox(height: screenHeight * 0.015),
-          SizedBox(
-            width: double.infinity,
-            height: screenHeight * 0.06,
-            child: OutlinedButton(
-              onPressed: () {
-                // Navigate to restaurant or add items to cart
-                _showReorderDialog(context);
-              },
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: ColorManager.black, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(screenWidth * 0.02),
-                ),
-              ),
-              child: Text(
-                'Reorder',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                  color: ColorManager.black,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _showCancelOrderDialog(BuildContext context, String orderId) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(screenWidth * 0.03),
-          ),
-          title: Text(
-            'Cancel Order',
-            style: TextStyle(
-              fontSize: screenWidth * 0.045,
-              fontWeight: FontWeightManager.bold,
-              fontFamily: FontFamily.Montserrat,
-              color: ColorManager.black,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to cancel this order? This action cannot be undone.',
-            style: TextStyle(
-              fontSize: screenWidth * 0.038,
-              fontFamily: FontFamily.Montserrat,
-              color: Colors.grey[700],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'No, Keep Order',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.038,
-                  fontFamily: FontFamily.Montserrat,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.read<OrderDetailsBloc>().add(CancelOrder(orderId));
-              },
-              child: Text(
-                'Yes, Cancel',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.038,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                  color: Colors.red,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showReorderDialog(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(screenWidth * 0.03),
-          ),
-          title: Text(
-            'Reorder',
-            style: TextStyle(
-              fontSize: screenWidth * 0.045,
-              fontWeight: FontWeightManager.bold,
-              fontFamily: FontFamily.Montserrat,
-              color: ColorManager.black,
-            ),
-          ),
-          content: Text(
-            'This will add all items from this order to your cart. Continue?',
-            style: TextStyle(
-              fontSize: screenWidth * 0.038,
-              fontFamily: FontFamily.Montserrat,
-              color: Colors.grey[700],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.038,
-                  fontFamily: FontFamily.Montserrat,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Implement reorder functionality
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Reorder functionality will be implemented'),
-                    backgroundColor: Colors.blue,
-                  ),
-                );
-              },
-              child: Text(
-                'Add to Cart',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.038,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                  color: ColorManager.black,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }

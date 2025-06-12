@@ -602,7 +602,7 @@ List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategor
             child: Text(
               title,
               style: GoogleFonts.poppins(
-                fontSize: 12, 
+                fontSize: 10, 
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
                 color: isSelected ? accentColor : Colors.grey[800]
               ),

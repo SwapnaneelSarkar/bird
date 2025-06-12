@@ -10,6 +10,7 @@ class OrderDetails {
   final DateTime? createdAt;
   final String? restaurantName;
   final String? deliveryAddress;
+  final String? partnerId; // Add this field
 
   OrderDetails({
     required this.orderId,
@@ -22,6 +23,7 @@ class OrderDetails {
     this.createdAt,
     this.restaurantName,
     this.deliveryAddress,
+    this.partnerId, // Add this parameter
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -35,25 +37,26 @@ class OrderDetails {
     return OrderDetails(
       orderId: json['order_id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
-      itemIds: json['item_ids'] != null 
-          ? List<String>.from(json['item_ids']) 
+      itemIds: json['item_ids'] != null
+          ? List<String>.from(json['item_ids'])
           : [],
       items: orderItems,
       totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
       deliveryFees: double.tryParse(json['delivery_fees']?.toString() ?? '0') ?? 0.0,
       orderStatus: json['order_status']?.toString() ?? 'Unknown',
-      createdAt: json['created_at'] != null 
+      createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
       restaurantName: json['restaurant_name']?.toString(),
       deliveryAddress: json['delivery_address']?.toString(),
+      partnerId: json['partner_id']?.toString() ?? json['restaurant_id']?.toString(), // Add this line
     );
   }
 
   double get subtotal => totalAmount - deliveryFees;
 
   bool get canBeCancelled {
-    return orderStatus.toLowerCase() == 'pending' || 
+    return orderStatus.toLowerCase() == 'pending' ||
            orderStatus.toLowerCase() == 'preparing';
   }
 

@@ -119,7 +119,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                 text: 'Verify',
                                 onPressed: otpController.text.length == 6
                                   ? () => context.read<OtpBloc>().add(VerifyOtpEvent(otp: otpController.text, verificationId: widget.verificationId))
-                                  : () {},
+                                  : null,
                               ),
                           const SizedBox(height: 24),
                           _buildResendSection(context, isVerifying),

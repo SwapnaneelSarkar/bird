@@ -416,9 +416,7 @@ class _OrderConfirmationContent extends StatelessWidget {
           width: double.infinity,
           height: screenHeight * 0.065,
           child: ElevatedButton(
-            onPressed: () {
-              context.read<OrderConfirmationBloc>().add(const ProceedToChat());
-            },
+            onPressed: () => _showPaymentModeDialog(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFD2691E),
               foregroundColor: Colors.white,
@@ -428,13 +426,212 @@ class _OrderConfirmationContent extends StatelessWidget {
               ),
             ),
             child: Text(
-              'Proceed to Chat  →',
+              'Proceed to Pay  →',
               style: TextStyle(
                 fontSize: screenWidth * 0.04,
                 fontWeight: FontWeightManager.semiBold,
                 fontFamily: FontFamily.Montserrat,
                 letterSpacing: 0.5,
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentModeDialog(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // Store reference to the bloc before showing dialog
+    final orderBloc = context.read<OrderConfirmationBloc>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(screenWidth * 0.06),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Title
+                Text(
+                  'Select Payment Mode',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.05,
+                    fontWeight: FontWeightManager.bold,
+                    fontFamily: FontFamily.Montserrat,
+                    color: ColorManager.black,
+                  ),
+                ),
+                
+                SizedBox(height: screenHeight * 0.03),
+                
+                // Payment Options
+                _buildPaymentOption(
+                  context: dialogContext,
+                  orderBloc: orderBloc,
+                  icon: Icons.money,
+                  title: 'Cash on Delivery',
+                  subtitle: 'Pay when your order arrives',
+                  color: const Color(0xFF4CAF50),
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                ),
+                
+                SizedBox(height: screenHeight * 0.015),
+                
+                _buildPaymentOption(
+                  context: dialogContext,
+                  orderBloc: orderBloc,
+                  icon: Icons.account_balance_wallet,
+                  title: 'UPI Payment',
+                  subtitle: 'Pay using UPI apps',
+                  color: const Color(0xFF2196F3),
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                ),
+                
+                SizedBox(height: screenHeight * 0.015),
+                
+                _buildPaymentOption(
+                  context: dialogContext,
+                  orderBloc: orderBloc,
+                  icon: Icons.credit_card,
+                  title: 'Card Payment',
+                  subtitle: 'Pay using debit/credit card',
+                  color: const Color(0xFF9C27B0),
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                ),
+                
+                SizedBox(height: screenHeight * 0.02),
+                
+                // Cancel Button
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontWeight: FontWeightManager.medium,
+                      fontFamily: FontFamily.Montserrat,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentOption({
+    required BuildContext context,
+    required OrderConfirmationBloc orderBloc,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required double screenWidth,
+    required double screenHeight,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey[200]!,
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.of(context).pop(); // Close dialog
+            debugPrint('Payment mode selected: $title');
+            // Proceed to chat after payment mode selection using the passed bloc
+            orderBloc.add(const ProceedToChat());
+          },
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.04,
+              vertical: screenHeight * 0.02,
+            ),
+            child: Row(
+              children: [
+                // Icon Container
+                Container(
+                  padding: EdgeInsets.all(screenWidth * 0.025),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: screenWidth * 0.06,
+                  ),
+                ),
+                
+                SizedBox(width: screenWidth * 0.04),
+                
+                // Text Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          fontWeight: FontWeightManager.semiBold,
+                          fontFamily: FontFamily.Montserrat,
+                          color: ColorManager.black,
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.003),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.03,
+                          fontWeight: FontWeightManager.regular,
+                          fontFamily: FontFamily.Montserrat,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Arrow Icon
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[400],
+                  size: screenWidth * 0.04,
+                ),
+              ],
             ),
           ),
         ),

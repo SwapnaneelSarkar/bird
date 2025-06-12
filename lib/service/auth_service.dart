@@ -38,6 +38,10 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_phone', phoneNumber);
           
+          // Save user ID and auth token
+          await prefs.setString('user_id', userId);
+          await prefs.setString('auth_token', token);
+          
           debugPrint('Auth successful - User ID: $userId');
           debugPrint('Token received: ${token.substring(0, 20)}...');
           

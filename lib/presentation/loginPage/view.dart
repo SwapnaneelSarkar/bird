@@ -483,6 +483,12 @@ class _LoginPageState extends State<LoginPage> {
       return false;
     }
 
+    // Add minimum length check
+    if (phoneNumber.length < 5) {
+      _showErrorSnackBar('Phone number must be at least 5 digits long');
+      return false;
+    }
+
     final expectedLength = _getExpectedLength();
     final strictCountries = ['AE', 'SG', 'SA', 'MY', 'TH', 'KE', 'GH', 'ET', 'LK', 'VN', 'MM'];
     

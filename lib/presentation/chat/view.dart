@@ -1,3 +1,6 @@
+import 'package:bird/service/order_service.dart';
+import 'package:bird/utils/snackbar_utils.dart';
+import 'package:bird/widgets/cancel_order_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
@@ -74,6 +77,50 @@ class _ChatViewState extends State<ChatView> {
     }
   }
 
+  // Handle cancel order
+  Future<void> _handleCancelOrder(String orderId) async {
+    try {
+      debugPrint('ChatView: Attempting to cancel order: $orderId');
+      
+      final result = await OrderService.cancelOrder(orderId);
+      
+      if (mounted) {
+        Navigator.pop(context); // Close bottom sheet
+        
+        if (result['success'] == true) {
+          // Show success message using SnackBarUtils
+          SnackBarUtils.showSuccess(
+            context: context,
+            message: result['message'] ?? 'Order cancelled successfully',
+          );
+          
+          // Pop back to previous screen after short delay
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        } else {
+          // Show error message using SnackBarUtils
+          SnackBarUtils.showError(
+            context: context,
+            message: result['message'] ?? 'Failed to cancel order',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatView: Error cancelling order: $e');
+      
+      if (mounted) {
+        Navigator.pop(context); // Close bottom sheet
+        
+        SnackBarUtils.showError(
+          context: context,
+          message: 'Something went wrong. Please try again.',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get responsive dimensions
@@ -105,7 +152,7 @@ class _ChatViewState extends State<ChatView> {
             if (state is ChatLoading) {
               return _buildLoadingState(screenWidth, screenHeight);
             } else if (state is ChatLoaded) {
-              return _buildChatContent(context, state, screenWidth, screenHeight);
+              return _buildChatContent(context, state, screenWidth, screenHeight, orderId);
             } else if (state is ChatError) {
               return _buildErrorState(context, state, screenWidth, screenHeight);
             }
@@ -143,12 +190,12 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildChatContent(BuildContext context, ChatLoaded state, double screenWidth, double screenHeight) {
+  Widget _buildChatContent(BuildContext context, ChatLoaded state, double screenWidth, double screenHeight, String orderId) {
     return SafeArea(
       child: Column(
         children: [
           _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
-          _buildOrderHeader(state.chatRoom, screenWidth, screenHeight),
+          _buildOrderHeader(state.chatRoom, screenWidth, screenHeight, orderId),
           Expanded(
             child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight),
           ),
@@ -242,88 +289,124 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildOrderHeader(ChatRoom chatRoom, double screenWidth, double screenHeight) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(screenWidth * 0.04),
-      decoration: BoxDecoration(
-        color: ColorManager.primary.withOpacity(0.05),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade200,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'Order #${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.042,
-                    fontWeight: FontWeightManager.bold,
-                    color: ColorManager.black,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SizedBox(width: screenWidth * 0.02),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.028,
-                  vertical: screenHeight * 0.006,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(screenWidth * 0.035),
-                  border: Border.all(
-                    color: Colors.green.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: screenWidth * 0.018,
-                      height: screenWidth * 0.018,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: screenWidth * 0.018),
-                    Text(
-                      'Active',
-                      style: TextStyle(
-                        fontSize: screenWidth * 0.03,
-                        fontWeight: FontWeightManager.medium,
-                        color: Colors.green,
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: screenHeight * 0.008),
-          Text(
-            'Chat with restaurant support',
-            style: TextStyle(
-              fontSize: screenWidth * 0.033,
-              fontWeight: FontWeightManager.regular,
-              color: Colors.grey.shade600,
-              fontFamily: FontFamily.Montserrat,
+  Widget _buildOrderHeader(ChatRoom chatRoom, double screenWidth, double screenHeight, String orderId) {
+    return GestureDetector(
+      onTap: () {
+        // Show cancel order bottom sheet
+        showCancelOrderBottomSheet(
+          context: context,
+          orderId: orderId,
+          onCancel: _handleCancelOrder,
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(screenWidth * 0.04),
+        decoration: BoxDecoration(
+          color: ColorManager.primary.withOpacity(0.05),
+          border: Border(
+            bottom: BorderSide(
+              color: Colors.grey.shade200,
+              width: 1,
             ),
           ),
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Order #${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.042,
+                            fontWeight: FontWeightManager.bold,
+                            color: ColorManager.black,
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.02),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: screenWidth * 0.05,
+                        color: Colors.grey.shade600,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: screenWidth * 0.02),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.028,
+                    vertical: screenHeight * 0.006,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.035),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: screenWidth * 0.018,
+                        height: screenWidth * 0.018,
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.018),
+                      Text(
+                        'Active',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.03,
+                          fontWeight: FontWeightManager.medium,
+                          color: Colors.green,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: screenHeight * 0.008),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Chat with restaurant support',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.033,
+                    fontWeight: FontWeightManager.regular,
+                    color: Colors.grey.shade600,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+                Text(
+                  'Tap to cancel order',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.028,
+                    fontWeight: FontWeightManager.medium,
+                    color: Colors.red.shade600,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

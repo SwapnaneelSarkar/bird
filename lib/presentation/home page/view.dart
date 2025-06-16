@@ -361,7 +361,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
               Text(
                 'Popular Categories',
                 style: GoogleFonts.poppins(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
+                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
                 ),
               ),
               Row(

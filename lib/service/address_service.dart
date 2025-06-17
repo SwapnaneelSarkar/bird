@@ -45,7 +45,7 @@ class AddressService {
         'country': country,
         'latitude': latitude,
         'longitude': longitude,
-        'is_default': isDefault ? 1 : 0,
+        'is_default': isDefault,
       };
 
       debugPrint('AddressService: Save address payload: $payload');
@@ -62,7 +62,7 @@ class AddressService {
       debugPrint('AddressService: Save response status: ${response.statusCode}');
       debugPrint('AddressService: Save response body: ${response.body}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
         
         if (responseData['status'] == true) {
@@ -127,6 +127,7 @@ class AddressService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
+        // No body at all
       );
 
       debugPrint('AddressService: Fetch response status: ${response.statusCode}');

@@ -1,4 +1,4 @@
-// models/restaurant_model.dart
+// lib/models/restaurant_model.dart - Fixed version that handles null values
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
@@ -18,6 +18,7 @@ class Restaurant {
   final String? openTimings;
   final String? ownerName;
   final String? restaurantType;
+  final List<String> photos;
 
   Restaurant({
     required this.id,
@@ -35,39 +36,106 @@ class Restaurant {
     this.openTimings,
     this.ownerName,
     this.restaurantType,
+    this.photos = const [],
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
+    // CRITICAL FIX: Handle restaurant_photos properly
+    List<String> photos = [];
+    try {
+      final photosField = json['restaurant_photos'];
+      if (photosField != null && photosField.toString().isNotEmpty) {
+        if (photosField is String) {
+          // Handle string representation like "[\"url1\", \"url2\"]"
+          String photosString = photosField.toString();
+          if (photosString.startsWith('[') && photosString.endsWith(']')) {
+            // Remove brackets and parse
+            photosString = photosString.substring(1, photosString.length - 1);
+            if (photosString.isNotEmpty) {
+              photos = photosString
+                  .split(',')
+                  .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+            }
+          } else if (photosString.isNotEmpty && !photosString.startsWith('[')) {
+            // Single URL as string
+            photos = [photosString];
+          }
+        } else if (photosField is List) {
+          // Handle actual list
+          photos = List<String>.from(photosField);
+        }
+      }
+    } catch (e) {
+      debugPrint('Restaurant: Error parsing photos: $e');
+      photos = [];
+    }
+
+    // CRITICAL FIX: Safe parsing for all fields
     return Restaurant(
-      id: json['partner_id'] ?? json['id'] ?? '',
-      name: json['restaurant_name'] ?? json['name'] ?? '',
-      address: json['address'] ?? 'Address not available',
-      description: json['description'],
-      cuisine: json['category'] ?? '',
-      rating: json['rating'] != null 
-          ? double.tryParse(json['rating'].toString())
-          : null,
-      openNow: _determineOpenStatus(json['open_timings']),
-      closesAt: _extractClosingTime(json['open_timings']),
-      imageUrl: json['image'],
-      isVeg: json['veg_nonveg'] == 'veg' || (json['isVeg'] == true),
-      latitude: json['latitude'] != null 
-          ? double.tryParse(json['latitude'].toString())
-          : null,
-      longitude: json['longitude'] != null 
-          ? double.tryParse(json['longitude'].toString())
-          : null,
-      openTimings: json['open_timings'],
-      ownerName: json['owner_name'],
-      restaurantType: json['restaurant_type'], // Added line to get restaurant_type
+      id: json['partner_id']?.toString() ?? json['id']?.toString() ?? '',
+      name: json['restaurant_name']?.toString() ?? json['name']?.toString() ?? 'Unknown Restaurant',
+      address: json['address']?.toString() ?? 'Address not available',
+      description: json['description']?.toString(),
+      cuisine: json['category']?.toString() ?? json['cuisine']?.toString() ?? '',
+      rating: _parseDouble(json['rating']),
+      openNow: _determineOpenStatus(json['open_timings']?.toString()),
+      closesAt: _extractClosingTime(json['open_timings']?.toString()),
+      imageUrl: _getImageUrl(json, photos),
+      isVeg: _parseVegStatus(json),
+      latitude: _parseDouble(json['latitude']),
+      longitude: _parseDouble(json['longitude']),
+      openTimings: json['open_timings']?.toString(),
+      ownerName: json['owner_name']?.toString(),
+      restaurantType: json['restaurant_type']?.toString(),
+      photos: photos,
     );
+  }
+
+  // Helper method to safely parse double values
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  // Helper method to determine vegetarian status
+  static bool _parseVegStatus(Map<String, dynamic> json) {
+    final vegNonVeg = json['veg_nonveg']?.toString().toLowerCase();
+    if (vegNonVeg == 'veg') return true;
+    if (vegNonVeg == 'non-veg' || vegNonVeg == 'nonveg') return false;
+    
+    final isVeg = json['isVeg'];
+    if (isVeg is bool) return isVeg;
+    if (isVeg is String) return isVeg.toLowerCase() == 'true';
+    
+    return false; // Default to non-veg if unclear
+  }
+
+  // Helper method to get the best image URL
+  static String? _getImageUrl(Map<String, dynamic> json, List<String> photos) {
+    // Try direct image field first
+    final directImage = json['image']?.toString();
+    if (directImage != null && directImage.isNotEmpty) {
+      return directImage;
+    }
+    
+    // Use first photo if available
+    if (photos.isNotEmpty) {
+      return photos.first;
+    }
+    
+    return null;
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'imageUrl': imageUrl ?? '',
+      'imageUrl': imageUrl ?? (photos.isNotEmpty ? photos.first : ''),
       'cuisine': cuisine,
       'rating': rating ?? 0.0,
       'price': '₹200 for two', // Default value as API doesn't provide this
@@ -77,98 +145,78 @@ class Restaurant {
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
-      'restaurantType': restaurantType, // Added line to include restaurantType
+      'restaurantType': restaurantType,
+      'category': cuisine, // Map cuisine to category for compatibility
     };
   }
   
-
   // Helper to determine if restaurant is currently open
-  static bool? _determineOpenStatus(String? openTimingsJson) {
-    if (openTimingsJson == null) return null;
+  static bool? _determineOpenStatus(String? openTimings) {
+    if (openTimings == null || openTimings.isEmpty) return null;
     
     try {
-      // Parse the JSON string
-      final Map<String, dynamic> timings = json.decode(openTimingsJson);
-      
-      // Get current day of week
+      // Parse JSON timing data if available
+      final timingData = jsonDecode(openTimings);
       final now = DateTime.now();
-      String dayOfWeek;
+      final currentDay = _getDayName(now.weekday);
       
-      switch (now.weekday) {
-        case 1: dayOfWeek = 'mon'; break;
-        case 2: dayOfWeek = 'tue'; break;
-        case 3: dayOfWeek = 'wed'; break;
-        case 4: dayOfWeek = 'thu'; break;
-        case 5: dayOfWeek = 'fri'; break;
-        case 6: dayOfWeek = 'sat'; break;
-        case 7: dayOfWeek = 'sun'; break;
-        default: dayOfWeek = 'mon';
-      }
-      
-      // Check if the day exists in the timings
-      if (!timings.containsKey(dayOfWeek)) return false;
-      
-      // Get hours for today
-      final String hoursString = timings[dayOfWeek];
-      
-      // Parse opening and closing hours
-      if (hoursString.toLowerCase().contains('closed')) return false;
-      
-      if (hoursString.contains('-')) {
-        // For simplicity just return true if hours exist
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      debugPrint('Error parsing opening hours: $e');
-      return null;
-    }
-  }
-  
-  // Helper to extract closing time from open_timings JSON
-  static String? _extractClosingTime(String? openTimingsJson) {
-    if (openTimingsJson == null) return null;
-    
-    try {
-      // Parse the JSON string
-      final Map<String, dynamic> timings = json.decode(openTimingsJson);
-      
-      // Get current day of week
-      final now = DateTime.now();
-      String dayOfWeek;
-      
-      switch (now.weekday) {
-        case 1: dayOfWeek = 'mon'; break;
-        case 2: dayOfWeek = 'tue'; break;
-        case 3: dayOfWeek = 'wed'; break;
-        case 4: dayOfWeek = 'thu'; break;
-        case 5: dayOfWeek = 'fri'; break;
-        case 6: dayOfWeek = 'sat'; break;
-        case 7: dayOfWeek = 'sun'; break;
-        default: dayOfWeek = 'mon';
-      }
-      
-      // Check if the day exists in the timings
-      if (!timings.containsKey(dayOfWeek)) return null;
-      
-      // Get hours for today
-      final String hoursString = timings[dayOfWeek];
-      
-      // Parse closing time
-      if (hoursString.toLowerCase().contains('closed')) return 'Closed today';
-      
-      if (hoursString.contains('-')) {
-        final parts = hoursString.split('-');
-        if (parts.length == 2) {
-          return parts[1].trim();
+      if (timingData[currentDay] != null) {
+        final dayTimings = timingData[currentDay];
+        if (dayTimings['open'] != null && dayTimings['close'] != null) {
+          final openTime = _parseTime(dayTimings['open']);
+          final closeTime = _parseTime(dayTimings['close']);
+          
+          if (openTime != null && closeTime != null) {
+            final currentTime = Duration(hours: now.hour, minutes: now.minute);
+            return currentTime.compareTo(openTime) >= 0 && currentTime.compareTo(closeTime) <= 0;
+          }
         }
       }
-      
-      return null;
     } catch (e) {
-      debugPrint('Error extracting closing time: $e');
-      return null;
+      debugPrint('Restaurant: Error parsing opening hours: $e');
     }
+    
+    return null; // Unknown status
+  }
+  
+  // Helper to extract closing time
+  static String? _extractClosingTime(String? openTimings) {
+    if (openTimings == null || openTimings.isEmpty) return null;
+    
+    try {
+      final timingData = jsonDecode(openTimings);
+      final now = DateTime.now();
+      final currentDay = _getDayName(now.weekday);
+      
+      if (timingData[currentDay] != null) {
+        final dayTimings = timingData[currentDay];
+        return dayTimings['close']?.toString();
+      }
+    } catch (e) {
+      debugPrint('Restaurant: Error extracting closing time: $e');
+    }
+    
+    return null;
+  }
+  
+  // Helper to get day name
+  static String _getDayName(int weekday) {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    return days[weekday - 1];
+  }
+  
+  // Helper to parse time string to Duration
+  static Duration? _parseTime(String timeStr) {
+    try {
+      final parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        final hours = int.parse(parts[0]);
+        final minutes = int.parse(parts[1]);
+        return Duration(hours: hours, minutes: minutes);
+      }
+    } catch (e) {
+      debugPrint('Restaurant: Error parsing time: $e');
+    }
+    return null;
   }
 }

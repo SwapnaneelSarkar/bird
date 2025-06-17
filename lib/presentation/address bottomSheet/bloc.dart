@@ -396,7 +396,7 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
 
       // Make API call to get saved addresses
       final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/api/user/all-addresses'),
+        Uri.parse('${ApiConstants.baseUrl}/api/user/all-addresses?user_id=$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

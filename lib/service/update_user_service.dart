@@ -109,9 +109,19 @@ class UpdateUserService {
         }
       } else {
         debugPrint('UpdateUserService: Profile update error: Status ${response.statusCode}');
+        // Try to parse the error message from the response body
+        String errorMsg = 'Server error occurred. Please try again.';
+        try {
+          final Map<String, dynamic> errorData = jsonDecode(response.body);
+          if (errorData.containsKey('message') && errorData['message'] is String) {
+            errorMsg = errorData['message'];
+          }
+        } catch (e) {
+          debugPrint('UpdateUserService: Could not parse error body: $e');
+        }
         return {
           'success': false,
-          'message': 'Server error occurred. Please try again.',
+          'message': errorMsg,
         };
       }
     } catch (e) {
@@ -228,9 +238,19 @@ Future<Map<String, dynamic>> updateUserProfileWithId({
       }
     } else {
       debugPrint('UpdateUserService: Profile update error: Status ${response.statusCode}');
+      // Try to parse the error message from the response body
+      String errorMsg = 'Server error occurred. Please try again.';
+      try {
+        final Map<String, dynamic> errorData = jsonDecode(response.body);
+        if (errorData.containsKey('message') && errorData['message'] is String) {
+          errorMsg = errorData['message'];
+        }
+      } catch (e) {
+        debugPrint('UpdateUserService: Could not parse error body: $e');
+      }
       return {
         'success': false,
-        'message': 'Server error occurred. Please try again.',
+        'message': errorMsg,
       };
     }
   } catch (e) {

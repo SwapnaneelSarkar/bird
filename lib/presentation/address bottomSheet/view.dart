@@ -504,7 +504,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
             SizedBox(
               width: 60 * textScale,
               height: 60 * textScale,
-              child: Lottie.asset('assets/lottie/location.json', fit: BoxFit.contain),
+              child: Lottie.asset('assets/lottie/loading.json', fit: BoxFit.contain),
             ),
             SizedBox(height: 16 * textScale),
             Text(
@@ -659,11 +659,14 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
 ) {
   final nameController = TextEditingController();
   bool makeDefault = false;
+  
+  // CRITICAL FIX: Capture the parent context that has access to AddressPickerBloc
+  final parentContext = context;
 
   showDialog(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (builderContext, setState) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
@@ -732,7 +735,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               if (widget.onAddressSelected != null) {
                 widget.onAddressSelected!(address, 'Other', latitude, longitude);
               }
@@ -744,21 +747,23 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               final addressName = nameController.text.trim().isEmpty
                   ? 'Other'
                   : nameController.text.trim();
 
-              context.read<AddressPickerBloc>().add(
-                    SaveAddressEvent(
-                      address: address,
-                      subAddress: subAddress,
-                      addressName: addressName,
-                      latitude: latitude,
-                      longitude: longitude,
-                      fullAddress: fullAddress,
-                    ),
-                  );
+              // CRITICAL FIX: Use parentContext instead of builderContext
+              // parentContext has access to the AddressPickerBloc provider
+              parentContext.read<AddressPickerBloc>().add(
+                SaveAddressEvent(
+                  address: address,
+                  subAddress: subAddress,
+                  addressName: addressName,
+                  latitude: latitude,
+                  longitude: longitude,
+                  fullAddress: fullAddress,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: ColorManager.primary,
@@ -774,5 +779,6 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
     ),
   );
 }
+
 
 }

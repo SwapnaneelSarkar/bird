@@ -1,4 +1,4 @@
-// lib/presentation/home page/event.dart
+// lib/presentation/home page/event.dart - Complete version with address management
 import 'package:equatable/equatable.dart';
 
 abstract class HomeEvent extends Equatable {
@@ -36,7 +36,6 @@ class UpdateUserAddress extends HomeEvent {
   List<Object?> get props => [address, latitude, longitude];
 }
 
-// New event for category filtering
 class FilterByCategory extends HomeEvent {
   final String? categoryName; // null means show all categories
   
@@ -46,7 +45,7 @@ class FilterByCategory extends HomeEvent {
   List<Object?> get props => [categoryName];
 }
 
-// New events for address management
+// Address management events
 class LoadSavedAddresses extends HomeEvent {
   const LoadSavedAddresses();
 }

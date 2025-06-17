@@ -75,11 +75,9 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       
       if (currentState is SettingsLoaded) {
         currentUserData = Map<String, dynamic>.from(currentState.userData);
-        // We emit the same state first to ensure UI remains consistent
         emit(SettingsLoaded(userData: currentUserData));
       }
 
-      // Now emit updating state
       emit(SettingsUpdating());
       
       final token = await TokenService.getToken();
@@ -90,55 +88,18 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         return;
       }
       
-      // Debug print all parameters being sent
-      debugPrint('SettingsBloc: Updating user profile with:');
-      debugPrint('  User ID: $userId');
-      debugPrint('  Username: ${event.name ?? currentUserData['username']?.toString() ?? ''}');
-      debugPrint('  Email: ${event.email ?? currentUserData['email']?.toString() ?? ''}');
-      debugPrint('  Password provided: ${event.password != null}');
-      debugPrint('  Address: ${event.address ?? currentUserData['address']?.toString() ?? ''}');
+      // Prepare address/coordinate values
+      String newAddress = event.address ?? currentUserData['address']?.toString() ?? '';
+      double latitude = event.latitude ?? (currentUserData['latitude'] != null ? double.tryParse(currentUserData['latitude'].toString()) ?? 0.0 : 0.0);
+      double longitude = event.longitude ?? (currentUserData['longitude'] != null ? double.tryParse(currentUserData['longitude'].toString()) ?? 0.0 : 0.0);
       
-      // Handling coordinates - IMPORTANT
-      double latitude = 0.0;
-      if (event.latitude != null) {
-        latitude = event.latitude!;
-        debugPrint('  Latitude from event: $latitude');
-      } else if (currentUserData['latitude'] != null) {
-        // Try to parse the latitude from currentUserData
-        try {
-          latitude = double.tryParse(currentUserData['latitude'].toString()) ?? 0.0;
-          debugPrint('  Latitude from current user data: $latitude');
-        } catch (e) {
-          debugPrint('  Error parsing latitude: $e');
-          latitude = 0.0;
-        }
-      }
-      
-      double longitude = 0.0;
-      if (event.longitude != null) {
-        longitude = event.longitude!;
-        debugPrint('  Longitude from event: $longitude');
-      } else if (currentUserData['longitude'] != null) {
-        // Try to parse the longitude from currentUserData
-        try {
-          longitude = double.tryParse(currentUserData['longitude'].toString()) ?? 0.0;
-          debugPrint('  Longitude from current user data: $longitude');
-        } catch (e) {
-          debugPrint('  Error parsing longitude: $e');
-          longitude = 0.0;
-        }
-      }
-      
-      debugPrint('  Has image: ${event.imageFile != null}');
-      
-      // Update user profile with user_id instead of mobile
       final result = await _updateUserService.updateUserProfileWithId(
         token: token,
         userId: userId,
         username: event.name ?? currentUserData['username']?.toString() ?? '',
         email: event.email ?? currentUserData['email']?.toString() ?? '',
         password: event.password,
-        address: event.address ?? currentUserData['address']?.toString() ?? '',
+        address: newAddress,
         latitude: latitude,
         longitude: longitude,
         imageFile: event.imageFile,
@@ -146,14 +107,11 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       
       if (result['success'] == true) {
         debugPrint('SettingsBloc: Profile updated successfully');
-        
-        // Fetch updated user data to ensure we have the latest
         add(LoadUserSettings());
         emit(SettingsUpdateSuccess(message: 'Profile updated successfully'));
       } else {
         debugPrint('SettingsBloc: Profile update failed: ${result['message']}');
-        
-        // If failed, restore the previous state
+        // On failure, do NOT update address/lat/lng in the state. Show error message and keep previous values.
         if (currentState is SettingsLoaded) {
           emit(SettingsLoaded(userData: currentUserData));
         }
@@ -161,13 +119,10 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       }
     } catch (e) {
       debugPrint('SettingsBloc: Error updating settings: $e');
-      
-      // Restore previous state on error
       final currentState = state;
       if (currentState is SettingsLoaded) {
         emit(SettingsLoaded(userData: currentState.userData));
       }
-      
       emit(SettingsError(message: 'Error updating settings'));
     }
   }

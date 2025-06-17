@@ -13,6 +13,7 @@ import '../address bottomSheet/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../service/address_service.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({Key? key}) : super(key: key);
@@ -38,6 +39,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   // Animation controller
   late AnimationController _animationController;
   
+  // --- ADDED: Saved addresses for address picker ---
+  List<Map<String, dynamic>> _savedAddresses = [];
+  // --- END ADDED ---
+  
   @override
   void initState() {
     super.initState();
@@ -62,7 +67,8 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     super.dispose();
   }
   
-  void _loadUserDataToControllers(Map<String, dynamic> userData) {
+  // --- MODIFIED: Now async and fetches saved addresses ---
+  Future<void> _loadUserDataToControllers(Map<String, dynamic> userData) async {
     _nameController.text = userData['username'] ?? '';
     _emailController.text = userData['email'] ?? '';
     _phoneController.text = userData['mobile'] ?? '';
@@ -71,6 +77,19 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     // Store coordinates
     _latitude = userData['latitude'] != null ? double.tryParse(userData['latitude'].toString()) : null;
     _longitude = userData['longitude'] != null ? double.tryParse(userData['longitude'].toString()) : null;
+
+    // --- ADDED: Fetch saved addresses for address picker ---
+    try {
+      final result = await AddressService.getAllAddresses();
+      if (result['success'] == true && result['data'] != null) {
+        setState(() {
+          _savedAddresses = List<Map<String, dynamic>>.from(result['data']);
+        });
+      }
+    } catch (e) {
+      debugPrint('SettingsView: Failed to load saved addresses: $e');
+    }
+    // --- END ADDED ---
   }
   
   Future<void> _pickImage() async {
@@ -110,11 +129,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     }
   }
   
-  // Method to show address picker
+  // --- MODIFIED: Pass saved addresses to address picker ---
   Future<void> _showAddressPicker() async {
     HapticFeedback.selectionClick(); // Add haptic feedback
     
-    final result = await AddressPickerBottomSheet.show(context);
+    final result = await AddressPickerBottomSheet.show(
+      context,
+      savedAddresses: _savedAddresses,
+    );
     
     if (result != null) {
       setState(() {

@@ -1,4 +1,6 @@
+// lib/presentation/home page/state.dart - COMPLETELY FIXED
 import 'package:equatable/equatable.dart';
+import '../../models/restaurant_model.dart';
 
 abstract class HomeState extends Equatable {
   const HomeState();
@@ -12,59 +14,76 @@ class HomeInitial extends HomeState {}
 class HomeLoading extends HomeState {}
 
 class HomeLoaded extends HomeState {
+  final List<Restaurant> restaurants;
+  final List<Map<String, dynamic>> categories;
   final String userAddress;
-  final bool vegOnly;
-  final List<dynamic> restaurants;
-  final List<dynamic> categories;
   final double? userLatitude;
   final double? userLongitude;
-  final String? selectedCategory; // Added for category filtering
-  final List<dynamic> allRestaurants; // Store all restaurants for filtering
+  final bool vegOnly;
+  final String? selectedCategory;
+  final List<Map<String, dynamic>> savedAddresses;
   
   const HomeLoaded({
-    required this.userAddress,
-    required this.vegOnly,
     required this.restaurants,
     required this.categories,
+    required this.userAddress,
     this.userLatitude,
     this.userLongitude,
+    this.vegOnly = false,
     this.selectedCategory,
-    required this.allRestaurants,
+    this.savedAddresses = const [],
   });
+  
+  // Helper method to get filtered restaurants - FIXED to use Restaurant model properly
+  List<Restaurant> get filteredRestaurants {
+    var filtered = restaurants;
+    
+    // Filter by veg only if enabled
+    if (vegOnly) {
+      filtered = filtered.where((restaurant) => restaurant.isVeg == true).toList();
+    }
+    
+    // Note: Category filtering removed since Restaurant model doesn't have categories field
+    // If you need category filtering, you'll need to add a categories field to your Restaurant model
+    // or implement category filtering at the API level
+    
+    return filtered;
+  }
+  
+  // Copy with method for state updates
+  HomeLoaded copyWith({
+    List<Restaurant>? restaurants,
+    List<Map<String, dynamic>>? categories,
+    String? userAddress,
+    double? userLatitude,
+    double? userLongitude,
+    bool? vegOnly,
+    String? selectedCategory,
+    List<Map<String, dynamic>>? savedAddresses,
+  }) {
+    return HomeLoaded(
+      restaurants: restaurants ?? this.restaurants,
+      categories: categories ?? this.categories,
+      userAddress: userAddress ?? this.userAddress,
+      userLatitude: userLatitude ?? this.userLatitude,
+      userLongitude: userLongitude ?? this.userLongitude,
+      vegOnly: vegOnly ?? this.vegOnly,
+      selectedCategory: selectedCategory ?? this.selectedCategory,
+      savedAddresses: savedAddresses ?? this.savedAddresses,
+    );
+  }
   
   @override
   List<Object?> get props => [
-    userAddress, 
-    vegOnly, 
-    restaurants, 
-    categories, 
-    userLatitude, 
-    userLongitude, 
+    restaurants,
+    categories,
+    userAddress,
+    userLatitude,
+    userLongitude,
+    vegOnly,
     selectedCategory,
-    allRestaurants
+    savedAddresses,
   ];
-  
-  HomeLoaded copyWith({
-    String? userAddress,
-    bool? vegOnly,
-    List<dynamic>? restaurants,
-    List<dynamic>? categories,
-    double? userLatitude,
-    double? userLongitude,
-    String? selectedCategory,
-    List<dynamic>? allRestaurants,
-  }) {
-    return HomeLoaded(
-      userAddress: userAddress ?? this.userAddress,
-      vegOnly: vegOnly ?? this.vegOnly,
-      restaurants: restaurants ?? this.restaurants,
-      categories: categories ?? this.categories,
-      userLatitude: userLatitude ?? this.userLatitude,
-      userLongitude: userLongitude ?? this.userLongitude,
-      selectedCategory: selectedCategory,
-      allRestaurants: allRestaurants ?? this.allRestaurants,
-    );
-  }
 }
 
 class HomeError extends HomeState {
@@ -73,9 +92,10 @@ class HomeError extends HomeState {
   const HomeError(this.message);
   
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [message];
 }
 
+// Address-related states
 class AddressUpdating extends HomeState {}
 
 class AddressUpdateSuccess extends HomeState {
@@ -84,7 +104,7 @@ class AddressUpdateSuccess extends HomeState {
   const AddressUpdateSuccess(this.address);
   
   @override
-  List<Object> get props => [address];
+  List<Object?> get props => [address];
 }
 
 class AddressUpdateFailure extends HomeState {
@@ -93,5 +113,23 @@ class AddressUpdateFailure extends HomeState {
   const AddressUpdateFailure(this.error);
   
   @override
-  List<Object> get props => [error];
+  List<Object?> get props => [error];
+}
+
+class AddressSaveSuccess extends HomeState {
+  final String message;
+  
+  const AddressSaveSuccess(this.message);
+  
+  @override
+  List<Object?> get props => [message];
+}
+
+class AddressSaveFailure extends HomeState {
+  final String error;
+  
+  const AddressSaveFailure(this.error);
+  
+  @override
+  List<Object?> get props => [error];
 }

@@ -1,3 +1,4 @@
+// lib/presentation/address bottomSheet/bloc.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../service/location_services.dart';
+import '../../service/token_service.dart';
+import '../../constants/api_constant.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -14,6 +17,9 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
   
   // For caching recent addresses
   List<AddressSuggestion> _recentAddresses = [];
+  
+  // For caching saved addresses
+  List<SavedAddress> _savedAddresses = [];
   
   // Debounce for search
   Timer? _debounce;
@@ -25,6 +31,10 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     on<UseCurrentLocationEvent>(_onUseCurrentLocation);
     on<ClearSearchEvent>(_onClearSearch);
     on<CloseAddressPickerEvent>(_onCloseAddressPicker);
+    on<SaveAddressEvent>(_onSaveAddress);
+    on<LoadSavedAddressesEvent>(_onLoadSavedAddresses);
+    on<SelectSavedAddressEvent>(_onSelectSavedAddress);
+    on<DeleteSavedAddressEvent>(_onDeleteSavedAddress);
   }
 
   Future<void> _onInitialize(
@@ -35,15 +45,113 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
       // Load recent addresses from SharedPreferences
       await _loadRecentAddresses();
       
-      // Emit initial state with recent addresses
+      // Load saved addresses from API
+      await _loadSavedAddressesFromAPI();
+      
+      // Emit initial state with recent addresses and saved addresses
       emit(AddressPickerLoadSuccess(
         suggestions: _recentAddresses,
+        savedAddresses: _savedAddresses,
       ));
       
-      debugPrint('AddressPickerBloc: Initialized with ${_recentAddresses.length} recent addresses');
+      debugPrint('AddressPickerBloc: Initialized with ${_recentAddresses.length} recent addresses and ${_savedAddresses.length} saved addresses');
     } catch (e) {
       debugPrint('AddressPickerBloc: Error initializing address picker: $e');
       emit(AddressPickerLoadFailure(error: 'Failed to initialize address picker'));
+    }
+  }
+
+  Future<void> _onLoadSavedAddresses(
+      LoadSavedAddressesEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Loading saved addresses');
+      emit(SavedAddressesLoading());
+      
+      await _loadSavedAddressesFromAPI();
+      
+      emit(SavedAddressesLoaded(
+        savedAddresses: _savedAddresses,
+        suggestions: _recentAddresses,
+      ));
+      
+      debugPrint('AddressPickerBloc: Loaded ${_savedAddresses.length} saved addresses');
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error loading saved addresses: $e');
+      emit(SavedAddressesLoadFailure(error: 'Failed to load saved addresses'));
+    }
+  }
+
+  Future<void> _onSelectSavedAddress(
+      SelectSavedAddressEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Saved address selected: ${event.savedAddress.displayName}');
+      
+      emit(SavedAddressSelected(savedAddress: event.savedAddress));
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error selecting saved address: $e');
+      emit(AddressPickerLoadFailure(error: 'Failed to select saved address'));
+    }
+  }
+
+  Future<void> _onDeleteSavedAddress(
+      DeleteSavedAddressEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Deleting saved address: ${event.addressId}');
+      emit(AddressDeleting());
+
+      // Get authentication token
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        debugPrint('AddressPickerBloc: No authentication token found');
+        emit(AddressPickerLoadFailure(error: 'Please login again'));
+        return;
+      }
+
+      // Make API call to delete address
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.baseUrl}/api/user/addresses/${event.addressId}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint('AddressPickerBloc: Delete API response status: ${response.statusCode}');
+      debugPrint('AddressPickerBloc: Delete API response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == true) {
+          debugPrint('AddressPickerBloc: Address deleted successfully');
+          
+          // Remove from local cache
+          _savedAddresses.removeWhere((addr) => addr.addressId == event.addressId);
+          
+          // Emit success state
+          emit(AddressDeletedSuccessfully(deletedAddressId: event.addressId));
+          
+          // Reload the list
+          emit(SavedAddressesLoaded(
+            savedAddresses: _savedAddresses,
+            suggestions: _recentAddresses,
+          ));
+        } else {
+          debugPrint('AddressPickerBloc: API returned error: ${responseData['message']}');
+          emit(AddressPickerLoadFailure(
+            error: responseData['message'] ?? 'Failed to delete address'
+          ));
+        }
+      } else {
+        debugPrint('AddressPickerBloc: HTTP error ${response.statusCode}');
+        emit(AddressPickerLoadFailure(
+          error: 'Failed to delete address. Please try again.'
+        ));
+      }
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error deleting saved address: $e');
+      emit(AddressPickerLoadFailure(error: 'Error deleting address. Please try again.'));
     }
   }
 
@@ -52,12 +160,13 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     // Cancel any previous debounce timer
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-    // If search query is empty, show recent addresses
+    // If search query is empty, show recent addresses and saved addresses
     if (event.query.isEmpty) {
-      debugPrint('AddressPickerBloc: Empty query, showing recent addresses');
+      debugPrint('AddressPickerBloc: Empty query, showing recent and saved addresses');
       emit(AddressPickerLoadSuccess(
         suggestions: _recentAddresses,
         searchQuery: '',
+        savedAddresses: _savedAddresses,
       ));
       return;
     }
@@ -89,6 +198,7 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
         emit(AddressPickerLoadSuccess(
           suggestions: suggestions,
           searchQuery: event.query,
+          savedAddresses: _savedAddresses,
         ));
       }
     } catch (e) {
@@ -104,33 +214,116 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
   Future<void> _onSelectAddress(
       SelectAddressEvent event, Emitter<AddressPickerState> emit) async {
     try {
-      debugPrint('AddressPickerBloc: Address selected:');
-      debugPrint('  Main text: ${event.address}');
-      debugPrint('  Secondary text: ${event.subAddress}');
-      debugPrint('  Latitude: ${event.latitude}');
-      debugPrint('  Longitude: ${event.longitude}');
+      debugPrint('AddressPickerBloc: Address selected, showing name input dialog');
       
-      // Create the address suggestion object
-      final suggestion = AddressSuggestion(
-        mainText: event.address,
-        secondaryText: event.subAddress,
-        latitude: event.latitude,
-        longitude: event.longitude,
-      );
-      
-      // Add to recent addresses if not already present
-      await _addToRecentAddresses(suggestion);
-      
-      // Emit the selected address state
-      emit(AddressSelected(
+      // Emit state to show address name input dialog
+      emit(AddressNameInputRequired(
         address: event.address,
         subAddress: event.subAddress,
         latitude: event.latitude,
         longitude: event.longitude,
+        fullAddress: event.fullAddress,
       ));
     } catch (e) {
       debugPrint('AddressPickerBloc: Error selecting address: $e');
       emit(AddressPickerLoadFailure(error: 'Failed to select address'));
+    }
+  }
+
+  Future<void> _onSaveAddress(
+      SaveAddressEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Saving address to server');
+      emit(AddressSaving());
+
+      // Get authentication token and user ID using TokenService
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('AddressPickerBloc: No authentication token or user ID found');
+        emit(AddressPickerLoadFailure(error: 'Please login again'));
+        return;
+      }
+
+      debugPrint('AddressPickerBloc: Using token and user ID for API call');
+
+      // Parse address to get different components
+      final addressComponents = _parseAddressComponents(event.fullAddress);
+      
+      // Prepare API request body
+      final requestBody = {
+        "user_id": userId,
+        "address_line1": event.address,
+        "address_line2": event.addressName.isNotEmpty ? event.addressName : null,
+        "city": addressComponents['city'] ?? '',
+        "state": addressComponents['state'] ?? '',
+        "postal_code": '1',
+        "country": addressComponents['country'] ?? 'India',
+        "is_default": false,
+        "latitude": event.latitude,
+        "longitude": event.longitude,
+      };
+
+      debugPrint('AddressPickerBloc: Sending request to save address: $requestBody');
+
+      // Make API call
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/user/addresses'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('AddressPickerBloc: API response status: ${response.statusCode}');
+      debugPrint('AddressPickerBloc: API response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == true) {
+          debugPrint('AddressPickerBloc: Address saved successfully');
+          
+          // Create the address suggestion object
+          final suggestion = AddressSuggestion(
+            mainText: event.address,
+            secondaryText: event.subAddress,
+            latitude: event.latitude,
+            longitude: event.longitude,
+          );
+          
+          // Add to recent addresses
+          await _addToRecentAddresses(suggestion);
+          
+          // Refresh saved addresses from API
+          await _loadSavedAddressesFromAPI();
+          
+          // Emit success state
+          emit(AddressSavedSuccessfully(
+            address: event.address,
+            subAddress: event.subAddress,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            addressName: event.addressName,
+            addressId: responseData['data']['address_id']?.toString() ?? '',
+          ));
+        } else {
+          debugPrint('AddressPickerBloc: API returned error: ${responseData['message']}');
+          emit(AddressPickerLoadFailure(
+            error: responseData['message'] ?? 'Failed to save address'
+          ));
+        }
+      } else {
+        debugPrint('AddressPickerBloc: HTTP error ${response.statusCode}');
+        emit(AddressPickerLoadFailure(
+          error: 'Failed to save address. Please try again.'
+        ));
+      }
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error saving address: $e');
+      emit(AddressPickerLoadFailure(error: 'Error saving address. Please try again.'));
     }
   }
 
@@ -151,22 +344,13 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
         // Parse the full address to get main and secondary parts
         final addressParts = _parseAddress(locationData['address']);
         
-        // Create address suggestion and add to recent addresses
-        final suggestion = AddressSuggestion(
-          mainText: addressParts['main'] ?? '',
-          secondaryText: addressParts['secondary'] ?? '',
-          latitude: locationData['latitude'],
-          longitude: locationData['longitude'],
-        );
-        
-        // Add to recent addresses
-        await _addToRecentAddresses(suggestion);
-
-        emit(LocationDetected(
+        // Emit state to show address name input dialog
+        emit(AddressNameInputRequired(
           address: addressParts['main'] ?? '',
           subAddress: addressParts['secondary'] ?? '',
           latitude: locationData['latitude'],
           longitude: locationData['longitude'],
+          fullAddress: locationData['address'],
         ));
       } else {
         debugPrint('AddressPickerBloc: Failed to detect location');
@@ -185,6 +369,7 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     emit(AddressPickerLoadSuccess(
       suggestions: _recentAddresses,
       searchQuery: '',
+      savedAddresses: _savedAddresses,
     ));
   }
   
@@ -192,6 +377,61 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
       CloseAddressPickerEvent event, Emitter<AddressPickerState> emit) {
     debugPrint('AddressPickerBloc: Closing address picker');
     emit(AddressPickerClosed());
+  }
+
+  // Helper method to load saved addresses from API
+  Future<void> _loadSavedAddressesFromAPI() async {
+    try {
+      debugPrint('AddressPickerBloc: Loading saved addresses from API');
+      
+      // Get authentication token and user ID
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('AddressPickerBloc: No authentication token or user ID found');
+        _savedAddresses = [];
+        return;
+      }
+
+      // Make API call to get saved addresses
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/user/all-addresses'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+        }),
+      );
+
+      debugPrint('AddressPickerBloc: Get addresses API response status: ${response.statusCode}');
+      debugPrint('AddressPickerBloc: Get addresses API response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == true) {
+          final List<dynamic> addressesData = responseData['data'] ?? [];
+          
+          _savedAddresses = addressesData.map((addressJson) {
+            return SavedAddress.fromJson(addressJson);
+          }).toList();
+          
+          debugPrint('AddressPickerBloc: Loaded ${_savedAddresses.length} saved addresses from API');
+        } else {
+          debugPrint('AddressPickerBloc: API returned error: ${responseData['message']}');
+          _savedAddresses = [];
+        }
+      } else {
+        debugPrint('AddressPickerBloc: HTTP error ${response.statusCode}');
+        _savedAddresses = [];
+      }
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error loading saved addresses from API: $e');
+      _savedAddresses = [];
+    }
   }
 
   // Helper method to get address suggestions from Places API
@@ -314,39 +554,6 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     }
   }
   
-  // Helper to fetch coordinates for place ID
-  Future<AddressSuggestion> _getCoordinatesForSuggestion(AddressSuggestion suggestion) async {
-    if (suggestion.latitude != null && suggestion.longitude != null && 
-        suggestion.latitude != 0.0 && suggestion.longitude != 0.0) {
-      debugPrint('AddressPickerBloc: Suggestion already has coordinates');
-      return suggestion;
-    }
-    
-    if (suggestion.placeId == null) {
-      debugPrint('AddressPickerBloc: Cannot get coordinates without place ID');
-      return suggestion; // Can't get coordinates without place ID
-    }
-    
-    try {
-      debugPrint('AddressPickerBloc: Getting coordinates for suggestion: ${suggestion.mainText}');
-      final details = await _getPlaceDetails(suggestion.placeId!);
-      if (details != null) {
-        debugPrint('AddressPickerBloc: Found coordinates for suggestion');
-        return AddressSuggestion(
-          mainText: suggestion.mainText,
-          secondaryText: suggestion.secondaryText,
-          latitude: details['latitude'],
-          longitude: details['longitude'],
-          placeId: suggestion.placeId,
-        );
-      }
-    } catch (e) {
-      debugPrint('AddressPickerBloc: Error getting coordinates for place: $e');
-    }
-    
-    return suggestion;
-  }
-  
   // Helper method to parse address into main and secondary parts
   Map<String, String> _parseAddress(String fullAddress) {
     try {
@@ -380,6 +587,51 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
       return {
         'main': fullAddress,
         'secondary': '',
+      };
+    }
+  }
+
+  // Helper method to parse address components for API
+  Map<String, String> _parseAddressComponents(String fullAddress) {
+    try {
+      final parts = fullAddress.split(',').map((e) => e.trim()).toList();
+      
+      // Basic parsing logic - you may need to adjust based on your address format
+      String city = '';
+      String state = '';
+      String postalCode = '';
+      String country = 'India';
+      
+      // Look for postal code (digits)
+      for (int i = parts.length - 1; i >= 0; i--) {
+        final part = parts[i];
+        if (RegExp(r'^\d{6}$').hasMatch(part)) {
+          postalCode = part;
+          break;
+        }
+      }
+      
+      // Look for state and city (this is a simplified approach)
+      if (parts.length >= 2) {
+        state = parts[parts.length - 2];
+        if (parts.length >= 3) {
+          city = parts[parts.length - 3];
+        }
+      }
+      
+      return {
+        'city': city,
+        'state': state,
+        'postalCode': postalCode,
+        'country': country,
+      };
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error parsing address components: $e');
+      return {
+        'city': '',
+        'state': '',
+        'postalCode': '',
+        'country': 'India',
       };
     }
   }

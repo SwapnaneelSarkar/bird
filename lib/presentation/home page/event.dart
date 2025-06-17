@@ -1,3 +1,4 @@
+// lib/presentation/home page/event.dart
 import 'package:equatable/equatable.dart';
 
 abstract class HomeEvent extends Equatable {
@@ -43,4 +44,55 @@ class FilterByCategory extends HomeEvent {
   
   @override
   List<Object?> get props => [categoryName];
+}
+
+// New events for address management
+class LoadSavedAddresses extends HomeEvent {
+  const LoadSavedAddresses();
+}
+
+class SaveNewAddress extends HomeEvent {
+  final String addressLine1;
+  final String addressName; // Home, Office, Friend's place, etc.
+  final String city;
+  final String state;
+  final String postalCode;
+  final String country;
+  final double latitude;
+  final double longitude;
+  final bool makeDefault;
+  
+  const SaveNewAddress({
+    required this.addressLine1,
+    required this.addressName,
+    required this.city,
+    required this.state,
+    required this.postalCode,
+    required this.country,
+    required this.latitude,
+    required this.longitude,
+    this.makeDefault = false,
+  });
+  
+  @override
+  List<Object?> get props => [
+    addressLine1,
+    addressName,
+    city,
+    state,
+    postalCode,
+    country,
+    latitude,
+    longitude,
+    makeDefault,
+  ];
+}
+
+class SelectSavedAddress extends HomeEvent {
+  final Map<String, dynamic> address;
+  
+  const SelectSavedAddress(this.address);
+  
+  @override
+  List<Object?> get props => [address];
 }

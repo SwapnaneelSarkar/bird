@@ -11,15 +11,12 @@ import 'presentation/splash_screen/view.dart';
 import 'service/firebase_services.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Initialize Notification Service
   await NotificationService().initialize();
   
   // Your existing SVG configuration

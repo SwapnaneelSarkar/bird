@@ -134,13 +134,16 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
             if (apiRestaurant['latitude'] != null) restaurant['latitude'] = apiRestaurant['latitude'];
             if (apiRestaurant['longitude'] != null) restaurant['longitude'] = apiRestaurant['longitude'];
             if (apiRestaurant['veg_nonveg'] != null) restaurant['isVeg'] = apiRestaurant['veg_nonveg'] == 'veg';
-            if (apiRestaurant['open_timings'] != null) restaurant['openTimings'] = apiRestaurant['open_timings'];
+            if (apiRestaurant['operational_hours'] != null) restaurant['openTimings'] = apiRestaurant['operational_hours'];
             if (apiRestaurant['owner_name'] != null) restaurant['ownerName'] = apiRestaurant['owner_name'];
             if (apiRestaurant['description'] != null) restaurant['description'] = apiRestaurant['description'];
+            if (apiRestaurant['rating'] != null) restaurant['rating'] = apiRestaurant['rating'];
+            if (apiRestaurant['restaurant_type'] != null) restaurant['restaurantType'] = apiRestaurant['restaurant_type'];
+            if (apiRestaurant['isAcceptingOrder'] != null) restaurant['isAcceptingOrder'] = apiRestaurant['isAcceptingOrder'] == 1;
             
             // Format menu items from API response
-            if (data['menu_items'] != null && data['menu_items'] is List) {
-              final List<dynamic> menuItemsList = data['menu_items'];
+            if (data['menu'] != null && data['menu'] is List) {
+              final List<dynamic> menuItemsList = data['menu'];
               
               // Convert to map format expected by UI
               menuItems = menuItemsList.map((item) {
@@ -160,8 +163,12 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
                   'price': price,
                   'description': item['description'] ?? '',
                   'imageUrl': item['image_url'],
-                  'isVeg': item['isVeg'] ?? false,
+                  'isVeg': item['isVeg'] == 1,
                   'category': item['category'] ?? '',
+                  'available': item['available'] == 1,
+                  'isTaxIncluded': item['isTaxIncluded'] == 1,
+                  'isCancellable': item['isCancellable'] == 1,
+                  'tags': item['tags'],
                 };
               }).toList();
               
@@ -255,6 +262,9 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
         debugPrint('RestaurantDetailsBloc: Adding item to cart');
         debugPrint('RestaurantDetailsBloc: Partner ID: $partnerId');
         debugPrint('RestaurantDetailsBloc: Item: ${event.item['name']}, Quantity: ${event.quantity}');
+        if (event.attributes != null) {
+          debugPrint('RestaurantDetailsBloc: Attributes: ${event.attributes}');
+        }
         
         final result = await CartService.addItemToCart(
           partnerId: partnerId,
@@ -264,6 +274,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
           price: (event.item['price'] as num?)?.toDouble() ?? 0.0,
           quantity: event.quantity,
           imageUrl: event.item['imageUrl'],
+          attributes: event.attributes,
         );
         
         if (result['success'] == true) {

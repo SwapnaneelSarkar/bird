@@ -1,4 +1,4 @@
-// lib/presentation/home page/bloc.dart - FIXED VERSION
+// lib/presentation/home page/bloc.dart - FIXED VERSION FOR CURRENT STRUCTURE
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -98,9 +98,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       debugPrint('HomeBloc: Fetched ${restaurants.length} restaurants and ${categories.length} categories');
       
       emit(HomeLoaded(
-        userAddress: userAddress,
         restaurants: restaurants,
         categories: categories,
+        userAddress: userAddress,
         userLatitude: latitude,
         userLongitude: longitude,
         savedAddresses: savedAddresses,
@@ -130,6 +130,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return;
       }
       
+      // Load saved addresses first
+      debugPrint('HomeBloc: Loading saved addresses...');
+      final addressResult = await AddressService.getAllAddresses();
+      List<Map<String, dynamic>> savedAddresses = [];
+      if (addressResult['success'] == true && addressResult['data'] != null) {
+        savedAddresses = List<Map<String, dynamic>>.from(addressResult['data']);
+        debugPrint('HomeBloc: Reloaded ${savedAddresses.length} saved addresses');
+      }
+      
       // Update address in profile via API
       debugPrint('HomeBloc: Updating address via Profile API...');
       final updateResult = await _updateUserService.updateUserProfileWithId(
@@ -152,17 +161,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           userLatitude: event.latitude,
           userLongitude: event.longitude,
           restaurants: restaurants,
-        ));
-        
-        // Emit success message
-        emit(AddressUpdateSuccess(event.address));
-        
-        // Restore to main state
-        emit(currentState.copyWith(
-          userAddress: event.address,
-          userLatitude: event.latitude,
-          userLongitude: event.longitude,
-          restaurants: restaurants,
+          savedAddresses: savedAddresses,
         ));
         
       } else {
@@ -277,7 +276,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  // CRITICAL FIX: Updated restaurant fetching method
+  // CRITICAL FIX: Try multiple restaurant endpoints
   Future<List<Restaurant>> _fetchRestaurants(double latitude, double longitude) async {
     try {
       debugPrint('HomeBloc: Fetching restaurants with coordinates - Lat: $latitude, Long: $longitude');
@@ -288,51 +287,88 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return [];
       }
 
-      // CORRECTED API ENDPOINT - Use /api/restaurants instead of /api/partner/restaurants
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/restaurants?latitude=$latitude&longitude=$longitude');
-      debugPrint('HomeBloc: Restaurant API URL: $url');
+      // Try multiple possible endpoints
+      final endpoints = [
+        '/api/restaurants?latitude=$latitude&longitude=$longitude',
+        '/api/partner/restaurants?latitude=$latitude&longitude=$longitude',
+        '/api/restaurant/list?latitude=$latitude&longitude=$longitude',
+      ];
       
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
-      debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      for (String endpoint in endpoints) {
+        final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+        debugPrint('HomeBloc: Trying restaurant endpoint: $url');
         
-        // FIXED: Check for both possible response structures
-        if (data['status'] == true || data['status'] == 'SUCCESS') {
-          final List<dynamic> restaurantsData = data['data'] ?? [];
-          debugPrint('HomeBloc: Successfully parsed ${restaurantsData.length} restaurants');
+        try {
+          final response = await http.get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          );
+
+          debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
           
-          if (restaurantsData.isEmpty) {
-            debugPrint('HomeBloc: No restaurants found in response data');
-            return [];
-          }
-          
-          return restaurantsData.map((restaurantJson) {
-            try {
-              return Restaurant.fromJson(restaurantJson);
-            } catch (e) {
-              debugPrint('HomeBloc: Error parsing restaurant: $e');
-              debugPrint('HomeBloc: Restaurant data: $restaurantJson');
-              return null;
+          if (response.statusCode == 200) {
+            debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
+            final data = json.decode(response.body);
+            
+            // Check for both possible response structures
+            if (data['status'] == true || data['status'] == 'SUCCESS') {
+              final dynamic restaurantsData = data['data'];
+              
+              // Handle different data structures
+              List<dynamic> restaurantsList = [];
+              if (restaurantsData == null) {
+                debugPrint('HomeBloc: No restaurant data in response');
+                continue; // Try next endpoint
+              } else if (restaurantsData is List) {
+                restaurantsList = restaurantsData;
+              } else if (restaurantsData is Map && restaurantsData['restaurants'] != null) {
+                restaurantsList = restaurantsData['restaurants'] as List;
+              } else {
+                debugPrint('HomeBloc: Unexpected data structure: ${restaurantsData.runtimeType}');
+                continue; // Try next endpoint
+              }
+              
+              debugPrint('HomeBloc: Successfully parsed ${restaurantsList.length} restaurants from $endpoint');
+              
+              if (restaurantsList.isEmpty) {
+                debugPrint('HomeBloc: No restaurants found in response data, trying next endpoint');
+                continue;
+              }
+              
+              // Parse restaurants with error handling
+              final List<Restaurant> restaurants = [];
+              for (var restaurantJson in restaurantsList) {
+                try {
+                  final restaurant = Restaurant.fromJson(restaurantJson as Map<String, dynamic>);
+                  restaurants.add(restaurant);
+                } catch (e) {
+                  debugPrint('HomeBloc: Error parsing individual restaurant: $e');
+                  debugPrint('HomeBloc: Restaurant data: $restaurantJson');
+                  // Continue with other restaurants instead of failing completely
+                }
+              }
+              
+              if (restaurants.isNotEmpty) {
+                debugPrint('HomeBloc: Successfully parsed ${restaurants.length} restaurants');
+                return restaurants;
+              }
+            } else {
+              debugPrint('HomeBloc: API returned error status: ${data['status']}');
+              debugPrint('HomeBloc: Error message: ${data['message']}');
             }
-          }).where((restaurant) => restaurant != null).cast<Restaurant>().toList();
-        } else {
-          debugPrint('HomeBloc: API returned error status: ${data['status']}');
-          debugPrint('HomeBloc: Error message: ${data['message']}');
+          } else {
+            debugPrint('HomeBloc: HTTP error ${response.statusCode} for endpoint $endpoint');
+          }
+        } catch (e) {
+          debugPrint('HomeBloc: Error with endpoint $endpoint: $e');
+          continue; // Try next endpoint
         }
-      } else {
-        debugPrint('HomeBloc: HTTP error ${response.statusCode}');
       }
       
+      debugPrint('HomeBloc: All restaurant endpoints failed or returned no data');
       return [];
     } catch (e) {
       debugPrint('HomeBloc: Error fetching restaurants: $e');
@@ -347,38 +383,65 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final token = await TokenService.getToken();
       if (token == null) return [];
 
-      // CORRECTED API ENDPOINT
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/restaurants');
-      debugPrint('HomeBloc: Restaurant API URL (no location): $url');
+      // Try multiple possible endpoints without location
+      final endpoints = [
+        '/api/restaurants',
+        '/api/partner/restaurants',
+        '/api/partner/all-restaurants',
+      ];
       
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
-      debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      for (String endpoint in endpoints) {
+        final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+        debugPrint('HomeBloc: Trying no-location endpoint: $url');
         
-        if (data['status'] == true || data['status'] == 'SUCCESS') {
-          final List<dynamic> restaurantsData = data['data'] ?? [];
-          debugPrint('HomeBloc: Successfully parsed ${restaurantsData.length} restaurants (no location)');
-          
-          return restaurantsData.map((restaurantJson) {
-            try {
-              return Restaurant.fromJson(restaurantJson);
-            } catch (e) {
-              debugPrint('HomeBloc: Error parsing restaurant: $e');
-              return null;
+        try {
+          final response = await http.get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          );
+
+          debugPrint('HomeBloc: No-location endpoint response status: ${response.statusCode}');
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            
+            if (data['status'] == true || data['status'] == 'SUCCESS') {
+              final dynamic restaurantsData = data['data'];
+              
+              List<dynamic> restaurantsList = [];
+              if (restaurantsData is List) {
+                restaurantsList = restaurantsData;
+              } else if (restaurantsData is Map && restaurantsData['restaurants'] != null) {
+                restaurantsList = restaurantsData['restaurants'] as List;
+              }
+              
+              if (restaurantsList.isNotEmpty) {
+                final List<Restaurant> restaurants = [];
+                for (var restaurantJson in restaurantsList) {
+                  try {
+                    final restaurant = Restaurant.fromJson(restaurantJson as Map<String, dynamic>);
+                    restaurants.add(restaurant);
+                  } catch (e) {
+                    debugPrint('HomeBloc: Error parsing restaurant without location: $e');
+                  }
+                }
+                
+                if (restaurants.isNotEmpty) {
+                  debugPrint('HomeBloc: Successfully fetched ${restaurants.length} restaurants without location');
+                  return restaurants;
+                }
+              }
             }
-          }).where((restaurant) => restaurant != null).cast<Restaurant>().toList();
+          }
+        } catch (e) {
+          debugPrint('HomeBloc: Error with no-location endpoint $endpoint: $e');
+          continue;
         }
       }
+      
       return [];
     } catch (e) {
       debugPrint('HomeBloc: Error fetching restaurants without location: $e');
@@ -388,17 +451,160 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<List<Map<String, dynamic>>> _fetchCategories() async {
     try {
-      debugPrint('HomeBloc: Fetching categories');
-      return [
-        {'name': 'Pizza', 'icon': 'local_pizza', 'color': 'red'},
-        {'name': 'Burger', 'icon': 'lunch_dining', 'color': 'amber'},
-        {'name': 'Sushi', 'icon': 'set_meal', 'color': 'blue'},
-        {'name': 'Dessert', 'icon': 'icecream', 'color': 'pink'},
-        {'name': 'Drinks', 'icon': 'local_drink', 'color': 'teal'},
+      debugPrint('HomeBloc: Fetching categories from API');
+      
+      final token = await TokenService.getToken();
+      if (token == null) {
+        debugPrint('HomeBloc: No token available for categories fetch');
+        return _getStaticCategories();
+      }
+
+      // Try multiple possible category endpoints
+      final endpoints = [
+        '/api/categories',
+        '/api/partner/categories',
+        '/api/restaurant/categories',
+        '/api/food/categories',
       ];
+      
+      for (String endpoint in endpoints) {
+        final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+        debugPrint('HomeBloc: Trying categories endpoint: $url');
+        
+        try {
+          final response = await http.get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          );
+
+          debugPrint('HomeBloc: Categories API response status: ${response.statusCode}');
+          
+          if (response.statusCode == 200) {
+            debugPrint('HomeBloc: Categories API response body: ${response.body}');
+            final data = json.decode(response.body);
+            
+            if (data['status'] == true || data['status'] == 'SUCCESS') {
+              final dynamic categoriesData = data['data'];
+              
+              if (categoriesData != null) {
+                List<dynamic> categoriesList = [];
+                if (categoriesData is List) {
+                  categoriesList = categoriesData;
+                } else if (categoriesData is Map && categoriesData['categories'] != null) {
+                  categoriesList = categoriesData['categories'] as List;
+                }
+                
+                if (categoriesList.isNotEmpty) {
+                  debugPrint('HomeBloc: Successfully fetched ${categoriesList.length} categories from API');
+                  
+                  // Convert API categories to the format expected by UI
+                  final List<Map<String, dynamic>> formattedCategories = [];
+                  for (var categoryJson in categoriesList) {
+                    try {
+                      final category = _formatCategoryFromApi(categoryJson);
+                      if (category != null) {
+                        formattedCategories.add(category);
+                      }
+                    } catch (e) {
+                      debugPrint('HomeBloc: Error formatting category: $e');
+                    }
+                  }
+                  
+                  if (formattedCategories.isNotEmpty) {
+                    return formattedCategories;
+                  }
+                }
+              }
+            } else {
+              debugPrint('HomeBloc: Categories API returned error status: ${data['status']}');
+            }
+          } else {
+            debugPrint('HomeBloc: Categories HTTP error ${response.statusCode} for endpoint $endpoint');
+          }
+        } catch (e) {
+          debugPrint('HomeBloc: Error with categories endpoint $endpoint: $e');
+          continue;
+        }
+      }
+      
+      debugPrint('HomeBloc: All categories endpoints failed, using static categories');
+      return _getStaticCategories();
     } catch (e) {
       debugPrint('HomeBloc: Error fetching categories: $e');
-      return [];
+      return _getStaticCategories();
     }
+  }
+
+  // Helper method to format category data from API
+  Map<String, dynamic>? _formatCategoryFromApi(dynamic categoryJson) {
+    try {
+      if (categoryJson is! Map<String, dynamic>) return null;
+      
+      final Map<String, dynamic> category = categoryJson;
+      
+      // Extract category name from different possible field names
+      final String? name = category['name']?.toString() ?? 
+                          category['category_name']?.toString() ?? 
+                          category['title']?.toString();
+      
+      if (name == null || name.isEmpty) return null;
+      
+      // Map category names to appropriate icons and colors
+      final iconData = _getCategoryIconAndColor(name.toLowerCase());
+      
+      return {
+        'name': name,
+        'icon': iconData['icon'],
+        'color': iconData['color'],
+        'id': category['id']?.toString() ?? category['category_id']?.toString(),
+        'image': category['image']?.toString() ?? category['image_url']?.toString(),
+        'description': category['description']?.toString(),
+      };
+    } catch (e) {
+      debugPrint('HomeBloc: Error formatting category: $e');
+      return null;
+    }
+  }
+
+  // Helper method to get icon and color based on category name
+  Map<String, String> _getCategoryIconAndColor(String categoryName) {
+    if (categoryName.contains('pizza')) {
+      return {'icon': 'local_pizza', 'color': 'red'};
+    } else if (categoryName.contains('burger') || categoryName.contains('sandwich')) {
+      return {'icon': 'lunch_dining', 'color': 'amber'};
+    } else if (categoryName.contains('sushi') || categoryName.contains('japanese')) {
+      return {'icon': 'set_meal', 'color': 'blue'};
+    } else if (categoryName.contains('dessert') || categoryName.contains('sweet') || categoryName.contains('ice')) {
+      return {'icon': 'icecream', 'color': 'pink'};
+    } else if (categoryName.contains('drink') || categoryName.contains('beverage') || categoryName.contains('juice')) {
+      return {'icon': 'local_drink', 'color': 'teal'};
+    } else if (categoryName.contains('chinese') || categoryName.contains('noodle') || categoryName.contains('ramen')) {
+      return {'icon': 'ramen_dining', 'color': 'orange'};
+    } else if (categoryName.contains('breakfast') || categoryName.contains('bread')) {
+      return {'icon': 'free_breakfast', 'color': 'brown'};
+    } else if (categoryName.contains('veg') || categoryName.contains('salad')) {
+      return {'icon': 'spa', 'color': 'green'};
+    } else if (categoryName.contains('biryani') || categoryName.contains('rice')) {
+      return {'icon': 'restaurant', 'color': 'deepOrange'};
+    } else if (categoryName.contains('chicken') || categoryName.contains('meat')) {
+      return {'icon': 'restaurant_menu', 'color': 'red'};
+    } else {
+      return {'icon': 'restaurant', 'color': 'orange'};
+    }
+  }
+
+  // Static categories as fallback
+  List<Map<String, dynamic>> _getStaticCategories() {
+    debugPrint('HomeBloc: Using static categories as fallback');
+    return [
+      {'name': 'Pizza', 'icon': 'local_pizza', 'color': 'red'},
+      {'name': 'Burger', 'icon': 'lunch_dining', 'color': 'amber'},
+      {'name': 'Sushi', 'icon': 'set_meal', 'color': 'blue'},
+      {'name': 'Dessert', 'icon': 'icecream', 'color': 'pink'},
+      {'name': 'Drinks', 'icon': 'local_drink', 'color': 'teal'},
+    ];
   }
 }

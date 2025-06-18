@@ -27,9 +27,9 @@
     },
     {
       "name": "bloc",
-      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/bloc-9.0.0",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/bloc-8.1.4",
       "packageUri": "lib/",
-      "languageVersion": "2.14"
+      "languageVersion": "2.12"
     },
     {
       "name": "boolean_selector",
@@ -255,9 +255,9 @@
     },
     {
       "name": "flutter_bloc",
-      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/flutter_bloc-9.1.0",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/flutter_bloc-8.1.6",
       "packageUri": "lib/",
-      "languageVersion": "2.14"
+      "languageVersion": "2.12"
     },
     {
       "name": "flutter_cache_manager",
@@ -273,9 +273,9 @@
     },
     {
       "name": "flutter_lints",
-      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/flutter_lints-5.0.0",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/flutter_lints-2.0.3",
       "packageUri": "lib/",
-      "languageVersion": "3.5"
+      "languageVersion": "2.19"
     },
     {
       "name": "flutter_local_notifications",
@@ -495,9 +495,9 @@
     },
     {
       "name": "lints",
-      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/lints-5.1.1",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/lints-2.1.1",
       "packageUri": "lib/",
-      "languageVersion": "3.6"
+      "languageVersion": "3.0"
     },
     {
       "name": "logging",
@@ -905,10 +905,10 @@
       "name": "bird",
       "rootUri": "../",
       "packageUri": "lib/",
-      "languageVersion": "3.6"
+      "languageVersion": "3.0"
     }
   ],
-  "generated": "2025-06-17T23:04:36.817488Z",
+  "generated": "2025-06-18T13:31:49.606052Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.29.3/flutter",

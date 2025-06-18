@@ -1,4 +1,4 @@
-// lib/service/address_service.dart
+// lib/service/address_service.dart - UPDATED TO MATCH YOUR API STRUCTURE
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -7,6 +7,78 @@ import 'token_service.dart';
 
 class AddressService {
   
+  // Get all saved addresses for the user
+  static Future<Map<String, dynamic>> getAllAddresses() async {
+    try {
+      debugPrint('AddressService: Fetching all addresses...');
+      
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('AddressService: No token or userId available');
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login again.',
+        };
+      }
+
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/user/all-addresses?user_id=$userId');
+      
+      debugPrint('AddressService: Fetch URL: $url');
+      
+      // FIXED: Use POST as per your API structure
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        // Empty body for POST request
+      );
+
+      debugPrint('AddressService: Fetch response status: ${response.statusCode}');
+      debugPrint('AddressService: Fetch response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['status'] == true) {
+          debugPrint('AddressService: Addresses fetched successfully');
+          return {
+            'success': true,
+            'message': responseData['message'],
+            'data': responseData['data'] ?? [],
+          };
+        } else {
+          debugPrint('AddressService: Fetch failed: ${responseData['message']}');
+          return {
+            'success': false,
+            'message': responseData['message'] ?? 'Failed to fetch addresses',
+          };
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('AddressService: Unauthorized access');
+        return {
+          'success': false,
+          'message': 'Session expired. Please login again.',
+        };
+      } else {
+        debugPrint('AddressService: Server error: ${response.statusCode}');
+        return {
+          'success': false,
+          'message': 'Server error occurred. Please try again.',
+        };
+      }
+    } catch (e) {
+      debugPrint('AddressService: Exception fetching addresses: $e');
+      return {
+        'success': false,
+        'message': 'Network error occurred. Please check your connection.',
+      };
+    }
+  }
+
   // Save a new address
   static Future<Map<String, dynamic>> saveAddress({
     required String addressLine1,
@@ -43,9 +115,9 @@ class AddressService {
         'state': state,
         'postal_code': postalCode,
         'country': country,
-        'latitude': latitude,
-        'longitude': longitude,
-        'is_default': isDefault,
+        'latitude': latitude.toStringAsFixed(8),
+        'longitude': longitude.toStringAsFixed(8),
+        'is_default': isDefault ? 1 : 0,
       };
 
       debugPrint('AddressService: Save address payload: $payload');
@@ -101,77 +173,6 @@ class AddressService {
     }
   }
 
-  // Get all saved addresses for the user
-  static Future<Map<String, dynamic>> getAllAddresses() async {
-    try {
-      debugPrint('AddressService: Fetching all addresses...');
-      
-      final token = await TokenService.getToken();
-      final userId = await TokenService.getUserId();
-      
-      if (token == null || userId == null) {
-        debugPrint('AddressService: No token or userId available');
-        return {
-          'success': false,
-          'message': 'Authentication required. Please login again.',
-        };
-      }
-
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/user/all-addresses?user_id=$userId');
-      
-      debugPrint('AddressService: Fetch URL: $url');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        // No body at all
-      );
-
-      debugPrint('AddressService: Fetch response status: ${response.statusCode}');
-      debugPrint('AddressService: Fetch response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        
-        if (responseData['status'] == true) {
-          debugPrint('AddressService: Addresses fetched successfully');
-          return {
-            'success': true,
-            'message': responseData['message'],
-            'data': responseData['data'],
-          };
-        } else {
-          debugPrint('AddressService: Fetch failed: ${responseData['message']}');
-          return {
-            'success': false,
-            'message': responseData['message'] ?? 'Failed to fetch addresses',
-          };
-        }
-      } else if (response.statusCode == 401) {
-        debugPrint('AddressService: Unauthorized access');
-        return {
-          'success': false,
-          'message': 'Session expired. Please login again.',
-        };
-      } else {
-        debugPrint('AddressService: Server error: ${response.statusCode}');
-        return {
-          'success': false,
-          'message': 'Server error occurred. Please try again.',
-        };
-      }
-    } catch (e) {
-      debugPrint('AddressService: Exception fetching addresses: $e');
-      return {
-        'success': false,
-        'message': 'Network error occurred. Please check your connection.',
-      };
-    }
-  }
-
   // Update an existing address
   static Future<Map<String, dynamic>> updateAddress({
     required String addressId,
@@ -209,8 +210,8 @@ class AddressService {
         'state': state,
         'postal_code': postalCode,
         'country': country,
-        'latitude': latitude,
-        'longitude': longitude,
+        'latitude': latitude.toStringAsFixed(8),
+        'longitude': longitude.toStringAsFixed(8),
         'is_default': isDefault ? 1 : 0,
       };
 

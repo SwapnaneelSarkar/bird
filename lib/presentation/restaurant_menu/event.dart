@@ -25,14 +25,16 @@ class LoadRestaurantDetails extends RestaurantDetailsEvent {
 class AddItemToCart extends RestaurantDetailsEvent {
   final Map<String, dynamic> item;
   final int quantity;
+  final Map<String, dynamic>? attributes;
   
   const AddItemToCart({
     required this.item,
     required this.quantity,
+    this.attributes,
   });
   
   @override
-  List<Object?> get props => [item, quantity];
+  List<Object?> get props => [item, quantity, attributes];
 }
 
 class ReplaceCartWithNewRestaurant extends RestaurantDetailsEvent {

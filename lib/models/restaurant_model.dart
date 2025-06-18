@@ -1,4 +1,4 @@
-// lib/models/restaurant_model.dart - COMPLETELY FIXED VERSION
+// lib/models/restaurant_model.dart - UPDATED VERSION WITH BETTER ERROR HANDLING
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
@@ -41,16 +41,16 @@ class Restaurant {
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
     try {
-      debugPrint('Restaurant.fromJson: Parsing restaurant data: ${json.keys}');
+      debugPrint('Restaurant.fromJson: Parsing restaurant data with keys: ${json.keys}');
       
       // CRITICAL FIX: Handle restaurant_photos properly
       List<String> photos = [];
       try {
         final photosField = json['restaurant_photos'];
-        if (photosField != null && photosField.toString().isNotEmpty) {
+        if (photosField != null && photosField.toString().isNotEmpty && photosField.toString() != 'null') {
           if (photosField is String) {
-            // Handle string representation like "[\"url1\", \"url2\"]"
-            String photosString = photosField.toString();
+            // Handle string representation like "[\"url1\", \"url2\"]" or just "url"
+            String photosString = photosField.toString().trim();
             if (photosString.startsWith('[') && photosString.endsWith(']')) {
               // Remove brackets and parse
               photosString = photosString.substring(1, photosString.length - 1);
@@ -58,16 +58,16 @@ class Restaurant {
                 photos = photosString
                     .split(',')
                     .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
-                    .where((e) => e.isNotEmpty)
+                    .where((e) => e.isNotEmpty && e != 'null')
                     .toList();
               }
-            } else if (photosString.isNotEmpty && !photosString.startsWith('[')) {
+            } else if (photosString.isNotEmpty && !photosString.startsWith('[') && photosString != 'null') {
               // Single URL as string
               photos = [photosString];
             }
           } else if (photosField is List) {
             // Handle actual list
-            photos = List<String>.from(photosField);
+            photos = List<String>.from(photosField.where((e) => e != null && e.toString().isNotEmpty && e.toString() != 'null'));
           }
         }
       } catch (e) {
@@ -92,7 +92,7 @@ class Restaurant {
       final cuisine = json['category']?.toString() ?? 
                      json['cuisine']?.toString() ?? 
                      json['cuisine_type']?.toString() ?? 
-                     '';
+                     'Various';
       
       final rating = _parseDouble(json['rating']);
       
@@ -114,7 +114,7 @@ class Restaurant {
       
       final restaurantType = json['restaurant_type']?.toString();
 
-      debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name');
+      debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name (ID: $id)');
       
       return Restaurant(
         id: id,
@@ -143,8 +143,8 @@ class Restaurant {
         id: json['partner_id']?.toString() ?? json['id']?.toString() ?? 'unknown',
         name: json['restaurant_name']?.toString() ?? json['name']?.toString() ?? 'Unknown Restaurant',
         address: json['address']?.toString() ?? 'Address not available',
-        cuisine: json['category']?.toString() ?? json['cuisine']?.toString() ?? 'Unknown',
-        isVeg: false,
+        cuisine: json['category']?.toString() ?? json['cuisine']?.toString() ?? 'Various',
+        isVeg: _parseVegStatus(json),
       );
     }
   }
@@ -203,6 +203,52 @@ class Restaurant {
     return null;
   }
 
+  // Helper method to determine if restaurant is currently open
+  static bool? _determineOpenStatus(String? openTimings) {
+    if (openTimings == null || openTimings.isEmpty) return null;
+    
+    try {
+      // Simple check - if it contains "24" or "24/7", assume always open
+      if (openTimings.toLowerCase().contains('24')) return true;
+      
+      // Get current time
+      final now = DateTime.now();
+      final currentHour = now.hour;
+      
+      // Simple heuristic: assume open between 9 AM and 11 PM if no specific format
+      if (currentHour >= 9 && currentHour <= 23) {
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      debugPrint('Error parsing open status: $e');
+      return null;
+    }
+  }
+
+  // Helper method to extract closing time
+  static String? _extractClosingTime(String? openTimings) {
+    if (openTimings == null || openTimings.isEmpty) return null;
+    
+    try {
+      // Simple extraction - look for time patterns
+      if (openTimings.toLowerCase().contains('24')) return '11:59 PM';
+      
+      // Look for PM times which might indicate closing
+      final pmPattern = RegExp(r'(\d{1,2}:\d{2})\s*PM', caseSensitive: false);
+      final match = pmPattern.firstMatch(openTimings);
+      if (match != null) {
+        return '${match.group(1)} PM';
+      }
+      
+      return '11:00 PM'; // Default
+    } catch (e) {
+      debugPrint('Error parsing closing time: $e');
+      return null;
+    }
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -218,82 +264,72 @@ class Restaurant {
       'isVegetarian': isVeg,
       'isVeg': isVeg, // For compatibility
       'veg_nonveg': isVeg ? 'veg' : 'non-veg', // For compatibility
-      'distance': 1.2, // Default value as API doesn't provide this
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
+      'openTimings': openTimings,
+      'ownerName': ownerName,
       'restaurantType': restaurantType,
-      'restaurant_type': restaurantType, // For compatibility
+      'restaurant_photos': photos,
+      'photos': photos, // For compatibility
+      'openNow': openNow,
+      'closesAt': closesAt,
+      'description': description,
     };
   }
-  
-  // Helper to determine if restaurant is currently open
-  static bool? _determineOpenStatus(String? openTimings) {
-    if (openTimings == null || openTimings.isEmpty) return null;
-    
-    try {
-      // Parse JSON timing data if available
-      final timingData = jsonDecode(openTimings);
-      final now = DateTime.now();
-      final currentDay = _getDayName(now.weekday);
-      
-      if (timingData[currentDay] != null) {
-        final dayTimings = timingData[currentDay];
-        if (dayTimings['open'] != null && dayTimings['close'] != null) {
-          final openTime = _parseTime(dayTimings['open']);
-          final closeTime = _parseTime(dayTimings['close']);
-          
-          if (openTime != null && closeTime != null) {
-            final currentTime = Duration(hours: now.hour, minutes: now.minute);
-            return currentTime.compareTo(openTime) >= 0 && currentTime.compareTo(closeTime) <= 0;
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Restaurant: Error parsing opening hours: $e');
-    }
-    
-    return null; // Unknown status
+
+  String toJson() => json.encode(toMap());
+
+  @override
+  String toString() {
+    return 'Restaurant(id: $id, name: $name, cuisine: $cuisine, isVeg: $isVeg, rating: $rating)';
   }
-  
-  // Helper to extract closing time
-  static String? _extractClosingTime(String? openTimings) {
-    if (openTimings == null || openTimings.isEmpty) return null;
-    
-    try {
-      final timingData = jsonDecode(openTimings);
-      final now = DateTime.now();
-      final currentDay = _getDayName(now.weekday);
-      
-      if (timingData[currentDay] != null) {
-        final dayTimings = timingData[currentDay];
-        return dayTimings['close']?.toString();
-      }
-    } catch (e) {
-      debugPrint('Restaurant: Error extracting closing time: $e');
-    }
-    
-    return null;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Restaurant && other.id == id;
   }
-  
-  // Helper to get day name
-  static String _getDayName(int weekday) {
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    return days[weekday - 1];
-  }
-  
-  // Helper to parse time string to Duration
-  static Duration? _parseTime(String timeStr) {
-    try {
-      final parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        final hours = int.parse(parts[0]);
-        final minutes = int.parse(parts[1]);
-        return Duration(hours: hours, minutes: minutes);
-      }
-    } catch (e) {
-      debugPrint('Restaurant: Error parsing time: $e');
-    }
-    return null;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  // Helper method to create a copy with updated fields
+  Restaurant copyWith({
+    String? id,
+    String? name,
+    String? address,
+    String? description,
+    String? cuisine,
+    double? rating,
+    bool? openNow,
+    String? closesAt,
+    String? imageUrl,
+    bool? isVeg,
+    double? latitude,
+    double? longitude,
+    String? openTimings,
+    String? ownerName,
+    String? restaurantType,
+    List<String>? photos,
+  }) {
+    return Restaurant(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      description: description ?? this.description,
+      cuisine: cuisine ?? this.cuisine,
+      rating: rating ?? this.rating,
+      openNow: openNow ?? this.openNow,
+      closesAt: closesAt ?? this.closesAt,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isVeg: isVeg ?? this.isVeg,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      openTimings: openTimings ?? this.openTimings,
+      ownerName: ownerName ?? this.ownerName,
+      restaurantType: restaurantType ?? this.restaurantType,
+      photos: photos ?? this.photos,
+    );
   }
 }

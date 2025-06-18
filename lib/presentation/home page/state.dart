@@ -1,4 +1,4 @@
-// lib/presentation/home page/state.dart - COMPLETELY FIXED
+// lib/presentation/home page/state.dart - COMPLETELY FIXED VERSION
 import 'package:equatable/equatable.dart';
 import '../../models/restaurant_model.dart';
 

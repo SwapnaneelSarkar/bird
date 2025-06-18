@@ -462,11 +462,12 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                       return FoodItemCard(
                         item: menuItem,
                         quantity: quantity,
-                        onQuantityChanged: (newQuantity) {
+                        onQuantityChanged: (newQuantity, {Map<String, dynamic>? attributes}) {
                           context.read<RestaurantDetailsBloc>().add(
                             AddItemToCart(
                               item: menuItem,
                               quantity: newQuantity,
+                              attributes: attributes,
                             ),
                           );
                         },

@@ -1,6 +1,7 @@
 // lib/presentation/screens/search/state.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 abstract class SearchState extends Equatable {
   const SearchState();
@@ -73,17 +74,38 @@ class SearchRestaurant extends Equatable {
   factory SearchRestaurant.fromJson(Map<String, dynamic> json) {
     List<String> photos = [];
     try {
-      String photosString = json['restaurant_photos'] ?? '[]';
-      // Remove the outer quotes and parse as JSON
-      if (photosString.startsWith('[') && photosString.endsWith(']')) {
-        photos = List<String>.from(
-          (photosString == '[]' || photosString.isEmpty) 
-            ? [] 
-            : photosString.substring(1, photosString.length - 1)
-                .split(',')
-                .map((e) => e.trim().replaceAll('"', ''))
-                .where((e) => e.isNotEmpty)
-        );
+      final photosData = json['restaurant_photos'];
+      if (photosData != null) {
+        if (photosData is List) {
+          // If it's already a List, convert each item to String
+          photos = photosData.map((e) => e.toString()).toList();
+        } else if (photosData is String) {
+          // If it's a String, try to parse as JSON
+          if (photosData.startsWith('[') && photosData.endsWith(']')) {
+            if (photosData == '[]' || photosData.isEmpty) {
+              photos = [];
+            } else {
+              // Try to parse as JSON first
+              try {
+                final parsed = jsonDecode(photosData);
+                if (parsed is List) {
+                  photos = parsed.map((e) => e.toString()).toList();
+                }
+              } catch (e) {
+                // If JSON parsing fails, fall back to string splitting
+                photos = photosData
+                    .substring(1, photosData.length - 1)
+                    .split(',')
+                    .map((e) => e.trim().replaceAll('"', ''))
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+              }
+            }
+          } else {
+            // Single string value
+            photos = [photosData];
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error parsing restaurant photos: $e');
@@ -174,16 +196,38 @@ class SearchRestaurantInfo extends Equatable {
   factory SearchRestaurantInfo.fromJson(Map<String, dynamic> json) {
     List<String> photos = [];
     try {
-      String photosString = json['restaurant_photos'] ?? '[]';
-      if (photosString.startsWith('[') && photosString.endsWith(']')) {
-        photos = List<String>.from(
-          (photosString == '[]' || photosString.isEmpty) 
-            ? [] 
-            : photosString.substring(1, photosString.length - 1)
-                .split(',')
-                .map((e) => e.trim().replaceAll('"', ''))
-                .where((e) => e.isNotEmpty)
-        );
+      final photosData = json['restaurant_photos'];
+      if (photosData != null) {
+        if (photosData is List) {
+          // If it's already a List, convert each item to String
+          photos = photosData.map((e) => e.toString()).toList();
+        } else if (photosData is String) {
+          // If it's a String, try to parse as JSON
+          if (photosData.startsWith('[') && photosData.endsWith(']')) {
+            if (photosData == '[]' || photosData.isEmpty) {
+              photos = [];
+            } else {
+              // Try to parse as JSON first
+              try {
+                final parsed = jsonDecode(photosData);
+                if (parsed is List) {
+                  photos = parsed.map((e) => e.toString()).toList();
+                }
+              } catch (e) {
+                // If JSON parsing fails, fall back to string splitting
+                photos = photosData
+                    .substring(1, photosData.length - 1)
+                    .split(',')
+                    .map((e) => e.trim().replaceAll('"', ''))
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+              }
+            }
+          } else {
+            // Single string value
+            photos = [photosData];
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error parsing restaurant info photos: $e');

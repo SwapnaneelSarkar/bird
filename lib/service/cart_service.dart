@@ -66,6 +66,7 @@ class CartService {
     required double price,
     required int quantity,
     String? imageUrl,
+    Map<String, dynamic>? attributes,
   }) async {
     try {
       final userId = await TokenService.getUserId();
@@ -106,7 +107,10 @@ class CartService {
       
       // Find existing item
       List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(cart['items']);
-      int existingIndex = items.indexWhere((item) => item['menu_id'] == menuId);
+      int existingIndex = items.indexWhere((item) => 
+        item['menu_id'] == menuId && 
+        mapEquals(item['attributes'], attributes)
+      );
       
       if (quantity <= 0) {
         // Remove item if quantity is 0 or less
@@ -123,6 +127,7 @@ class CartService {
           'price': price,
           'total_price': price * quantity,
           'image_url': imageUrl,
+          'attributes': attributes,
         };
         
         if (existingIndex >= 0) {
@@ -169,6 +174,21 @@ class CartService {
         'message': 'Error adding item to cart',
       };
     }
+  }
+  
+  // Helper function to compare maps
+  static bool mapEquals(Map<String, dynamic>? a, Map<String, dynamic>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    
+    return a.entries.every((entry) {
+      final value = b[entry.key];
+      if (value is Map) {
+        return mapEquals(entry.value as Map<String, dynamic>?, value as Map<String, dynamic>?);
+      }
+      return value == entry.value;
+    });
   }
   
   // Replace cart with new restaurant items

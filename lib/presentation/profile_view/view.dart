@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../constants/api_constant.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/profile_tile.dart';
+import '../privacy_policy/view.dart';
+import '../terms_conditions/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -250,17 +252,31 @@ class ProfileView extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // Info Cards
-                    ProfileCardTile(
-                      leadingIcon: const Icon(Icons.description, size: 20, color: Color(0xFFE67E22)),
-                      title: 'Terms & Conditions',
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileCardTile(
-                      leadingIcon: const Icon(Icons.privacy_tip, size: 20, color: Color(0xFFE67E22)),
-                      title: 'Privacy Policy',
-                      onTap: () {},
-                    ),
+ProfileCardTile(
+  leadingIcon: const Icon(Icons.description, size: 20, color: Color(0xFFE67E22)),
+  title: 'Terms & Conditions',
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TermsConditionsPage(),
+      ),
+    );
+  },
+),
+const SizedBox(height: 12),
+ProfileCardTile(
+  leadingIcon: const Icon(Icons.privacy_tip, size: 20, color: Color(0xFFE67E22)),
+  title: 'Privacy Policy',
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PrivacyPolicyPage(),
+      ),
+    );
+  },
+),
                     const SizedBox(height: 12),
                     ProfileCardTile(
                       leadingIcon: const Icon(Icons.share, size: 20, color: Color(0xFFE67E22)),

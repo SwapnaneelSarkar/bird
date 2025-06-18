@@ -596,6 +596,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "pedantic",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/pedantic-1.11.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "permission_handler",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/permission_handler-12.0.0+1",
       "packageUri": "lib/",
@@ -738,6 +744,18 @@
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/source_span-1.10.1",
       "packageUri": "lib/",
       "languageVersion": "3.1"
+    },
+    {
+      "name": "speech_to_text",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/speech_to_text-7.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "speech_to_text_platform_interface",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/speech_to_text_platform_interface-2.3.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
     },
     {
       "name": "sprintf",
@@ -890,7 +908,7 @@
       "languageVersion": "3.6"
     }
   ],
-  "generated": "2025-06-12T22:30:24.968281Z",
+  "generated": "2025-06-17T23:04:36.817488Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.29.3/flutter",

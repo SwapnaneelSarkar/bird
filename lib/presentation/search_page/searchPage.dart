@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 import '../../../constants/color/colorConstant.dart';
 import '../../../widgets/restaurant_card.dart';
 import 'bloc.dart';
@@ -29,11 +31,18 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   late FocusNode _searchFocusNode;
   late AnimationController _animationController;
   
+  // Voice search related
+  late stt.SpeechToText _speechToText;
+  bool _isListening = false;
+  bool _speechEnabled = false;
+  String _lastWords = '';
+  
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
+    _speechToText = stt.SpeechToText();
     
     debugPrint('SearchPage: Initialized with user coordinates - Lat: ${widget.userLatitude}, Long: ${widget.userLongitude}');
     
@@ -41,6 +50,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
+    
+    // Initialize speech
+    _initSpeech();
     
     // Initialize search bloc
     context.read<SearchBloc>().add(SearchInitialEvent(
@@ -52,6 +64,114 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
     });
+  }
+  
+  /// This has to happen only once per app
+  void _initSpeech() async {
+    _speechEnabled = await _speechToText.initialize(
+      onStatus: (val) => debugPrint('Speech status: $val'),
+      onError: (val) => debugPrint('Speech error: $val'),
+    );
+    setState(() {});
+  }
+  
+  /// Each time to start a speech recognition session
+  void _startListening() async {
+    // Check microphone permission
+    final microphoneStatus = await Permission.microphone.status;
+    if (microphoneStatus.isDenied) {
+      final result = await Permission.microphone.request();
+      if (result.isDenied) {
+        _showPermissionDialog();
+        return;
+      }
+    }
+    
+    await _speechToText.listen(
+      onResult: _onSpeechResult,
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      partialResults: true,
+      localeId: 'en_US',
+      cancelOnError: true,
+      listenMode: stt.ListenMode.confirmation,
+    );
+    setState(() {
+      _isListening = true;
+    });
+    
+    // Add haptic feedback
+    HapticFeedback.mediumImpact();
+  }
+
+  /// Manually stop the active speech recognition session
+  void _stopListening() async {
+    await _speechToText.stop();
+    setState(() {
+      _isListening = false;
+    });
+    
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+  }
+
+  /// This is the callback that the SpeechToText plugin calls when
+  /// the platform returns recognized words.
+  void _onSpeechResult(result) {
+    setState(() {
+      _lastWords = result.recognizedWords;
+      _searchController.text = _lastWords;
+    });
+    
+    // Trigger search if we have results and speech is final
+    if (result.finalResult && _lastWords.isNotEmpty) {
+      _filterRestaurants(_lastWords);
+      _stopListening();
+    }
+  }
+  
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Microphone Permission',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            'This app needs microphone access to use voice search. Please enable it in your device settings.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                openAppSettings();
+              },
+              child: Text(
+                'Settings',
+                style: GoogleFonts.poppins(
+                  color: ColorManager.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
   
   @override
@@ -161,7 +281,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               ),
               
               // Clear button
-              if (_searchController.text.isNotEmpty)
+              if (_searchController.text.isNotEmpty && !_isListening)
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -169,6 +289,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     onTap: () {
                       _searchController.clear();
                       context.read<SearchBloc>().add(SearchClearEvent());
+                      setState(() {});
                     },
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -181,23 +302,43 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   ),
                 ),
               
-              // Filter button
+              // Voice search button
               Container(
-                margin: const EdgeInsets.only(right: 4),
+                margin: const EdgeInsets.only(right: 8),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(50),
-                    onTap: () {
-                      // Filter functionality would be implemented here
-                    },
-                    child: Container(
+                    onTap: _speechEnabled
+                        ? (_isListening ? _stopListening : _startListening)
+                        : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.all(8),
-                      // child: Icon(
-                      //   Icons.tune,
-                      //   color: ColorManager.primary,
-                      //   size: 22,
-                      // ),
+                      decoration: BoxDecoration(
+                        color: _isListening 
+                            ? ColorManager.primary.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _isListening
+                            ? Icon(
+                                Icons.mic,
+                                key: const ValueKey('mic_on'),
+                                color: ColorManager.primary,
+                                size: 22,
+                              )
+                            : Icon(
+                                Icons.mic_none,
+                                key: const ValueKey('mic_off'),
+                                color: _speechEnabled 
+                                    ? ColorManager.primary 
+                                    : Colors.grey[400],
+                                size: 22,
+                              ),
+                      ),
                     ),
                   ),
                 ),
@@ -253,6 +394,41 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       fontWeight: FontWeight.w600,
                       color: ColorManager.primary,
                     ),
+                  ),
+                ),
+              ],
+              // Show listening indicator
+              if (_isListening) ...[
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: ColorManager.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            ColorManager.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Listening...',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: ColorManager.primary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -323,7 +499,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 const SizedBox(height: 16),
                 Text(
                   state.query.isEmpty 
-                    ? 'Start typing to search'
+                    ? 'Start typing or speak to search'
                     : 'No restaurants found',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
@@ -334,7 +510,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 const SizedBox(height: 8),
                 Text(
                   state.query.isEmpty
-                    ? 'Search for restaurants, dishes, or cuisines'
+                    ? 'Search for restaurants, dishes, or cuisines\nTap the mic icon to use voice search'
                     : 'Try searching with different keywords',
                   style: GoogleFonts.poppins(
                     fontSize: 14,

@@ -1,5 +1,7 @@
 // lib/presentation/screens/loginPage/view.dart
 
+import 'package:bird/presentation/privacy_policy/view.dart';
+import 'package:bird/presentation/terms_conditions/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -431,40 +433,85 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildTermsAndPrivacy() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'By continuing, you agree to our',
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: FontSize.s12,
-            fontFamily: FontFamily.Montserrat,
-            fontWeight: FontWeightManager.regular,
-          ),
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        'By continuing, you agree to our',
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: FontSize.s12,
+          fontFamily: FontFamily.Montserrat,
+          fontWeight: FontWeightManager.regular,
         ),
-        TextButton(
-          onPressed: () => debugPrint('Terms and Privacy tapped'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(
-            'Terms of Service & Privacy Policy',
-            style: TextStyle(
-              color: ColorManager.primary,
-              fontSize: FontSize.s12,
-              fontFamily: FontFamily.Montserrat,
-              fontWeight: FontWeightManager.medium,
-              decoration: TextDecoration.underline,
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TermsConditionsPage(),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Terms of Service',
+              style: TextStyle(
+                color: ColorManager.primary,
+                fontSize: FontSize.s12,
+                fontFamily: FontFamily.Montserrat,
+                fontWeight: FontWeightManager.medium,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
+          Text(
+            ' & ',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: FontSize.s12,
+              fontFamily: FontFamily.Montserrat,
+              fontWeight: FontWeightManager.regular,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PrivacyPolicyPage(),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Privacy Policy',
+              style: TextStyle(
+                color: ColorManager.primary,
+                fontSize: FontSize.s12,
+                fontFamily: FontFamily.Montserrat,
+                fontWeight: FontWeightManager.medium,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
   bool _validateInputs() {
     final phoneNumber = phoneController.text.trim();
     

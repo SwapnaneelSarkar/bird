@@ -501,7 +501,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () => _showFilterDialog(context),
+                        onTap: () => _showFuturisticFilterDialog(context),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -909,17 +909,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   
   List<Map<String, dynamic>> _getFilteredRestaurants(List<dynamic> restaurants) {
     // Create a copy of the list to avoid modifying the original
-    final List<Map<String, dynamic>> filteredList = restaurants
+    final List<Map<String, dynamic>> sortedList = restaurants
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
     
-    // Apply vegetarian filter if needed
-    if (filterOptions.vegOnly) {
-      filteredList.removeWhere((restaurant) => !(restaurant['isVegetarian'] as bool? ?? false));
-    }
-    
-    // Sort by the selected criteria
-    filteredList.sort((a, b) {
+    // Only sort by the selected criteria (do NOT filter veg/category here)
+    sortedList.sort((a, b) {
       // First, sort by time if enabled
       if (filterOptions.timeSort) {
         final timeA = int.tryParse(a['deliveryTime'].toString().split(' ').first) ?? 0;
@@ -927,18 +922,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         final timeCompare = timeA.compareTo(timeB);
         if (timeCompare != 0) return timeCompare;
       }
-      
-     // Next, sort by price
-final priceA = double.tryParse(a['price']?.toString() ?? '') ?? 0.0;
-final priceB = double.tryParse(b['price']?.toString() ?? '') ?? 0.0;
-
-final priceCompare = filterOptions.priceSort == SortOrder.ascending
-    ? priceA.compareTo(priceB)
-    : priceB.compareTo(priceA);
-
-if (priceCompare != 0) return priceCompare;
-
-      
+      // Next, sort by price
+      final priceA = (a['price'] as String? ?? '').length;
+      final priceB = (b['price'] as String? ?? '').length;
+      final priceCompare = filterOptions.priceSort == SortOrder.ascending
+          ? priceA.compareTo(priceB)
+          : priceB.compareTo(priceA);
+      if (priceCompare != 0) return priceCompare;
       // Finally, sort by rating
       final ratingA = a['rating'] as double? ?? 0.0;
       final ratingB = b['rating'] as double? ?? 0.0;
@@ -946,8 +936,7 @@ if (priceCompare != 0) return priceCompare;
           ? ratingA.compareTo(ratingB)
           : ratingB.compareTo(ratingA);
     });
-    
-    return filteredList;
+    return sortedList;
   }
   
   Widget _buildEmptyRestaurantsList() {
@@ -1059,37 +1048,188 @@ if (priceCompare != 0) return priceCompare;
     );
   }
 
-  void _showFilterDialog(BuildContext context) {
+  void _showFuturisticFilterDialog(BuildContext context) {
+    final blocContext = context;
+    // Always use the latest filterOptions from the widget state
+    FilterOptions tempFilters = FilterOptions(
+      vegOnly: filterOptions.vegOnly,
+      priceSort: filterOptions.priceSort,
+      ratingSort: filterOptions.ratingSort,
+      timeSort: filterOptions.timeSort,
+    );
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Filters'),
-        content: StatefulBuilder(
-          builder: (context, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SwitchListTile(
-                  title: Text('Vegetarian Only'),
-                  value: filterOptions.vegOnly,
-                  onChanged: (value) {
-                    setState(() {
-                      filterOptions.vegOnly = value;
-                    });
-                    context.read<HomeBloc>().add(ToggleVegOnly(value));
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (dialogContext) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              width: MediaQuery.of(context).size.width * 0.9,
+              padding: const EdgeInsets.all(0),
+              child: DefaultTabController(
+                length: 4,
+                child: StatefulBuilder(
+                  builder: (statefulContext, setStateDialog) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Heading with curved background
+                        Container(
+                          decoration: BoxDecoration(
+                            color: ColorManager.primary,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(24),
+                              topRight: Radius.circular(24),
+                            ),
+                          ),
+                          padding: const EdgeInsets.only(top: 20, bottom: 16, left: 20, right: 20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Sort & Filter',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.close),
+                                  color: Colors.white,
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  iconSize: 20,
+                                  padding: const EdgeInsets.all(4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Tab Bar for different filter categories
+                        TabBar(
+                          tabs: const [
+                            Tab(icon: Icon(Icons.attach_money), text: 'Price'),
+                            Tab(icon: Icon(Icons.timer), text: 'Time'),
+                            Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
+                            Tab(icon: Icon(Icons.star), text: 'Rating'),
+                          ],
+                          indicatorColor: ColorManager.primary,
+                          labelColor: ColorManager.primary,
+                          unselectedLabelColor: Colors.grey[600],
+                          labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
+                          unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
+                        ),
+                        // Tab Content - with fixed height
+                        SizedBox(
+                          height: 280,
+                          child: TabBarView(
+                            children: [
+                              _buildPriceFilterTab(tempFilters, setStateDialog),
+                              _buildTimeFilterTab(tempFilters, setStateDialog),
+                              _buildDietFilterTab(tempFilters, setStateDialog),
+                              _buildRatingFilterTab(tempFilters, setStateDialog),
+                            ],
+                          ),
+                        ),
+                        // Action Buttons
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    setStateDialog(() {
+                                      tempFilters = FilterOptions(); // Reset to default
+                                    });
+                                    // Also update parent filterOptions and UI immediately
+                                    setState(() {
+                                      filterOptions = FilterOptions();
+                                    });
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    side: BorderSide(color: ColorManager.primary),
+                                  ),
+                                  child: Text(
+                                    'Reset',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: ColorManager.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // Apply filters: update parent filterOptions and UI
+                                    setState(() {
+                                      filterOptions = FilterOptions(
+                                        vegOnly: tempFilters.vegOnly,
+                                        priceSort: tempFilters.priceSort,
+                                        ratingSort: tempFilters.ratingSort,
+                                        timeSort: tempFilters.timeSort,
+                                      );
+                                    });
+                                    // Update veg only in bloc if changed
+                                    if (blocContext.read<HomeBloc>().state is HomeLoaded) {
+                                      final homeState = blocContext.read<HomeBloc>().state as HomeLoaded;
+                                      if (homeState.vegOnly != tempFilters.vegOnly) {
+                                        blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
+                                      }
+                                    }
+                                    Navigator.pop(dialogContext);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: ColorManager.primary,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Apply Filters',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
-          ),
-        ],
-      ),
+              ),
+            ),
+          ).animate().fadeIn(duration: 200.ms).scaleXY(begin: 0.9, end: 1.0, duration: 300.ms, curve: Curves.easeOutQuint),
+        );
+      },
     );
   }
 
@@ -1222,60 +1362,670 @@ if (priceCompare != 0) return priceCompare;
   }
   
   Future<void> _showAddressPicker(BuildContext context, HomeLoaded state) async {
-  try {
-    debugPrint('HomePage: Opening address picker with ${state.savedAddresses.length} saved addresses');
-    
-    final result = await AddressPickerBottomSheet.show(
-      context,
-      savedAddresses: state.savedAddresses, // ✅ This is the key fix!
-    );
-    
-    if (result != null && mounted) {
-      final double latitude = result['latitude'] ?? 0.0;
-      final double longitude = result['longitude'] ?? 0.0;
+    try {
+      debugPrint('HomePage: Opening address picker with ${state.savedAddresses.length} saved addresses');
       
-      debugPrint('HomePage: Address selected from picker:');
-      debugPrint('  Address: ${result['address']}');
-      debugPrint('  Sub-address: ${result['subAddress']}');
-      debugPrint('  Latitude: $latitude');
-      debugPrint('  Longitude: $longitude');
-      
-      if (latitude == 0.0 && longitude == 0.0) {
-        debugPrint('HomePage: Warning - Got zero coordinates');
-        _showCustomSnackBar(
-          context,
-          'Could not get location coordinates. Please try again.',
-          Colors.orange,
-          Icons.warning_amber_rounded,
-        );
-        return;
-      }
-      
-      String fullAddress = result['address'];
-      if (result['subAddress'].toString().isNotEmpty) {
-        fullAddress += ', ${result['subAddress']}';
-      }
-      
-      context.read<HomeBloc>().add(
-        UpdateUserAddress(
-          address: fullAddress,
-          latitude: latitude,
-          longitude: longitude,
-        ),
+      final result = await AddressPickerBottomSheet.show(
+        context,
+        savedAddresses: state.savedAddresses,
       );
       
-      // ✅ Reload saved addresses after selection
-      context.read<HomeBloc>().add(const LoadSavedAddresses());
+      if (result != null && mounted) {
+        final double latitude = result['latitude'] ?? 0.0;
+        final double longitude = result['longitude'] ?? 0.0;
+        
+        debugPrint('HomePage: Address selected from picker:');
+        debugPrint('  Address: ${result['address']}');
+        debugPrint('  Sub-address: ${result['subAddress']}');
+        debugPrint('  Latitude: $latitude');
+        debugPrint('  Longitude: $longitude');
+        
+        if (latitude == 0.0 && longitude == 0.0) {
+          debugPrint('HomePage: Warning - Got zero coordinates');
+          _showCustomSnackBar(
+            context,
+            'Could not get location coordinates. Please try again.',
+            Colors.orange,
+            Icons.warning_amber_rounded,
+          );
+          return;
+        }
+        
+        String fullAddress = result['address'];
+        if (result['subAddress'].toString().isNotEmpty) {
+          fullAddress += ', ${result['subAddress']}';
+        }
+        
+        // CRITICAL: Update the address immediately in the home bloc
+        context.read<HomeBloc>().add(
+          UpdateUserAddress(
+            address: fullAddress,
+            latitude: latitude,
+            longitude: longitude,
+          ),
+        );
+        
+        // CRITICAL: Reload saved addresses to show newly added ones immediately
+        context.read<HomeBloc>().add(const LoadSavedAddresses());
+        
+        debugPrint('HomePage: Address update and reload triggered');
+      }
+    } catch (e) {
+      debugPrint('HomePage: Error showing address picker: $e');
+      _showCustomSnackBar(
+        context,
+        'Error opening address picker. Please try again.',
+        Colors.red,
+        Icons.error_outline,
+      );
     }
-  } catch (e) {
-    debugPrint('HomePage: Error showing address picker: $e');
-    _showCustomSnackBar(
-      context,
-      'Error opening address picker. Please try again.',
-      Colors.red,
-      Icons.error_outline,
+  }
+
+  // Also add this method to handle BlocListener updates more effectively:
+  
+  void _handleAddressUpdates(BuildContext context, HomeState state) {
+    if (state is AddressUpdateSuccess) {
+      _showCustomSnackBar(
+        context, 
+        'Address updated successfully', 
+        Colors.green, 
+        Icons.check_circle
+      );
+    } else if (state is AddressUpdateFailure) {
+      _showCustomSnackBar(
+        context, 
+        state.error, 
+        Colors.red, 
+        Icons.error_outline
+      );
+    } else if (state is AddressSaveSuccess) {
+      _showCustomSnackBar(
+        context, 
+        state.message, 
+        Colors.green, 
+        Icons.check_circle
+      );
+    } else if (state is AddressSaveFailure) {
+      _showCustomSnackBar(
+        context, 
+        state.error, 
+        Colors.red, 
+        Icons.error_outline
+      );
+    }
+  }
+
+
+  // Price Filter Tab
+  Widget _buildPriceFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Sort by Price',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSortOptionCard(
+                    icon: Icons.arrow_upward,
+                    title: 'Low to High',
+                    description: 'Cheapest first',
+                    isSelected: tempFilters.priceSort == SortOrder.ascending,
+                    onTap: () {
+                      setStateDialog(() {
+                        tempFilters.priceSort = SortOrder.ascending;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSortOptionCard(
+                    icon: Icons.arrow_downward,
+                    title: 'High to Low',
+                    description: 'Premium first',
+                    isSelected: tempFilters.priceSort == SortOrder.descending,
+                    onTap: () {
+                      setStateDialog(() {
+                        tempFilters.priceSort = SortOrder.descending;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 80,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildPriceIndicator(' ', tempFilters.priceSort == SortOrder.ascending ? 1 : 4),
+                  _buildPriceIndicator('  ', tempFilters.priceSort == SortOrder.ascending ? 2 : 3),
+                  _buildPriceIndicator('   ', tempFilters.priceSort == SortOrder.ascending ? 3 : 2),
+                  _buildPriceIndicator('    ', tempFilters.priceSort == SortOrder.ascending ? 4 : 1),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
-}
 
+  // Time Filter Tab
+  Widget _buildTimeFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Delivery Time',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: tempFilters.timeSort ? ColorManager.primary.withOpacity(0.1) : Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: tempFilters.timeSort ? ColorManager.primary.withOpacity(0.3) : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.timer,
+                    color: tempFilters.timeSort ? ColorManager.primary : Colors.grey[600],
+                    size: 24,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fastest Delivery First',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: tempFilters.timeSort ? ColorManager.primary : Colors.grey[800],
+                          ),
+                        ),
+                        Text(
+                          'Sort restaurants by delivery time (lowest first)',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: tempFilters.timeSort,
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        tempFilters.timeSort = value;
+                      });
+                    },
+                    activeColor: ColorManager.primary,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 100,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildTimeIndicator('15 min', 1, tempFilters.timeSort),
+                  _buildTimeIndicator('30 min', 2, tempFilters.timeSort),
+                  _buildTimeIndicator('45 min', 3, tempFilters.timeSort),
+                  _buildTimeIndicator('60 min', 4, tempFilters.timeSort),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Diet Filter Tab
+  Widget _buildDietFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Dietary Preferences',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: tempFilters.vegOnly ? Colors.green.withOpacity(0.1) : Colors.grey[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: tempFilters.vegOnly ? Colors.green.withOpacity(0.3) : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: tempFilters.vegOnly ? Colors.green.withOpacity(0.2) : Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.grass_outlined,
+                      color: tempFilters.vegOnly ? Colors.green : Colors.grey[600],
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vegetarian Only',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: tempFilters.vegOnly ? Colors.green : Colors.grey[800],
+                          ),
+                        ),
+                        Text(
+                          'Show only vegetarian restaurants',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: tempFilters.vegOnly,
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        tempFilters.vegOnly = value;
+                      });
+                    },
+                    activeColor: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            AnimatedOpacity(
+              opacity: tempFilters.vegOnly ? 0.5 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: (!tempFilters.vegOnly) ? Colors.red.withOpacity(0.05) : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (!tempFilters.vegOnly) ? Colors.red.withOpacity(0.2) : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: (!tempFilters.vegOnly) ? Colors.red.withOpacity(0.1) : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.fastfood_outlined,
+                        color: (!tempFilters.vegOnly) ? Colors.red : Colors.grey[600],
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Non-Vegetarian',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: (!tempFilters.vegOnly) ? Colors.red.shade400 : Colors.grey[800],
+                            ),
+                          ),
+                          Text(
+                            'Show all restaurants',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: !tempFilters.vegOnly,
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          tempFilters.vegOnly = !value;
+                        });
+                      },
+                      activeColor: Colors.red.shade400,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Rating Filter Tab
+  Widget _buildRatingFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Sort by Rating',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSortOptionCard(
+                    icon: Icons.arrow_downward,
+                    title: 'High to Low',
+                    description: 'Best rated first',
+                    isSelected: tempFilters.ratingSort == SortOrder.descending,
+                    onTap: () {
+                      setStateDialog(() {
+                        tempFilters.ratingSort = SortOrder.descending;
+                      });
+                    },
+                    iconColor: Colors.amber,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSortOptionCard(
+                    icon: Icons.arrow_upward,
+                    title: 'Low to High',
+                    description: 'Lowest rated first',
+                    isSelected: tempFilters.ratingSort == SortOrder.ascending,
+                    onTap: () {
+                      setStateDialog(() {
+                        tempFilters.ratingSort = SortOrder.ascending;
+                      });
+                    },
+                    iconColor: Colors.amber,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 80,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (int i = 1; i <= 5; i++)
+                    _buildRatingIndicator(
+                      i, 
+                      tempFilters.ratingSort == SortOrder.descending 
+                          ? 6 - i // 5,4,3,2,1 for descending
+                          : i     // 1,2,3,4,5 for ascending
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build sort option cards
+  Widget _buildSortOptionCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required bool isSelected,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? ColorManager.primary.withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? ColorManager.primary.withOpacity(0.3) : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? (iconColor ?? ColorManager.primary).withOpacity(0.2) 
+                    : Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                icon,
+                color: isSelected 
+                    ? (iconColor ?? ColorManager.primary) 
+                    : Colors.grey[600],
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isSelected 
+                    ? (iconColor ?? ColorManager.primary) 
+                    : Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Price indicator widget
+  Widget _buildPriceIndicator(String price, int position) {
+    final size = 50 - (position * 4.0);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: ColorManager.primary.withOpacity(0.1 * position),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              price,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: ColorManager.primary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Time indicator widget
+  Widget _buildTimeIndicator(String time, int position, bool isActive) {
+    final opacity = isActive ? (1.0 - ((position - 1) * 0.2)) : ((position) * 0.2);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: ColorManager.primary.withOpacity(opacity),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            time,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: opacity > 0.4 ? Colors.white : Colors.grey[800],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Rating indicator widget
+  Widget _buildRatingIndicator(int stars, int position) {
+    final size = 24 + (position * 3.0);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.1 * position),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Text(
+                stars.toString(),
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.star,
+                color: Colors.amber,
+                size: size * 0.5,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

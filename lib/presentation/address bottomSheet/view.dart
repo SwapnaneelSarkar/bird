@@ -1,4 +1,4 @@
-// lib/presentation/address bottomSheet/view.dart
+// lib/presentation/address bottomSheet/view.dart - Updated with real-time address updates
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
@@ -113,6 +113,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
               ),
             );
             
+            // CRITICAL: Immediately call the callback to update home page
             if (widget.onAddressSelected != null) {
               widget.onAddressSelected!(
                 state.address,
@@ -650,135 +651,133 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
   }
 
   void _showAddressNameDialog(
-  BuildContext context,
-  String address,
-  String subAddress,
-  double latitude,
-  double longitude,
-  String fullAddress,
-) {
-  final nameController = TextEditingController();
-  bool makeDefault = false;
-  
-  // CRITICAL FIX: Capture the parent context that has access to AddressPickerBloc
-  final parentContext = context;
+    BuildContext context,
+    String address,
+    String subAddress,
+    double latitude,
+    double longitude,
+    String fullAddress,
+  ) {
+    final nameController = TextEditingController();
+    bool makeDefault = false;
+    
+    // CRITICAL FIX: Capture the parent context that has access to AddressPickerBloc
+    final parentContext = context;
 
-  showDialog(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (builderContext, setState) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          'Save Address',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: ColorManager.primary,
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'Save Address',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: ColorManager.primary,
+            ),
           ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Give this address a name (optional)',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: ColorManager.black.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  hintText: 'e.g., Home, Office, Friend\'s place',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  filled: true,
-                  fillColor: ColorManager.otpField,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Give this address a name (optional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: ColorManager.black.withOpacity(0.6),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: makeDefault,
-                    activeColor: ColorManager.primary,
-                    onChanged: (value) {
-                      setState(() {
-                        makeDefault = value ?? false;
-                      });
-                    },
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Home, Office, Friend\'s place',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Make this my default address',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: ColorManager.black,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: makeDefault,
+                      activeColor: ColorManager.primary,
+                      onChanged: (value) {
+                        setState(() {
+                          makeDefault = value ?? false;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Make this my default address',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: ColorManager.black,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              if (widget.onAddressSelected != null) {
-                widget.onAddressSelected!(address, 'Other', latitude, longitude);
-              }
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: ColorManager.primary,
-            ),
-            child: const Text('Skip'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              final addressName = nameController.text.trim().isEmpty
-                  ? 'Other'
-                  : nameController.text.trim();
-
-              // CRITICAL FIX: Use parentContext instead of builderContext
-              // parentContext has access to the AddressPickerBloc provider
-              parentContext.read<AddressPickerBloc>().add(
-                SaveAddressEvent(
-                  address: address,
-                  subAddress: subAddress,
-                  addressName: addressName,
-                  latitude: latitude,
-                  longitude: longitude,
-                  fullAddress: fullAddress,
+                  ],
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ColorManager.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              ],
             ),
-            child: const Text('Save'),
           ),
-        ],
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (widget.onAddressSelected != null) {
+                  widget.onAddressSelected!(address, 'Other', latitude, longitude);
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: ColorManager.primary,
+              ),
+              child: const Text('Skip'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                final addressName = nameController.text.trim().isEmpty
+                    ? 'Other'
+                    : nameController.text.trim();
+
+                // CRITICAL FIX: Use parentContext instead of builderContext
+                // parentContext has access to the AddressPickerBloc provider
+                parentContext.read<AddressPickerBloc>().add(
+                  SaveAddressEvent(
+                    address: address,
+                    subAddress: subAddress,
+                    addressName: addressName,
+                    latitude: latitude,
+                    longitude: longitude,
+                    fullAddress: fullAddress,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
-
-
+    );
+  }
 }

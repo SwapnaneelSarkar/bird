@@ -1,4 +1,4 @@
-// lib/presentation/home page/bloc.dart - Updated version with Profile API priority
+// lib/presentation/home page/bloc.dart - FIXED VERSION
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -92,19 +92,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final categoriesFuture = _fetchCategories();
       
       final results = await Future.wait([restaurantsFuture, categoriesFuture]);
-      final restaurants = results[0];
-      final categories = results[1];
+      final restaurants = results[0] as List<Restaurant>;
+      final categories = results[1] as List<Map<String, dynamic>>;
       
       debugPrint('HomeBloc: Fetched ${restaurants.length} restaurants and ${categories.length} categories');
       
       emit(HomeLoaded(
         userAddress: userAddress,
-        vegOnly: false,
         restaurants: restaurants,
         categories: categories,
         userLatitude: latitude,
         userLongitude: longitude,
-        allRestaurants: restaurants,
         savedAddresses: savedAddresses,
       ));
       
@@ -154,7 +152,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           userLatitude: event.latitude,
           userLongitude: event.longitude,
           restaurants: restaurants,
-          allRestaurants: restaurants,
         ));
         
         // Emit success message
@@ -166,7 +163,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           userLatitude: event.latitude,
           userLongitude: event.longitude,
           restaurants: restaurants,
-          allRestaurants: restaurants,
         ));
         
       } else {
@@ -270,53 +266,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onToggleVegOnly(ToggleVegOnly event, Emitter<HomeState> emit) async {
     final currentState = state;
     if (currentState is HomeLoaded) {
-      List<dynamic> filteredRestaurants = currentState.allRestaurants;
-      
-      if (event.value) {
-        filteredRestaurants = currentState.allRestaurants.where((restaurant) {
-          return restaurant['isVegetarian'] == true || restaurant['veg_nonveg'] == 'veg';
-        }).toList();
-      }
-      
-      emit(currentState.copyWith(
-        vegOnly: event.value,
-        restaurants: filteredRestaurants,
-      ));
+      emit(currentState.copyWith(vegOnly: event.value));
     }
   }
 
   Future<void> _onFilterByCategory(FilterByCategory event, Emitter<HomeState> emit) async {
     final currentState = state;
     if (currentState is HomeLoaded) {
-      List<dynamic> filteredRestaurants = currentState.allRestaurants;
-      
-      // Apply category filter if specified
-      if (event.categoryName != null) {
-        filteredRestaurants = currentState.allRestaurants.where((restaurant) {
-          final cuisine = restaurant['cuisine']?.toString().toLowerCase() ?? '';
-          final category = restaurant['category']?.toString().toLowerCase() ?? '';
-          final targetCategory = event.categoryName!.toLowerCase();
-          
-          return cuisine.contains(targetCategory) || category.contains(targetCategory);
-        }).toList();
-      }
-      
-      // Apply veg filter if active
-      if (currentState.vegOnly) {
-        filteredRestaurants = filteredRestaurants.where((restaurant) {
-          return restaurant['isVegetarian'] == true || restaurant['veg_nonveg'] == 'veg';
-        }).toList();
-      }
-      
-      emit(currentState.copyWith(
-        selectedCategory: event.categoryName,
-        restaurants: filteredRestaurants,
-      ));
+      emit(currentState.copyWith(selectedCategory: event.categoryName));
     }
   }
 
-  // Helper methods
-  Future<List<dynamic>> _fetchRestaurants(double latitude, double longitude) async {
+  // CRITICAL FIX: Updated restaurant fetching method
+  Future<List<Restaurant>> _fetchRestaurants(double latitude, double longitude) async {
     try {
       debugPrint('HomeBloc: Fetching restaurants with coordinates - Lat: $latitude, Long: $longitude');
       
@@ -326,6 +288,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return [];
       }
 
+      // CORRECTED API ENDPOINT - Use /api/restaurants instead of /api/partner/restaurants
       final url = Uri.parse('${ApiConstants.baseUrl}/api/restaurants?latitude=$latitude&longitude=$longitude');
       debugPrint('HomeBloc: Restaurant API URL: $url');
       
@@ -338,21 +301,38 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
 
       debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
+      debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['status'] == true && data['data'] != null) {
-          final List<dynamic> restaurantsData = data['data'];
-          debugPrint('HomeBloc: Successfully fetched ${restaurantsData.length} restaurants');
+        
+        // FIXED: Check for both possible response structures
+        if (data['status'] == true || data['status'] == 'SUCCESS') {
+          final List<dynamic> restaurantsData = data['data'] ?? [];
+          debugPrint('HomeBloc: Successfully parsed ${restaurantsData.length} restaurants');
+          
+          if (restaurantsData.isEmpty) {
+            debugPrint('HomeBloc: No restaurants found in response data');
+            return [];
+          }
           
           return restaurantsData.map((restaurantJson) {
-            final restaurant = Restaurant.fromJson(restaurantJson);
-            return restaurant.toMap();
-          }).toList();
+            try {
+              return Restaurant.fromJson(restaurantJson);
+            } catch (e) {
+              debugPrint('HomeBloc: Error parsing restaurant: $e');
+              debugPrint('HomeBloc: Restaurant data: $restaurantJson');
+              return null;
+            }
+          }).where((restaurant) => restaurant != null).cast<Restaurant>().toList();
+        } else {
+          debugPrint('HomeBloc: API returned error status: ${data['status']}');
+          debugPrint('HomeBloc: Error message: ${data['message']}');
         }
+      } else {
+        debugPrint('HomeBloc: HTTP error ${response.statusCode}');
       }
       
-      debugPrint('HomeBloc: Restaurant API failed or returned no data');
       return [];
     } catch (e) {
       debugPrint('HomeBloc: Error fetching restaurants: $e');
@@ -360,14 +340,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  Future<List<dynamic>> _fetchRestaurantsWithoutLocation() async {
+  Future<List<Restaurant>> _fetchRestaurantsWithoutLocation() async {
     try {
       debugPrint('HomeBloc: Fetching restaurants without location');
       
       final token = await TokenService.getToken();
       if (token == null) return [];
 
+      // CORRECTED API ENDPOINT
       final url = Uri.parse('${ApiConstants.baseUrl}/api/restaurants');
+      debugPrint('HomeBloc: Restaurant API URL (no location): $url');
+      
       final response = await http.get(
         url,
         headers: {
@@ -376,14 +359,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         },
       );
 
+      debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
+      debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['status'] == true && data['data'] != null) {
-          final List<dynamic> restaurantsData = data['data'];
+        
+        if (data['status'] == true || data['status'] == 'SUCCESS') {
+          final List<dynamic> restaurantsData = data['data'] ?? [];
+          debugPrint('HomeBloc: Successfully parsed ${restaurantsData.length} restaurants (no location)');
+          
           return restaurantsData.map((restaurantJson) {
-            final restaurant = Restaurant.fromJson(restaurantJson);
-            return restaurant.toMap();
-          }).toList();
+            try {
+              return Restaurant.fromJson(restaurantJson);
+            } catch (e) {
+              debugPrint('HomeBloc: Error parsing restaurant: $e');
+              return null;
+            }
+          }).where((restaurant) => restaurant != null).cast<Restaurant>().toList();
         }
       }
       return [];
@@ -393,7 +386,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  Future<List<dynamic>> _fetchCategories() async {
+  Future<List<Map<String, dynamic>>> _fetchCategories() async {
     try {
       debugPrint('HomeBloc: Fetching categories');
       return [

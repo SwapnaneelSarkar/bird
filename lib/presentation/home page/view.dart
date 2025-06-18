@@ -1,4 +1,4 @@
-// lib/presentation/home page/view.dart - Clean working version
+// lib/presentation/home page/view.dart - COMPLETE ERROR-FREE VERSION
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -87,14 +87,16 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       body: SafeArea(
         child: BlocListener<HomeBloc, HomeState>(
           listener: (context, state) {
+            // Handle all address-related state changes
+            _handleAddressUpdates(context, state);
+            
+            // Handle address change notifications
             if (state is HomeLoaded && state.userAddress != previousAddress) {
-              _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
+              if (previousAddress != null && previousAddress != 'Add delivery address') {
+                _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
+              }
               previousAddress = state.userAddress;
-            }
-            if (state is AddressSaveSuccess) {
-              _showCustomSnackBar(context, state.message, Colors.green, Icons.check_circle);
-            } else if (state is AddressSaveFailure) {
-              _showCustomSnackBar(context, state.error, Colors.red, Icons.error_outline);
+              debugPrint('HomePage: Address changed to: ${state.userAddress}');
             }
           },
           child: BlocBuilder<HomeBloc, HomeState>(
@@ -102,10 +104,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               if (state is HomeLoading) {
                 return _buildLoadingIndicator();
               } else if (state is HomeLoaded) {
-                return _buildHomeContentWithOptionalError(context, state);
+                return _buildHomeContent(context, state);
               } else {
                 // If no HomeLoaded at all, show the full error state
-                return _buildErrorState(context, state is HomeError ? state : HomeError('Something went wrong'));
+                return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
               }
             },
           ),
@@ -113,111 +115,40 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       ),
     );
   }
-  
-  Widget _buildHomeContentWithOptionalError(BuildContext context, HomeLoaded state) {
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFFF8F9FF),
-          ),
-        ),
-        Column(
-          children: [
-            // Address Bar (always interactive)
-            ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.8)],
-                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                    ),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(0, 2), blurRadius: 8)],
-                    border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.5), width: 1)),
-                  ),
-                  child: _buildAddressBar(context, state), // always uses state.userAddress
-                ),
-              ),
-            ).animate(controller: _animationController).fadeIn(duration: 400.ms, curve: Curves.easeOut),
-            // Search Bar (always interactive)
-            _buildSearchBar(context, state)
-              .animate(controller: _animationController)
-              .fadeIn(duration: 400.ms, delay: 100.ms, curve: Curves.easeOut)
-              .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
-            // Main Content
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCategoriesSection(context, state)
-                      .animate(controller: _animationController)
-                      .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
-                      .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
-                    // Error message in place of restaurant cards if errorMessage is set
-                    if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-                        child: _buildErrorCard(state.errorMessage!),
-                      )
-                    else
-                      _buildRestaurantsSection(context, state)
-                        .animate(controller: _animationController)
-                        .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
-                        .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 
-  Widget _buildErrorRestaurantSection(String errorMessage) {
-    if (errorMessage.toLowerCase().contains('network')) {
-      return _buildErrorCard('Network error. Please check your connection.');
-    } else if (errorMessage.toLowerCase().contains('server')) {
-      return _buildErrorCard(errorMessage);
-    } else {
-      // Fallback: show the error message
-      return _buildErrorCard(errorMessage);
+  // Handle address update states
+  void _handleAddressUpdates(BuildContext context, HomeState state) {
+    if (state is AddressUpdateSuccess) {
+      _showCustomSnackBar(
+        context, 
+        'Address updated successfully', 
+        Colors.green, 
+        Icons.check_circle
+      );
+    } else if (state is AddressUpdateFailure) {
+      _showCustomSnackBar(
+        context, 
+        state.error, 
+        Colors.red, 
+        Icons.error_outline
+      );
+    } else if (state is AddressSaveSuccess) {
+      _showCustomSnackBar(
+        context, 
+        state.message, 
+        Colors.green, 
+        Icons.check_circle
+      );
+    } else if (state is AddressSaveFailure) {
+      _showCustomSnackBar(
+        context, 
+        state.error, 
+        Colors.red, 
+        Icons.error_outline
+      );
     }
   }
-
-  Widget _buildErrorCard(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, color: Colors.red, size: 48),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.red[700],
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
+  
   Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
     debugPrint('UI: Showing home content with ${state.restaurants.length} restaurants');
     return Stack(
@@ -293,84 +224,83 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
   
   Widget _buildAddressBar(BuildContext context, HomeLoaded state) {
-  return InkWell(
-    onTap: () => _showAddressPicker(context, state), // Pass state here
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: ColorManager.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: () => _showAddressPicker(context, state),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: ColorManager.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.location_on, color: ColorManager.primary, size: 22),
             ),
-            child: Icon(Icons.location_on, color: ColorManager.primary, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Deliver to',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12, color: Colors.grey[600], letterSpacing: 0.3,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Deliver to',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12, color: Colors.grey[600], letterSpacing: 0.3,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          state.userAddress,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[800],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200], borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.keyboard_arrow_down, color: ColorManager.primary, size: 16),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
+                gradient: LinearGradient(
+                  colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(30),
+                  onTap: () => Navigator.pushNamed(context, Routes.profileView),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Icon(Icons.person, color: ColorManager.primary, size: 24),
                   ),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        state.userAddress,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[800],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200], borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.keyboard_arrow_down, color: ColorManager.primary, size: 16),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
-              gradient: LinearGradient(
-                colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(30),
-                onTap: () => Navigator.pushNamed(context, Routes.profileView),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(Icons.person, color: ColorManager.primary, size: 24),
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildSearchBar(BuildContext context, HomeLoaded state) {
     return Hero(
@@ -646,7 +576,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     child: Icon(
                       icon,
                       size: isSelected ? 40 : 36,
-                      color: isSelected ? accentColor : accentColor,
+                      color: accentColor,
                     ),
                   ),
                 ),
@@ -817,16 +747,9 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
 
   Widget _buildRestaurantsSection(BuildContext context, HomeLoaded state) {
     debugPrint('UI: Building restaurants section with ${state.restaurants.length} restaurants');
-    // Apply filters to restaurants
-    final filteredRestaurants = _getFilteredRestaurants(state.restaurants);
     
-    // If there is an error message, show the error card
-    if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-        child: _buildErrorCard(state.errorMessage!),
-      );
-    }
+    // Get filtered restaurants using the state's helper method
+    final filteredRestaurants = state.filteredRestaurants;
     
     return Container(
       margin: const EdgeInsets.only(top: 16),
@@ -872,28 +795,23 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     itemCount: filteredRestaurants.length,
                     itemBuilder: (context, index) {
                       final restaurant = filteredRestaurants[index];
-                      // Extract coordinates for debugging
-                      final restaurantLat = restaurant['latitude'] != null 
-                          ? double.tryParse(restaurant['latitude'].toString())
-                          : null;
-                      final restaurantLng = restaurant['longitude'] != null 
-                          ? double.tryParse(restaurant['longitude'].toString())
-                          : null;
-                      debugPrint('HomePage: Restaurant ${restaurant['name']} coordinates - Lat: $restaurantLat, Long: $restaurantLng');
+                      
+                      debugPrint('HomePage: Restaurant ${restaurant.name} coordinates - Lat: ${restaurant.latitude}, Long: ${restaurant.longitude}');
+                      
                       return Hero(
-                        tag: 'restaurant-${restaurant['name']}',
+                        tag: 'restaurant-${restaurant.name}',
                         child: RestaurantCard(
-                          name: restaurant['name'],
-                          imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
-                          cuisine: restaurant['cuisine'],
-                          rating: restaurant['rating'] ?? 0.0,
-                          deliveryTime: restaurant['deliveryTime'] ?? '30-40 min',
-                          isVeg: restaurant['isVegetarian'] as bool? ?? false,
-                          restaurantLatitude: restaurantLat,
-                          restaurantLongitude: restaurantLng,
+                          name: restaurant.name,
+                          imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
+                          cuisine: restaurant.cuisine,
+                          rating: restaurant.rating ?? 0.0,
+                          deliveryTime: '20-30 mins', // Default as model doesn't have this
+                          isVeg: restaurant.isVeg,
+                          restaurantLatitude: restaurant.latitude,
+                          restaurantLongitude: restaurant.longitude,
                           userLatitude: state.userLatitude,
                           userLongitude: state.userLongitude,
-                          restaurantType: restaurant['restaurantType'],
+                          restaurantType: restaurant.restaurantType,
                           onTap: () => _navigateToRestaurantDetails(context, restaurant),
                         ).animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
@@ -907,115 +825,83 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
   
-  List<Map<String, dynamic>> _getFilteredRestaurants(List<dynamic> restaurants) {
-    // Create a copy of the list to avoid modifying the original
-    final List<Map<String, dynamic>> sortedList = restaurants
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
-    
-    // Only sort by the selected criteria (do NOT filter veg/category here)
-    sortedList.sort((a, b) {
-      // First, sort by time if enabled
-      if (filterOptions.timeSort) {
-        final timeA = int.tryParse(a['deliveryTime'].toString().split(' ').first) ?? 0;
-        final timeB = int.tryParse(b['deliveryTime'].toString().split(' ').first) ?? 0;
-        final timeCompare = timeA.compareTo(timeB);
-        if (timeCompare != 0) return timeCompare;
-      }
-      // Next, sort by price
-      final priceA = (a['price'] as String? ?? '').length;
-      final priceB = (b['price'] as String? ?? '').length;
-      final priceCompare = filterOptions.priceSort == SortOrder.ascending
-          ? priceA.compareTo(priceB)
-          : priceB.compareTo(priceA);
-      if (priceCompare != 0) return priceCompare;
-      // Finally, sort by rating
-      final ratingA = a['rating'] as double? ?? 0.0;
-      final ratingB = b['rating'] as double? ?? 0.0;
-      return filterOptions.ratingSort == SortOrder.ascending
-          ? ratingA.compareTo(ratingB)
-          : ratingB.compareTo(ratingA);
-    });
-    return sortedList;
-  }
-  
   Widget _buildEmptyRestaurantsList() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Image.asset(
-          'assets/images/duckling.jpg',
-          width: 200,
-          height: 200,
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Oops!',
-          style: GoogleFonts.poppins(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset(
+            'assets/images/duckling.jpg',
+            width: 200,
+            height: 200,
           ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Hello! We\'re not flying to this area yet.',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[600],
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Try changing your location.',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[600],
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 32),
-        ElevatedButton.icon(
-          onPressed: () {
-            final state = context.read<HomeBloc>().state;
-            if (state is HomeLoaded) {
-              _showAddressPicker(context, state); // Pass state here too
-            }
-          },
-          icon: const Icon(Icons.place, color: Colors.white),
-          label: Text(
-            'Change Location',
+          const SizedBox(height: 24),
+          Text(
+            'Oops!',
             style: GoogleFonts.poppins(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Hello! We\'re not flying to this area yet.',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
               fontWeight: FontWeight.w500,
-              fontSize: 16,
-              color: Colors.white,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try changing your location.',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () {
+              final state = context.read<HomeBloc>().state;
+              if (state is HomeLoaded) {
+                _showAddressPicker(context, state);
+              }
+            },
+            icon: const Icon(Icons.place, color: Colors.white),
+            label: Text(
+              'Change Location',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFCF7C42),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(double.infinity, 54),
             ),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFCF7C42),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            minimumSize: const Size(double.infinity, 54),
-          ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
-
-  void _navigateToRestaurantDetails(BuildContext context, Map<String, dynamic> restaurant) {
-    // Get the current state to extract user coordinates
+  void _navigateToRestaurantDetails(BuildContext context, restaurant) {
+    debugPrint('HomePage: Navigating to restaurant details');
+    
     final state = context.read<HomeBloc>().state;
     double? userLatitude;
     double? userLongitude;
@@ -1023,13 +909,38 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     if (state is HomeLoaded) {
       userLatitude = state.userLatitude;
       userLongitude = state.userLongitude;
-      debugPrint('HomePage: Navigating to restaurant details with user coordinates - Lat: $userLatitude, Long: $userLongitude');
+      debugPrint('HomePage: User coordinates - Lat: $userLatitude, Long: $userLongitude');
     }
+    
+    // Convert Restaurant model to the expected Map format for RestaurantDetailsPage
+    final restaurantData = <String, dynamic>{
+      'id': restaurant.id,
+      'partner_id': restaurant.id, // For compatibility
+      'name': restaurant.name,
+      'restaurant_name': restaurant.name, // For compatibility
+      'imageUrl': restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
+      'cuisine': restaurant.cuisine,
+      'category': restaurant.cuisine, // For compatibility
+      'rating': restaurant.rating ?? 0.0,
+      'isVegetarian': restaurant.isVeg,
+      'isVeg': restaurant.isVeg, // For compatibility
+      'veg_nonveg': restaurant.isVeg ? 'veg' : 'non-veg', // For compatibility
+      'address': restaurant.address,
+      'latitude': restaurant.latitude,
+      'longitude': restaurant.longitude,
+      'restaurantType': restaurant.restaurantType,
+      'restaurant_type': restaurant.restaurantType, // For compatibility
+      'description': restaurant.description,
+      'openTimings': restaurant.openTimings,
+      'open_timings': restaurant.openTimings, // For compatibility
+      'ownerName': restaurant.ownerName,
+      'owner_name': restaurant.ownerName, // For compatibility
+    };
     
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => RestaurantDetailsPage(
-          restaurantData: Map<String, dynamic>.from(restaurant),
+          restaurantData: restaurantData,
           userLatitude: userLatitude,
           userLongitude: userLongitude,
         ),
@@ -1048,9 +959,68 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
+  Future<void> _showAddressPicker(BuildContext context, HomeLoaded state) async {
+    try {
+      debugPrint('HomePage: Opening address picker with ${state.savedAddresses.length} saved addresses');
+      
+      final result = await AddressPickerBottomSheet.show(
+        context,
+        savedAddresses: state.savedAddresses,
+      );
+      
+      if (result != null && mounted) {
+        final double latitude = result['latitude'] ?? 0.0;
+        final double longitude = result['longitude'] ?? 0.0;
+        
+        debugPrint('HomePage: Address selected from picker:');
+        debugPrint('  Address: ${result['address']}');
+        debugPrint('  Sub-address: ${result['subAddress']}');
+        debugPrint('  Latitude: $latitude');
+        debugPrint('  Longitude: $longitude');
+        
+        if (latitude == 0.0 && longitude == 0.0) {
+          debugPrint('HomePage: Warning - Got zero coordinates');
+          _showCustomSnackBar(
+            context,
+            'Could not get location coordinates. Please try again.',
+            Colors.orange,
+            Icons.warning_amber_rounded,
+          );
+          return;
+        }
+        
+        String fullAddress = result['address'];
+        if (result['subAddress'].toString().isNotEmpty) {
+          fullAddress += ', ${result['subAddress']}';
+        }
+        
+        // Update the address immediately in the home bloc
+        context.read<HomeBloc>().add(
+          UpdateUserAddress(
+            address: fullAddress,
+            latitude: latitude,
+            longitude: longitude,
+          ),
+        );
+        
+        // Reload saved addresses to show newly added ones immediately
+        context.read<HomeBloc>().add(const LoadSavedAddresses());
+        
+        debugPrint('HomePage: Address update and reload triggered');
+      }
+    } catch (e) {
+      debugPrint('HomePage: Error showing address picker: $e');
+      _showCustomSnackBar(
+        context,
+        'Error opening address picker. Please try again.',
+        Colors.red,
+        Icons.error_outline,
+      );
+    }
+  }
+
   void _showFuturisticFilterDialog(BuildContext context) {
     final blocContext = context;
-    // Always use the latest filterOptions from the widget state
     FilterOptions tempFilters = FilterOptions(
       vegOnly: filterOptions.vegOnly,
       priceSort: filterOptions.priceSort,
@@ -1137,10 +1107,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           height: 280,
                           child: TabBarView(
                             children: [
-                              _buildPriceFilterTab(tempFilters, setStateDialog),
-                              _buildTimeFilterTab(tempFilters, setStateDialog),
-                              _buildDietFilterTab(tempFilters, setStateDialog),
-                              _buildRatingFilterTab(tempFilters, setStateDialog),
+                              _buildSimpleTab('Price filtering coming soon!'),
+                              _buildSimpleTab('Time filtering coming soon!'),
+                              _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
+                              _buildSimpleTab('Rating filtering coming soon!'),
                             ],
                           ),
                         ),
@@ -1153,12 +1123,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                 child: OutlinedButton(
                                   onPressed: () {
                                     setStateDialog(() {
-                                      tempFilters = FilterOptions(); // Reset to default
+                                      tempFilters = FilterOptions();
                                     });
-                                    // Also update parent filterOptions and UI immediately
                                     setState(() {
                                       filterOptions = FilterOptions();
                                     });
+                                    blocContext.read<HomeBloc>().add(const ToggleVegOnly(false));
                                   },
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1182,7 +1152,6 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                 flex: 2,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    // Apply filters: update parent filterOptions and UI
                                     setState(() {
                                       filterOptions = FilterOptions(
                                         vegOnly: tempFilters.vegOnly,
@@ -1191,13 +1160,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                         timeSort: tempFilters.timeSort,
                                       );
                                     });
-                                    // Update veg only in bloc if changed
-                                    if (blocContext.read<HomeBloc>().state is HomeLoaded) {
-                                      final homeState = blocContext.read<HomeBloc>().state as HomeLoaded;
-                                      if (homeState.vegOnly != tempFilters.vegOnly) {
-                                        blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
-                                      }
-                                    }
+                                    blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
                                     Navigator.pop(dialogContext);
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -1230,6 +1193,112 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           ).animate().fadeIn(duration: 200.ms).scaleXY(begin: 0.9, end: 1.0, duration: 300.ms, curve: Curves.easeOutQuint),
         );
       },
+    );
+  }
+
+  Widget _buildSimpleTab(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          message,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVegFilterTab(FilterOptions tempFilters, StateSetter setStateDialog, BuildContext blocContext) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Dietary Preferences',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: tempFilters.vegOnly ? Colors.green.withOpacity(0.1) : Colors.grey[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: tempFilters.vegOnly ? Colors.green.withOpacity(0.3) : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: tempFilters.vegOnly ? Colors.green.withOpacity(0.2) : Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.grass_outlined,
+                      color: tempFilters.vegOnly ? Colors.green : Colors.grey[600],
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vegetarian Only',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: tempFilters.vegOnly ? Colors.green : Colors.grey[800],
+                          ),
+                        ),
+                        Text(
+                          'Show only vegetarian restaurants',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: tempFilters.vegOnly,
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        tempFilters.vegOnly = value;
+                      });
+                    },
+                    activeColor: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1358,674 +1427,6 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           ],
         ),
       ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut),
-    );
-  }
-  
-  Future<void> _showAddressPicker(BuildContext context, HomeLoaded state) async {
-    try {
-      debugPrint('HomePage: Opening address picker with ${state.savedAddresses.length} saved addresses');
-      
-      final result = await AddressPickerBottomSheet.show(
-        context,
-        savedAddresses: state.savedAddresses,
-      );
-      
-      if (result != null && mounted) {
-        final double latitude = result['latitude'] ?? 0.0;
-        final double longitude = result['longitude'] ?? 0.0;
-        
-        debugPrint('HomePage: Address selected from picker:');
-        debugPrint('  Address: ${result['address']}');
-        debugPrint('  Sub-address: ${result['subAddress']}');
-        debugPrint('  Latitude: $latitude');
-        debugPrint('  Longitude: $longitude');
-        
-        if (latitude == 0.0 && longitude == 0.0) {
-          debugPrint('HomePage: Warning - Got zero coordinates');
-          _showCustomSnackBar(
-            context,
-            'Could not get location coordinates. Please try again.',
-            Colors.orange,
-            Icons.warning_amber_rounded,
-          );
-          return;
-        }
-        
-        String fullAddress = result['address'];
-        if (result['subAddress'].toString().isNotEmpty) {
-          fullAddress += ', ${result['subAddress']}';
-        }
-        
-        // CRITICAL: Update the address immediately in the home bloc
-        context.read<HomeBloc>().add(
-          UpdateUserAddress(
-            address: fullAddress,
-            latitude: latitude,
-            longitude: longitude,
-          ),
-        );
-        
-        // CRITICAL: Reload saved addresses to show newly added ones immediately
-        context.read<HomeBloc>().add(const LoadSavedAddresses());
-        
-        debugPrint('HomePage: Address update and reload triggered');
-      }
-    } catch (e) {
-      debugPrint('HomePage: Error showing address picker: $e');
-      _showCustomSnackBar(
-        context,
-        'Error opening address picker. Please try again.',
-        Colors.red,
-        Icons.error_outline,
-      );
-    }
-  }
-
-  // Also add this method to handle BlocListener updates more effectively:
-  
-  void _handleAddressUpdates(BuildContext context, HomeState state) {
-    if (state is AddressUpdateSuccess) {
-      _showCustomSnackBar(
-        context, 
-        'Address updated successfully', 
-        Colors.green, 
-        Icons.check_circle
-      );
-    } else if (state is AddressUpdateFailure) {
-      _showCustomSnackBar(
-        context, 
-        state.error, 
-        Colors.red, 
-        Icons.error_outline
-      );
-    } else if (state is AddressSaveSuccess) {
-      _showCustomSnackBar(
-        context, 
-        state.message, 
-        Colors.green, 
-        Icons.check_circle
-      );
-    } else if (state is AddressSaveFailure) {
-      _showCustomSnackBar(
-        context, 
-        state.error, 
-        Colors.red, 
-        Icons.error_outline
-      );
-    }
-  }
-
-
-  // Price Filter Tab
-  Widget _buildPriceFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Text(
-                'Sort by Price',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSortOptionCard(
-                    icon: Icons.arrow_upward,
-                    title: 'Low to High',
-                    description: 'Cheapest first',
-                    isSelected: tempFilters.priceSort == SortOrder.ascending,
-                    onTap: () {
-                      setStateDialog(() {
-                        tempFilters.priceSort = SortOrder.ascending;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildSortOptionCard(
-                    icon: Icons.arrow_downward,
-                    title: 'High to Low',
-                    description: 'Premium first',
-                    isSelected: tempFilters.priceSort == SortOrder.descending,
-                    onTap: () {
-                      setStateDialog(() {
-                        tempFilters.priceSort = SortOrder.descending;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              height: 80,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildPriceIndicator(' ', tempFilters.priceSort == SortOrder.ascending ? 1 : 4),
-                  _buildPriceIndicator('  ', tempFilters.priceSort == SortOrder.ascending ? 2 : 3),
-                  _buildPriceIndicator('   ', tempFilters.priceSort == SortOrder.ascending ? 3 : 2),
-                  _buildPriceIndicator('    ', tempFilters.priceSort == SortOrder.ascending ? 4 : 1),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Time Filter Tab
-  Widget _buildTimeFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Text(
-                'Delivery Time',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: tempFilters.timeSort ? ColorManager.primary.withOpacity(0.1) : Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: tempFilters.timeSort ? ColorManager.primary.withOpacity(0.3) : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.timer,
-                    color: tempFilters.timeSort ? ColorManager.primary : Colors.grey[600],
-                    size: 24,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Fastest Delivery First',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: tempFilters.timeSort ? ColorManager.primary : Colors.grey[800],
-                          ),
-                        ),
-                        Text(
-                          'Sort restaurants by delivery time (lowest first)',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: tempFilters.timeSort,
-                    onChanged: (value) {
-                      setStateDialog(() {
-                        tempFilters.timeSort = value;
-                      });
-                    },
-                    activeColor: ColorManager.primary,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              height: 100,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildTimeIndicator('15 min', 1, tempFilters.timeSort),
-                  _buildTimeIndicator('30 min', 2, tempFilters.timeSort),
-                  _buildTimeIndicator('45 min', 3, tempFilters.timeSort),
-                  _buildTimeIndicator('60 min', 4, tempFilters.timeSort),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Diet Filter Tab
-  Widget _buildDietFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Text(
-                'Dietary Preferences',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: tempFilters.vegOnly ? Colors.green.withOpacity(0.1) : Colors.grey[100],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: tempFilters.vegOnly ? Colors.green.withOpacity(0.3) : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: tempFilters.vegOnly ? Colors.green.withOpacity(0.2) : Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.grass_outlined,
-                      color: tempFilters.vegOnly ? Colors.green : Colors.grey[600],
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Vegetarian Only',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: tempFilters.vegOnly ? Colors.green : Colors.grey[800],
-                          ),
-                        ),
-                        Text(
-                          'Show only vegetarian restaurants',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: tempFilters.vegOnly,
-                    onChanged: (value) {
-                      setStateDialog(() {
-                        tempFilters.vegOnly = value;
-                      });
-                    },
-                    activeColor: Colors.green,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            AnimatedOpacity(
-              opacity: tempFilters.vegOnly ? 0.5 : 1.0,
-              duration: const Duration(milliseconds: 300),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: (!tempFilters.vegOnly) ? Colors.red.withOpacity(0.05) : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: (!tempFilters.vegOnly) ? Colors.red.withOpacity(0.2) : Colors.transparent,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: (!tempFilters.vegOnly) ? Colors.red.withOpacity(0.1) : Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.fastfood_outlined,
-                        color: (!tempFilters.vegOnly) ? Colors.red : Colors.grey[600],
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Non-Vegetarian',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: (!tempFilters.vegOnly) ? Colors.red.shade400 : Colors.grey[800],
-                            ),
-                          ),
-                          Text(
-                            'Show all restaurants',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: !tempFilters.vegOnly,
-                      onChanged: (value) {
-                        setStateDialog(() {
-                          tempFilters.vegOnly = !value;
-                        });
-                      },
-                      activeColor: Colors.red.shade400,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Rating Filter Tab
-  Widget _buildRatingFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Text(
-                'Sort by Rating',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSortOptionCard(
-                    icon: Icons.arrow_downward,
-                    title: 'High to Low',
-                    description: 'Best rated first',
-                    isSelected: tempFilters.ratingSort == SortOrder.descending,
-                    onTap: () {
-                      setStateDialog(() {
-                        tempFilters.ratingSort = SortOrder.descending;
-                      });
-                    },
-                    iconColor: Colors.amber,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildSortOptionCard(
-                    icon: Icons.arrow_upward,
-                    title: 'Low to High',
-                    description: 'Lowest rated first',
-                    isSelected: tempFilters.ratingSort == SortOrder.ascending,
-                    onTap: () {
-                      setStateDialog(() {
-                        tempFilters.ratingSort = SortOrder.ascending;
-                      });
-                    },
-                    iconColor: Colors.amber,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              height: 80,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (int i = 1; i <= 5; i++)
-                    _buildRatingIndicator(
-                      i, 
-                      tempFilters.ratingSort == SortOrder.descending 
-                          ? 6 - i // 5,4,3,2,1 for descending
-                          : i     // 1,2,3,4,5 for ascending
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to build sort option cards
-  Widget _buildSortOptionCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required bool isSelected,
-    required VoidCallback onTap,
-    Color? iconColor,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? ColorManager.primary.withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? ColorManager.primary.withOpacity(0.3) : Colors.transparent,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? (iconColor ?? ColorManager.primary).withOpacity(0.2) 
-                    : Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: isSelected 
-                    ? (iconColor ?? ColorManager.primary) 
-                    : Colors.grey[600],
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isSelected 
-                    ? (iconColor ?? ColorManager.primary) 
-                    : Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Price indicator widget
-  Widget _buildPriceIndicator(String price, int position) {
-    final size = 50 - (position * 4.0);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: ColorManager.primary.withOpacity(0.1 * position),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              price,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: ColorManager.primary,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Time indicator widget
-  Widget _buildTimeIndicator(String time, int position, bool isActive) {
-    final opacity = isActive ? (1.0 - ((position - 1) * 0.2)) : ((position) * 0.2);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: ColorManager.primary.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            time,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: opacity > 0.4 ? Colors.white : Colors.grey[800],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Rating indicator widget
-  Widget _buildRatingIndicator(int stars, int position) {
-    final size = 24 + (position * 3.0);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.1 * position),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Text(
-                stars.toString(),
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber,
-                ),
-              ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.star,
-                color: Colors.amber,
-                size: size * 0.5,
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

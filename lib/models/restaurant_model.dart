@@ -1,4 +1,4 @@
-// lib/models/restaurant_model.dart - Fixed version that handles null values
+// lib/models/restaurant_model.dart - COMPLETELY FIXED VERSION
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
@@ -40,57 +40,113 @@ class Restaurant {
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
-    // CRITICAL FIX: Handle restaurant_photos properly
-    List<String> photos = [];
     try {
-      final photosField = json['restaurant_photos'];
-      if (photosField != null && photosField.toString().isNotEmpty) {
-        if (photosField is String) {
-          // Handle string representation like "[\"url1\", \"url2\"]"
-          String photosString = photosField.toString();
-          if (photosString.startsWith('[') && photosString.endsWith(']')) {
-            // Remove brackets and parse
-            photosString = photosString.substring(1, photosString.length - 1);
-            if (photosString.isNotEmpty) {
-              photos = photosString
-                  .split(',')
-                  .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
-                  .where((e) => e.isNotEmpty)
-                  .toList();
+      debugPrint('Restaurant.fromJson: Parsing restaurant data: ${json.keys}');
+      
+      // CRITICAL FIX: Handle restaurant_photos properly
+      List<String> photos = [];
+      try {
+        final photosField = json['restaurant_photos'];
+        if (photosField != null && photosField.toString().isNotEmpty) {
+          if (photosField is String) {
+            // Handle string representation like "[\"url1\", \"url2\"]"
+            String photosString = photosField.toString();
+            if (photosString.startsWith('[') && photosString.endsWith(']')) {
+              // Remove brackets and parse
+              photosString = photosString.substring(1, photosString.length - 1);
+              if (photosString.isNotEmpty) {
+                photos = photosString
+                    .split(',')
+                    .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+              }
+            } else if (photosString.isNotEmpty && !photosString.startsWith('[')) {
+              // Single URL as string
+              photos = [photosString];
             }
-          } else if (photosString.isNotEmpty && !photosString.startsWith('[')) {
-            // Single URL as string
-            photos = [photosString];
+          } else if (photosField is List) {
+            // Handle actual list
+            photos = List<String>.from(photosField);
           }
-        } else if (photosField is List) {
-          // Handle actual list
-          photos = List<String>.from(photosField);
         }
+      } catch (e) {
+        debugPrint('Restaurant: Error parsing photos: $e');
+        photos = [];
       }
-    } catch (e) {
-      debugPrint('Restaurant: Error parsing photos: $e');
-      photos = [];
-    }
 
-    // CRITICAL FIX: Safe parsing for all fields
-    return Restaurant(
-      id: json['partner_id']?.toString() ?? json['id']?.toString() ?? '',
-      name: json['restaurant_name']?.toString() ?? json['name']?.toString() ?? 'Unknown Restaurant',
-      address: json['address']?.toString() ?? 'Address not available',
-      description: json['description']?.toString(),
-      cuisine: json['category']?.toString() ?? json['cuisine']?.toString() ?? '',
-      rating: _parseDouble(json['rating']),
-      openNow: _determineOpenStatus(json['open_timings']?.toString()),
-      closesAt: _extractClosingTime(json['open_timings']?.toString()),
-      imageUrl: _getImageUrl(json, photos),
-      isVeg: _parseVegStatus(json),
-      latitude: _parseDouble(json['latitude']),
-      longitude: _parseDouble(json['longitude']),
-      openTimings: json['open_timings']?.toString(),
-      ownerName: json['owner_name']?.toString(),
-      restaurantType: json['restaurant_type']?.toString(),
-      photos: photos,
-    );
+      // CRITICAL FIX: Safe parsing for all fields with multiple possible field names
+      final id = json['partner_id']?.toString() ?? 
+                 json['id']?.toString() ?? 
+                 json['restaurant_id']?.toString() ?? 
+                 '';
+      
+      final name = json['restaurant_name']?.toString() ?? 
+                   json['name']?.toString() ?? 
+                   'Unknown Restaurant';
+      
+      final address = json['address']?.toString() ?? 'Address not available';
+      
+      final description = json['description']?.toString();
+      
+      final cuisine = json['category']?.toString() ?? 
+                     json['cuisine']?.toString() ?? 
+                     json['cuisine_type']?.toString() ?? 
+                     '';
+      
+      final rating = _parseDouble(json['rating']);
+      
+      final openNow = _determineOpenStatus(json['open_timings']?.toString());
+      
+      final closesAt = _extractClosingTime(json['open_timings']?.toString());
+      
+      final imageUrl = _getImageUrl(json, photos);
+      
+      final isVeg = _parseVegStatus(json);
+      
+      final latitude = _parseDouble(json['latitude']);
+      
+      final longitude = _parseDouble(json['longitude']);
+      
+      final openTimings = json['open_timings']?.toString();
+      
+      final ownerName = json['owner_name']?.toString();
+      
+      final restaurantType = json['restaurant_type']?.toString();
+
+      debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name');
+      
+      return Restaurant(
+        id: id,
+        name: name,
+        address: address,
+        description: description,
+        cuisine: cuisine,
+        rating: rating,
+        openNow: openNow,
+        closesAt: closesAt,
+        imageUrl: imageUrl,
+        isVeg: isVeg,
+        latitude: latitude,
+        longitude: longitude,
+        openTimings: openTimings,
+        ownerName: ownerName,
+        restaurantType: restaurantType,
+        photos: photos,
+      );
+    } catch (e) {
+      debugPrint('Restaurant.fromJson: Error parsing restaurant: $e');
+      debugPrint('Restaurant.fromJson: Raw data: $json');
+      
+      // Return a fallback restaurant instead of throwing
+      return Restaurant(
+        id: json['partner_id']?.toString() ?? json['id']?.toString() ?? 'unknown',
+        name: json['restaurant_name']?.toString() ?? json['name']?.toString() ?? 'Unknown Restaurant',
+        address: json['address']?.toString() ?? 'Address not available',
+        cuisine: json['category']?.toString() ?? json['cuisine']?.toString() ?? 'Unknown',
+        isVeg: false,
+      );
+    }
   }
 
   // Helper method to safely parse double values
@@ -98,29 +154,45 @@ class Restaurant {
     if (value == null) return null;
     if (value is double) return value;
     if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value);
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) return parsed;
+    }
     return null;
   }
 
   // Helper method to determine vegetarian status
   static bool _parseVegStatus(Map<String, dynamic> json) {
+    // Check veg_nonveg field first
     final vegNonVeg = json['veg_nonveg']?.toString().toLowerCase();
     if (vegNonVeg == 'veg') return true;
     if (vegNonVeg == 'non-veg' || vegNonVeg == 'nonveg') return false;
     
+    // Check isVeg field
     final isVeg = json['isVeg'];
     if (isVeg is bool) return isVeg;
     if (isVeg is String) return isVeg.toLowerCase() == 'true';
+    if (isVeg is int) return isVeg == 1;
+    
+    // Check is_veg field
+    final isVegAlt = json['is_veg'];
+    if (isVegAlt is bool) return isVegAlt;
+    if (isVegAlt is String) return isVegAlt.toLowerCase() == 'true';
+    if (isVegAlt is int) return isVegAlt == 1;
     
     return false; // Default to non-veg if unclear
   }
 
   // Helper method to get the best image URL
   static String? _getImageUrl(Map<String, dynamic> json, List<String> photos) {
-    // Try direct image field first
-    final directImage = json['image']?.toString();
-    if (directImage != null && directImage.isNotEmpty) {
-      return directImage;
+    // Try different possible image field names
+    final imageFields = ['image', 'image_url', 'restaurant_image', 'photo'];
+    
+    for (final field in imageFields) {
+      final directImage = json[field]?.toString();
+      if (directImage != null && directImage.isNotEmpty && directImage != 'null') {
+        return directImage;
+      }
     }
     
     // Use first photo if available
@@ -134,19 +206,24 @@ class Restaurant {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'partner_id': id, // For compatibility
       'name': name,
+      'restaurant_name': name, // For compatibility
       'imageUrl': imageUrl ?? (photos.isNotEmpty ? photos.first : ''),
       'cuisine': cuisine,
+      'category': cuisine, // For compatibility
       'rating': rating ?? 0.0,
       'price': '₹200 for two', // Default value as API doesn't provide this
       'deliveryTime': '20-30 mins', // Default value as API doesn't provide this
       'isVegetarian': isVeg,
+      'isVeg': isVeg, // For compatibility
+      'veg_nonveg': isVeg ? 'veg' : 'non-veg', // For compatibility
       'distance': 1.2, // Default value as API doesn't provide this
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
       'restaurantType': restaurantType,
-      'category': cuisine, // Map cuisine to category for compatibility
+      'restaurant_type': restaurantType, // For compatibility
     };
   }
   

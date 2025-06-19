@@ -258,6 +258,14 @@ class _OrderDetailsContent extends StatelessWidget {
             ),
                         
             SizedBox(height: screenHeight * 0.02),
+            
+            // Track Order Button - Only show for ongoing orders
+            if (orderDetails.orderStatus.toLowerCase() != 'delivered' && 
+                orderDetails.orderStatus.toLowerCase() != 'cancelled' &&
+                orderDetails.orderStatus.toLowerCase() != 'canceled')
+              _buildTrackOrderButton(context, orderDetails, screenWidth, screenHeight),
+            
+            SizedBox(height: screenHeight * 0.02),
           ],
         ),
       ),
@@ -270,31 +278,47 @@ class _OrderDetailsContent extends StatelessWidget {
     
     switch (orderDetails.orderStatus.toLowerCase()) {
       case 'pending':
-        statusColor = Colors.orange;
+        statusColor = ColorManager.primary;
         statusIcon = Icons.schedule;
         break;
+      case 'confirmed':
+        statusColor = ColorManager.primary;
+        statusIcon = Icons.check_circle_outline;
+        break;
       case 'preparing':
-        statusColor = Colors.blue;
+        statusColor = ColorManager.primary;
         statusIcon = Icons.restaurant;
         break;
+      case 'ready_for_delivery':
+        statusColor = ColorManager.primary;
+        statusIcon = Icons.check_circle;
+        break;
       case 'ready':
-        statusColor = Colors.green;
+        statusColor = ColorManager.primary;
         statusIcon = Icons.check_circle;
         break;
       case 'on_the_way':
-        statusColor = Colors.purple;
+        statusColor = ColorManager.primary;
+        statusIcon = Icons.delivery_dining;
+        break;
+      case 'out_for_delivery':
+        statusColor = ColorManager.primary;
         statusIcon = Icons.delivery_dining;
         break;
       case 'delivered':
-        statusColor = Colors.green;
+        statusColor = ColorManager.primary;
         statusIcon = Icons.check_circle_outline;
         break;
       case 'cancelled':
         statusColor = Colors.red;
         statusIcon = Icons.cancel;
         break;
+      case 'canceled':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        break;
       default:
-        statusColor = Colors.grey;
+        statusColor = ColorManager.primary;
         statusIcon = Icons.info;
     }
 
@@ -742,5 +766,660 @@ class _OrderDetailsContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildTrackOrderButton(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(screenWidth * 0.04),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            ColorManager.primary.withOpacity(0.05),
+            ColorManager.primary.withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(screenWidth * 0.03),
+        border: Border.all(
+          color: ColorManager.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(screenWidth * 0.02),
+                decoration: BoxDecoration(
+                  color: ColorManager.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                ),
+                child: Icon(
+                  Icons.location_on,
+                  color: ColorManager.primary,
+                  size: screenWidth * 0.05,
+                ),
+              ),
+              SizedBox(width: screenWidth * 0.03),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Track Your Order',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.045,
+                        fontWeight: FontWeightManager.bold,
+                        fontFamily: FontFamily.Montserrat,
+                        color: ColorManager.black,
+                      ),
+                    ),
+                    Text(
+                      'Get real-time updates on your order status and delivery progress',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: screenHeight * 0.02),
+          SizedBox(
+            width: double.infinity,
+            height: screenHeight * 0.055,
+            child: ElevatedButton(
+              onPressed: () {
+                _showTrackingDialog(context, orderDetails, screenWidth, screenHeight);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shadowColor: ColorManager.primary.withOpacity(0.3),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(screenWidth * 0.025),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.track_changes,
+                    size: screenWidth * 0.045,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: screenWidth * 0.02),
+                  Text(
+                    'Track Order',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeightManager.semiBold,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTrackingDialog(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(screenWidth * 0.04),
+          ),
+          child: Container(
+            width: screenWidth * 0.9,
+            constraints: BoxConstraints(
+              maxHeight: screenHeight * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: EdgeInsets.all(screenWidth * 0.05),
+                  decoration: BoxDecoration(
+                    color: ColorManager.primary,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(screenWidth * 0.04),
+                      topRight: Radius.circular(screenWidth * 0.04),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        color: Colors.white,
+                        size: screenWidth * 0.06,
+                      ),
+                      SizedBox(width: screenWidth * 0.03),
+                      Expanded(
+                        child: Text(
+                          'Order Tracking',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.05,
+                            fontWeight: FontWeightManager.bold,
+                            fontFamily: FontFamily.Montserrat,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: screenWidth * 0.05,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Scrollable Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(screenWidth * 0.05),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Order ID
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(screenWidth * 0.04),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Order ID',
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.035,
+                                  fontFamily: FontFamily.Montserrat,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              SizedBox(height: screenHeight * 0.005),
+                              Text(
+                                '#${orderDetails.orderId}',
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.04,
+                                  fontWeight: FontWeightManager.semiBold,
+                                  fontFamily: FontFamily.Montserrat,
+                                  color: ColorManager.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        SizedBox(height: screenHeight * 0.03),
+                        
+                        // Current Status
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(screenWidth * 0.04),
+                          decoration: BoxDecoration(
+                            color: ColorManager.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                            border: Border.all(color: ColorManager.primary.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getStatusIcon(orderDetails.orderStatus),
+                                color: ColorManager.primary,
+                                size: screenWidth * 0.05,
+                              ),
+                              SizedBox(width: screenWidth * 0.03),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Current Status',
+                                      style: TextStyle(
+                                        fontSize: screenWidth * 0.035,
+                                        fontWeight: FontWeightManager.medium,
+                                        fontFamily: FontFamily.Montserrat,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    Text(
+                                      orderDetails.statusDisplayText,
+                                      style: TextStyle(
+                                        fontSize: screenWidth * 0.04,
+                                        fontWeight: FontWeightManager.bold,
+                                        fontFamily: FontFamily.Montserrat,
+                                        color: ColorManager.primary,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Raw: ${orderDetails.orderStatus}',
+                                      style: TextStyle(
+                                        fontSize: screenWidth * 0.03,
+                                        fontFamily: FontFamily.Montserrat,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        SizedBox(height: screenHeight * 0.03),
+                        
+                        // Tracking Timeline
+                        Text(
+                          'Order Progress',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeightManager.bold,
+                            fontFamily: FontFamily.Montserrat,
+                            color: ColorManager.black,
+                          ),
+                        ),
+                        
+                        SizedBox(height: screenHeight * 0.02),
+                        
+                        // Timeline items
+                        _buildTimelineItem(
+                          'Order Placed',
+                          'Your order has been confirmed and is being prepared',
+                          Icons.shopping_cart,
+                          ColorManager.primary,
+                          _isStatusCompleted(orderDetails.orderStatus, 'pending'),
+                          screenWidth,
+                          screenHeight,
+                        ),
+                        
+                        _buildTimelineItem(
+                          'Confirmed',
+                          'Your order has been confirmed by the restaurant',
+                          Icons.check_circle_outline,
+                          ColorManager.primary,
+                          _isStatusCompleted(orderDetails.orderStatus, 'confirmed'),
+                          screenWidth,
+                          screenHeight,
+                        ),
+                        
+                        _buildTimelineItem(
+                          'Preparing',
+                          'The restaurant is preparing your order',
+                          Icons.restaurant,
+                          ColorManager.primary,
+                          _isStatusCompleted(orderDetails.orderStatus, 'preparing'),
+                          screenWidth,
+                          screenHeight,
+                        ),
+                        
+                        _buildTimelineItem(
+                          'Ready for Delivery',
+                          'Your order is ready and waiting for delivery',
+                          Icons.check_circle,
+                          ColorManager.primary,
+                          _isStatusCompleted(orderDetails.orderStatus, 'ready_for_delivery'),
+                          screenWidth,
+                          screenHeight,
+                        ),
+                        
+                        _buildTimelineItem(
+                          'Out for Delivery',
+                          'Your order is on the way to you',
+                          Icons.delivery_dining,
+                          ColorManager.primary,
+                          _isStatusCompleted(orderDetails.orderStatus, 'out_for_delivery'),
+                          screenWidth,
+                          screenHeight,
+                        ),
+                        
+                        _buildTimelineItem(
+                          'Delivered',
+                          'Your order has been delivered successfully',
+                          Icons.home,
+                          ColorManager.primary,
+                          _isStatusCompleted(orderDetails.orderStatus, 'delivered'),
+                          screenWidth,
+                          screenHeight,
+                        ),
+                        
+                        SizedBox(height: screenHeight * 0.03),
+                        
+                        // Estimated delivery time
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(screenWidth * 0.04),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                ColorManager.primary.withOpacity(0.1),
+                                ColorManager.primary.withOpacity(0.05),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                            border: Border.all(color: ColorManager.primary.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(screenWidth * 0.02),
+                                decoration: BoxDecoration(
+                                  color: ColorManager.primary,
+                                  borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                                ),
+                                child: Icon(
+                                  Icons.access_time,
+                                  color: Colors.white,
+                                  size: screenWidth * 0.04,
+                                ),
+                              ),
+                              SizedBox(width: screenWidth * 0.03),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Estimated Delivery',
+                                      style: TextStyle(
+                                        fontSize: screenWidth * 0.035,
+                                        fontWeight: FontWeightManager.medium,
+                                        fontFamily: FontFamily.Montserrat,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    Text(
+                                      '25-35 minutes',
+                                      style: TextStyle(
+                                        fontSize: screenWidth * 0.04,
+                                        fontWeight: FontWeightManager.bold,
+                                        fontFamily: FontFamily.Montserrat,
+                                        color: ColorManager.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        SizedBox(height: screenHeight * 0.03),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Close button
+                Container(
+                  padding: EdgeInsets.all(screenWidth * 0.05),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: screenHeight * 0.055,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ColorManager.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(screenWidth * 0.025),
+                        ),
+                      ),
+                      child: Text(
+                        'Close',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          fontWeight: FontWeightManager.semiBold,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getStatusIcon(String orderStatus) {
+    switch (orderStatus.toLowerCase()) {
+      case 'pending':
+        return Icons.schedule;
+      case 'confirmed':
+        return Icons.check_circle_outline;
+      case 'preparing':
+        return Icons.restaurant;
+      case 'ready_for_delivery':
+        return Icons.check_circle;
+      case 'ready':
+        return Icons.check_circle;
+      case 'on_the_way':
+        return Icons.delivery_dining;
+      case 'out_for_delivery':
+        return Icons.delivery_dining;
+      case 'delivered':
+        return Icons.check_circle_outline;
+      case 'cancelled':
+        return Icons.cancel;
+      case 'canceled':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Widget _buildTimelineItem(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    bool isCompleted,
+    double screenWidth,
+    double screenHeight,
+  ) {
+    return Container(
+      margin: EdgeInsets.only(bottom: screenHeight * 0.02),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Timeline dot with line
+          Column(
+            children: [
+              Container(
+                width: screenWidth * 0.05,
+                height: screenWidth * 0.05,
+                decoration: BoxDecoration(
+                  color: isCompleted ? color : Colors.grey[300],
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isCompleted ? color : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                ),
+                child: isCompleted
+                    ? Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: screenWidth * 0.025,
+                      )
+                    : null,
+              ),
+              if (title != 'Delivered') // Don't show line for last item
+                Container(
+                  width: 2,
+                  height: screenHeight * 0.04,
+                  color: isCompleted ? color : Colors.grey[300],
+                ),
+            ],
+          ),
+          
+          SizedBox(width: screenWidth * 0.04),
+          
+          // Content
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.all(screenWidth * 0.04),
+              decoration: BoxDecoration(
+                color: isCompleted 
+                    ? color.withOpacity(0.1) 
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                border: Border.all(
+                  color: isCompleted 
+                      ? color.withOpacity(0.3) 
+                      : Colors.grey[200]!,
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(screenWidth * 0.015),
+                        decoration: BoxDecoration(
+                          color: isCompleted 
+                              ? color.withOpacity(0.2) 
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                        ),
+                        child: Icon(
+                          icon,
+                          color: isCompleted ? color : Colors.grey[500],
+                          size: screenWidth * 0.04,
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.03),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.04,
+                            fontWeight: FontWeightManager.semiBold,
+                            fontFamily: FontFamily.Montserrat,
+                            color: isCompleted ? ColorManager.black : Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                      if (isCompleted)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.02,
+                            vertical: screenHeight * 0.005,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(screenWidth * 0.015),
+                          ),
+                          child: Text(
+                            '✓',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: screenWidth * 0.03,
+                              fontWeight: FontWeightManager.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontFamily: FontFamily.Montserrat,
+                      color: Colors.grey[600],
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isStatusCompleted(String? orderStatus, String status) {
+    if (orderStatus == null) return false;
+    
+    final currentStatus = orderStatus.toLowerCase();
+    final targetStatus = status.toLowerCase();
+    
+    debugPrint('OrderDetailsView: Checking status completion');
+    debugPrint('OrderDetailsView: Current status: $currentStatus');
+    debugPrint('OrderDetailsView: Target status: $targetStatus');
+    
+    // Map API statuses to our timeline statuses
+    final statusMapping = {
+      'pending': 'pending',
+      'confirmed': 'confirmed',
+      'preparing': 'preparing', 
+      'ready_for_delivery': 'ready',
+      'ready': 'ready',
+      'on_the_way': 'on_the_way',
+      'out_for_delivery': 'on_the_way',
+      'delivered': 'delivered',
+      'cancelled': 'cancelled',
+      'canceled': 'cancelled',
+    };
+    
+    // Define the order of statuses
+    final statusOrder = ['pending', 'confirmed', 'preparing', 'ready', 'on_the_way', 'delivered'];
+    
+    // Map current status to our timeline status
+    final mappedCurrentStatus = statusMapping[currentStatus] ?? currentStatus;
+    final mappedTargetStatus = statusMapping[targetStatus] ?? targetStatus;
+    
+    debugPrint('OrderDetailsView: Mapped current status: $mappedCurrentStatus');
+    debugPrint('OrderDetailsView: Mapped target status: $mappedTargetStatus');
+    
+    final currentIndex = statusOrder.indexOf(mappedCurrentStatus);
+    final targetIndex = statusOrder.indexOf(mappedTargetStatus);
+    
+    debugPrint('OrderDetailsView: Current index: $currentIndex');
+    debugPrint('OrderDetailsView: Target index: $targetIndex');
+    
+    // Status is completed if current status is at or beyond the target status
+    // If current status is not in the order list, check if it's a final status
+    bool isCompleted;
+    if (currentIndex < 0) {
+      // Current status not in order list, check if it's a final status
+      isCompleted = ['delivered', 'cancelled'].contains(mappedCurrentStatus);
+    } else {
+      isCompleted = currentIndex >= targetIndex;
+    }
+    debugPrint('OrderDetailsView: Is completed: $isCompleted');
+    
+    return isCompleted;
   }
 }

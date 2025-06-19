@@ -196,8 +196,7 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
     try {
       debugPrint('OrderDetailsBloc: Tracking order: ${event.orderId}');
       
-      // For now, just refresh the order details
-      // In a real app, this could open a tracking screen or show live updates
+      // Refresh order details to get latest status
       add(RefreshOrderDetails(event.orderId));
     } catch (e) {
       debugPrint('OrderDetailsBloc: Error tracking order: $e');

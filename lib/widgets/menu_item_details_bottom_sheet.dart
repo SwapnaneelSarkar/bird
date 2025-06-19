@@ -635,34 +635,13 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: tags.map<Widget>((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              ColorManager.primary.withOpacity(0.2),
-                              ColorManager.primary.withOpacity(0.1),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: ColorManager.primary.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Text(
-                          tag,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: ColorManager.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                  Text(
+                    tags.join(', '),
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: ColorManager.black.withOpacity(0.8),
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
@@ -715,54 +694,6 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
                 ],
               ),
             ),
-          
-          // Cancellation policy with enhanced styling
-          if (isCancellable) ...[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF3CB043).withOpacity(0.1),
-                    const Color(0xFF3CB043).withOpacity(0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF3CB043).withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3CB043).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check_circle_outline,
-                      color: const Color(0xFF3CB043),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'This item can be cancelled',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: const Color(0xFF3CB043),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           
           const SizedBox(height: 20),
         ],

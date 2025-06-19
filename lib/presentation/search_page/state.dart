@@ -199,22 +199,18 @@ class SearchRestaurantInfo extends Equatable {
       final photosData = json['restaurant_photos'];
       if (photosData != null) {
         if (photosData is List) {
-          // If it's already a List, convert each item to String
           photos = photosData.map((e) => e.toString()).toList();
         } else if (photosData is String) {
-          // If it's a String, try to parse as JSON
           if (photosData.startsWith('[') && photosData.endsWith(']')) {
             if (photosData == '[]' || photosData.isEmpty) {
               photos = [];
             } else {
-              // Try to parse as JSON first
               try {
                 final parsed = jsonDecode(photosData);
                 if (parsed is List) {
                   photos = parsed.map((e) => e.toString()).toList();
                 }
               } catch (e) {
-                // If JSON parsing fails, fall back to string splitting
                 photos = photosData
                     .substring(1, photosData.length - 1)
                     .split(',')
@@ -224,7 +220,6 @@ class SearchRestaurantInfo extends Equatable {
               }
             }
           } else {
-            // Single string value
             photos = [photosData];
           }
         }
@@ -233,8 +228,16 @@ class SearchRestaurantInfo extends Equatable {
       debugPrint('Error parsing restaurant info photos: $e');
     }
 
+    // Extract partner_id from the restaurant data
+    String partnerId = '';
+    if (json['partner_id'] != null) {
+      partnerId = json['partner_id'].toString();
+    } else if (json['id'] != null) {
+      partnerId = json['id'].toString();
+    }
+
     return SearchRestaurantInfo(
-      id: json['id'] ?? '',
+      id: partnerId,
       name: json['name'] ?? '',
       address: json['address'] ?? '',
       rating: double.tryParse(json['rating'].toString()) ?? 0.0,

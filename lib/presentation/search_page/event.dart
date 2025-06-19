@@ -31,7 +31,7 @@ class SearchQueryChangedEvent extends SearchEvent {
     required this.query,
     this.latitude,
     this.longitude,
-    this.radius = 5.0,
+    this.radius = 20.0,
   });
 
   @override

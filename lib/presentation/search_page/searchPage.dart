@@ -539,17 +539,28 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       debugPrint('SearchPage: Converting restaurant ${restaurant.restaurantName} coordinates - Lat: ${restaurant.latitude}, Long: ${restaurant.longitude}');
       
       return {
+        'id': restaurant.partnerId,
+        'partner_id': restaurant.partnerId,
         'name': restaurant.restaurantName,
+        'restaurant_name': restaurant.restaurantName,
         'imageUrl': restaurant.restaurantPhotos.isNotEmpty 
           ? restaurant.restaurantPhotos.first 
           : 'assets/images/placeholder.jpg',
         'cuisine': restaurant.category,
+        'category': restaurant.category,
         'rating': restaurant.rating,
         'deliveryTime': '${(restaurant.distance / 1000).toStringAsFixed(1)} km',
-        'isVegetarian': false, // This info is not available in the new API response
+        'isVegetarian': false,
+        'isVeg': false,
+        'veg_nonveg': 'non-veg',
+        'address': restaurant.address,
         'latitude': restaurant.latitude.toString(),
         'longitude': restaurant.longitude.toString(),
-        'partner_id': restaurant.partnerId,
+        'distance': restaurant.distance,
+        'description': '',
+        'open_timings': '',
+        'owner_name': '',
+        'restaurant_type': '',
       };
     }).toList();
 
@@ -612,9 +623,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             
         debugPrint('SearchPage: Restaurant ${restaurant['name']} coordinates - Lat: $restaurantLat, Long: $restaurantLng');
         
+        // Sanitize restaurant name for Hero tag
+        final sanitizedName = _sanitizeRestaurantName(restaurant['name']);
+        
         // Using the same RestaurantCard as in the original
         return Hero(
-          tag: 'restaurant-${restaurant['name']}',
+          tag: 'search-result-$sanitizedName',
           child: RestaurantCard(
             name: restaurant['name'],
             imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
@@ -634,5 +648,16 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         );
       },
     );
+  }
+
+  // Helper method to sanitize restaurant names for Hero tags
+  String _sanitizeRestaurantName(String name) {
+    // Remove special characters and replace spaces with underscores
+    // Add 'search-' prefix to ensure uniqueness from home page tags
+    return 'search-' + name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '') // Remove special characters
+        .replaceAll(RegExp(r'\s+'), '_') // Replace spaces with underscores
+        .trim();
   }
 }

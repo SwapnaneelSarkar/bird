@@ -270,9 +270,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   Future<void> _onFilterByCategory(FilterByCategory event, Emitter<HomeState> emit) async {
+    debugPrint('HomeBloc: FilterByCategory event received with categoryName: ${event.categoryName}');
     final currentState = state;
     if (currentState is HomeLoaded) {
+      debugPrint('HomeBloc: Current selectedCategory: ${currentState.selectedCategory}');
+      debugPrint('HomeBloc: Setting new selectedCategory to: ${event.categoryName}');
       emit(currentState.copyWith(selectedCategory: event.categoryName));
+      debugPrint('HomeBloc: State updated with new selectedCategory');
+    } else {
+      debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update category');
     }
   }
 

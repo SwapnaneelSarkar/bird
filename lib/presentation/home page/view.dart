@@ -16,8 +16,6 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 
-enum SortOrder { ascending, descending }
-
 // Main home page widget
 class HomePage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -37,15 +35,19 @@ class HomePage extends StatelessWidget {
 // Filter options class with simplified approach
 class FilterOptions {
   bool vegOnly;
-  SortOrder priceSort;
-  SortOrder ratingSort;
-  bool timeSort; // true means sort by ascending time
+  bool priceLowToHigh; // true for low to high, false for high to low, null for no sorting
+  bool priceHighToLow; // true for high to low, false for low to high, null for no sorting
+  bool ratingHighToLow; // true for high to low, false for low to high, null for no sorting
+  bool ratingLowToHigh; // true for low to high, false for high to low, null for no sorting
+  bool timeSort; // true for fastest first, null for no sorting
   
   FilterOptions({
     this.vegOnly = false,
-    this.priceSort = SortOrder.ascending,
-    this.ratingSort = SortOrder.descending,
-    this.timeSort = true,
+    this.priceLowToHigh = false,
+    this.priceHighToLow = false,
+    this.ratingHighToLow = false,
+    this.ratingLowToHigh = false,
+    this.timeSort = false,
   });
 }
 
@@ -101,6 +103,14 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           },
           child: BlocBuilder<HomeBloc, HomeState>(
             builder: (context, state) {
+              debugPrint('HomePage: BlocBuilder received state: ${state.runtimeType}');
+              if (state is HomeLoaded) {
+                debugPrint('HomePage: BlocBuilder - selectedCategory: ${state.selectedCategory}');
+                debugPrint('HomePage: BlocBuilder - vegOnly: ${state.vegOnly}');
+                debugPrint('HomePage: BlocBuilder - restaurants count: ${state.restaurants.length}');
+                debugPrint('HomePage: BlocBuilder - filtered restaurants count: ${state.filteredRestaurants.length}');
+              }
+              
               if (state is HomeLoading) {
                 return _buildLoadingIndicator();
               } else if (state is HomeLoaded) {
@@ -126,12 +136,21 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         Icons.check_circle
       );
     } else if (state is AddressUpdateFailure) {
-      _showCustomSnackBar(
-        context, 
-        state.error, 
-        Colors.red, 
-        Icons.error_outline
-      );
+      // Check if it's an outside service area error
+      final errorMessage = state.error.toLowerCase();
+      if (errorMessage.contains('outside') && 
+          (errorMessage.contains('service') || errorMessage.contains('serviceable'))) {
+        // Don't show error snackbar for outside service area
+        // The UI will handle this gracefully
+        debugPrint('HomePage: Outside service area detected, handling gracefully');
+      } else {
+        _showCustomSnackBar(
+          context, 
+          state.error, 
+          Colors.red, 
+          Icons.error_outline
+        );
+      }
     } else if (state is AddressSaveSuccess) {
       _showCustomSnackBar(
         context, 
@@ -149,7 +168,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     }
   }
   
-  Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
+  Widget _buildHomeContent(BuildContext context, HomeLoaded state, {bool isOutsideServiceArea = false}) {
     debugPrint('UI: Showing home content with ${state.restaurants.length} restaurants');
     return Stack(
       children: [
@@ -205,11 +224,17 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                         .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
                         .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
-                      // All Restaurants
-                      _buildRestaurantsSection(context, state)
-                        .animate(controller: _animationController)
-                        .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
-                        .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
+                      // All Restaurants or Outside Service Area Message
+                      if (isOutsideServiceArea)
+                        _buildOutsideServiceableArea(context)
+                          .animate(controller: _animationController)
+                          .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
+                          .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut)
+                      else
+                        _buildRestaurantsSection(context, state)
+                          .animate(controller: _animationController)
+                          .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
+                          .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
                       const SizedBox(height: 24),
                     ],
@@ -228,75 +253,86 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       onTap: () => _showAddressPicker(context, state),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: ColorManager.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.location_on, color: ColorManager.primary, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Deliver to',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12, color: Colors.grey[600], letterSpacing: 0.3,
-                    ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isWide = constraints.maxWidth > 600;
+            
+            return Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ColorManager.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Row(
+                  child: Icon(Icons.location_on, color: ColorManager.primary, size: isWide ? 24 : 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          state.userAddress,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[800],
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        'Deliver to',
+                        style: GoogleFonts.poppins(
+                          fontSize: isWide ? 14 : 12, 
+                          color: Colors.grey[600], 
+                          letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200], borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.keyboard_arrow_down, color: ColorManager.primary, size: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              state.userAddress,
+                              style: GoogleFonts.poppins(
+                                fontSize: isWide ? 16 : 14, 
+                                fontWeight: FontWeight.w600, 
+                                color: Colors.grey[800],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200], 
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.keyboard_arrow_down, color: ColorManager.primary, size: isWide ? 18 : 16),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
-                gradient: LinearGradient(
-                  colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(30),
-                  onTap: () => Navigator.pushNamed(context, Routes.profileView),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Icon(Icons.person, color: ColorManager.primary, size: 24),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
+                    gradient: LinearGradient(
+                      colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      onTap: () => Navigator.pushNamed(context, Routes.profileView),
+                      child: Padding(
+                        padding: EdgeInsets.all(isWide ? 10 : 8),
+                        child: Icon(Icons.person, color: ColorManager.primary, size: isWide ? 26 : 24),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -307,46 +343,56 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       tag: 'search_bar',
       child: Material(
         color: Colors.transparent,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4), spreadRadius: 2)],
-              border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => _navigateToSearch(context, state),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: ColorManager.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.search, color: ColorManager.primary, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Search restaurants...',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14, color: Colors.grey[400], fontWeight: FontWeight.w400,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isWide = constraints.maxWidth > 600;
+            final double horizontalPadding = isWide ? 40.0 : 20.0;
+            final double height = isWide ? 60.0 : 52.0;
+            
+            return Container(
+              margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                height: height,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4), spreadRadius: 2)],
+                  border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => _navigateToSearch(context, state),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: ColorManager.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.search, color: ColorManager.primary, size: isWide ? 22 : 20),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Search restaurants...',
+                            style: GoogleFonts.poppins(
+                              fontSize: isWide ? 16 : 14, 
+                              color: Colors.grey[400], 
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -376,6 +422,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
+    debugPrint('HomePage: _buildCategoriesSection called with selectedCategory: ${state.selectedCategory}');
+    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: ${state.selectedCategory != null}');
     return Container(
       margin: const EdgeInsets.only(top: 8),
       child: Column(
@@ -402,7 +450,21 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () => context.read<HomeBloc>().add(const FilterByCategory(null)),
+                            onTap: () {
+                              debugPrint('HomePage: Show All button clicked. Current selected category: ${state.selectedCategory}');
+                              debugPrint('HomePage: Resetting all filters and category selection');
+                              
+                              // Reset the view's filter options
+                              setState(() {
+                                filterOptions = FilterOptions();
+                              });
+                              
+                              // Reset the bloc state
+                              context.read<HomeBloc>().add(const FilterByCategory(null));
+                              context.read<HomeBloc>().add(const ToggleVegOnly(false));
+                              
+                              debugPrint('HomePage: All filters and category selection reset');
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
@@ -458,14 +520,36 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               ],
             ),
           ),
-          SizedBox(
-            height: 140,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              children: _getCategoryItems(state.categories, state.selectedCategory),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double itemWidth = 100.0;
+              final double screenWidth = constraints.maxWidth;
+              final int maxVisibleItems = (screenWidth / itemWidth).floor();
+              final bool shouldScroll = state.categories.length > maxVisibleItems;
+              
+              final categoryItems = _getCategoryItems(state.categories, state.selectedCategory);
+              
+              if (shouldScroll) {
+                return SizedBox(
+                  height: 140,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    children: categoryItems,
+                  ),
+                );
+              } else {
+                return Container(
+                  height: 140,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: categoryItems,
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
@@ -473,6 +557,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategory) {
+    debugPrint('HomePage: Building category items. Selected category: $selectedCategory');
+    
     // Map for known category image associations
     final Map<String, String> imageMap = {
       'pizza': 'assets/images/pizza.jpg',
@@ -488,6 +574,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       String? imagePath;
       bool isSelected = selectedCategory?.toLowerCase() == categoryName;
       
+      debugPrint('HomePage: Category $categoryDisplayName - isSelected: $isSelected');
+      
       // Try to find exact matching image based on category name
       for (final entry in imageMap.entries) {
         if (categoryName == entry.key || 
@@ -497,16 +585,22 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         }
       }
       
+      // Get smart icon and color based on category name
+      final iconAndColor = _getSmartCategoryIconAndColor(categoryName);
+      final icon = iconAndColor['icon'] ?? category['icon'] ?? 'restaurant';
+      final color = iconAndColor['color'] ?? category['color'] ?? 'orange';
+      
       // If we have an image, build with image
       if (imagePath != null) {
         return _buildCategoryItem(
           categoryDisplayName, 
           imagePath, 
-          category['color'],
+          color,
           isSelected: isSelected,
           onTap: () {
-            // Toggle selection - if already selected, show all; otherwise filter by this category
+            debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
             final newCategory = isSelected ? null : categoryDisplayName;
+            debugPrint('HomePage: Setting new category to: $newCategory');
             context.read<HomeBloc>().add(FilterByCategory(newCategory));
           },
         );
@@ -515,17 +609,53 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       else {
         return _buildCategoryItemWithIcon(
           categoryDisplayName,
-          _getIconData(category['icon']), 
-          _getCategoryColor(category['color']),
+          _getIconData(icon), 
+          _getCategoryColor(color),
           isSelected: isSelected,
           onTap: () {
-            // Toggle selection - if already selected, show all; otherwise filter by this category
+            debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
             final newCategory = isSelected ? null : categoryDisplayName;
+            debugPrint('HomePage: Setting new category to: $newCategory');
             context.read<HomeBloc>().add(FilterByCategory(newCategory));
           },
         );
       }
     }).toList();
+  }
+
+  // Smart category icon and color selector based on category name
+  Map<String, String> _getSmartCategoryIconAndColor(String categoryName) {
+    // Food type based mapping
+    if (categoryName.contains('pizza')) {
+      return {'icon': 'local_pizza', 'color': 'red'};
+    } else if (categoryName.contains('burger') || categoryName.contains('sandwich')) {
+      return {'icon': 'lunch_dining', 'color': 'amber'};
+    } else if (categoryName.contains('sushi') || categoryName.contains('japanese') || categoryName.contains('asian')) {
+      return {'icon': 'set_meal', 'color': 'blue'};
+    } else if (categoryName.contains('dessert') || categoryName.contains('sweet') || categoryName.contains('ice') || categoryName.contains('cake')) {
+      return {'icon': 'icecream', 'color': 'pink'};
+    } else if (categoryName.contains('drink') || categoryName.contains('beverage') || categoryName.contains('juice') || categoryName.contains('coffee')) {
+      return {'icon': 'local_drink', 'color': 'teal'};
+    } else if (categoryName.contains('chinese') || categoryName.contains('noodle') || categoryName.contains('ramen')) {
+      return {'icon': 'ramen_dining', 'color': 'orange'};
+    } else if (categoryName.contains('breakfast') || categoryName.contains('bread') || categoryName.contains('bakery')) {
+      return {'icon': 'bakery_dining', 'color': 'brown'};
+    } else if (categoryName.contains('veg') || categoryName.contains('salad') || categoryName.contains('healthy')) {
+      return {'icon': 'spa', 'color': 'green'};
+    } else if (categoryName.contains('biryani') || categoryName.contains('rice') || categoryName.contains('indian')) {
+      return {'icon': 'restaurant', 'color': 'deepOrange'};
+    } else if (categoryName.contains('chicken') || categoryName.contains('meat') || categoryName.contains('grill')) {
+      return {'icon': 'restaurant_menu', 'color': 'red'};
+    } else if (categoryName.contains('seafood') || categoryName.contains('fish')) {
+      return {'icon': 'set_meal', 'color': 'blue'};
+    } else if (categoryName.contains('thai') || categoryName.contains('spicy')) {
+      return {'icon': 'whatshot', 'color': 'red'};
+    } else if (categoryName.contains('mexican') || categoryName.contains('taco')) {
+      return {'icon': 'local_dining', 'color': 'green'};
+    }
+    
+    // Default
+    return {'icon': 'restaurant', 'color': 'orange'};
   }
 
   Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor, {bool isSelected = false, VoidCallback? onTap}) {
@@ -747,9 +877,145 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
 
   Widget _buildRestaurantsSection(BuildContext context, HomeLoaded state) {
     debugPrint('UI: Building restaurants section with ${state.restaurants.length} restaurants');
+    debugPrint('UI: Current filter options - vegOnly: ${filterOptions.vegOnly}, priceLowToHigh: ${filterOptions.priceLowToHigh}, priceHighToLow: ${filterOptions.priceHighToLow}, ratingHighToLow: ${filterOptions.ratingHighToLow}, ratingLowToHigh: ${filterOptions.ratingLowToHigh}, timeSort: ${filterOptions.timeSort}');
     
     // Get filtered restaurants using the state's helper method
-    final filteredRestaurants = state.filteredRestaurants;
+    var filteredRestaurants = state.filteredRestaurants;
+    
+    // Debug: Print original restaurant data
+    debugPrint('=== ORIGINAL RESTAURANT DATA ===');
+    for (int i = 0; i < filteredRestaurants.length; i++) {
+      final restaurant = filteredRestaurants[i];
+      debugPrint('Restaurant $i: ${restaurant.name} - Rating: ${restaurant.rating} (${restaurant.rating.runtimeType}), Type: ${restaurant.restaurantType}, Veg: ${restaurant.isVeg}');
+    }
+    
+    // Apply additional filters from FilterOptions
+    if (filterOptions.ratingHighToLow) {
+      // Sort by rating high to low
+      filteredRestaurants.sort((a, b) {
+        final aRating = double.tryParse(a.rating?.toString() ?? '0') ?? 0.0;
+        final bRating = double.tryParse(b.rating?.toString() ?? '0') ?? 0.0;
+        return bRating.compareTo(aRating);
+      });
+      debugPrint('HomePage: Applied rating sort high to low');
+      
+      // Debug: Print sorted ratings
+      debugPrint('=== RATING SORT HIGH TO LOW ===');
+      for (int i = 0; i < filteredRestaurants.length; i++) {
+        final restaurant = filteredRestaurants[i];
+        final rating = double.tryParse(restaurant.rating?.toString() ?? '0') ?? 0.0;
+        debugPrint('Position $i: ${restaurant.name} - Rating: $rating');
+      }
+    } else if (filterOptions.ratingLowToHigh) {
+      // Sort by rating low to high
+      filteredRestaurants.sort((a, b) {
+        final aRating = double.tryParse(a.rating?.toString() ?? '0') ?? 0.0;
+        final bRating = double.tryParse(b.rating?.toString() ?? '0') ?? 0.0;
+        return aRating.compareTo(bRating);
+      });
+      debugPrint('HomePage: Applied rating sort low to high');
+      
+      // Debug: Print sorted ratings
+      debugPrint('=== RATING SORT LOW TO HIGH ===');
+      for (int i = 0; i < filteredRestaurants.length; i++) {
+        final restaurant = filteredRestaurants[i];
+        final rating = double.tryParse(restaurant.rating?.toString() ?? '0') ?? 0.0;
+        debugPrint('Position $i: ${restaurant.name} - Rating: $rating');
+      }
+    }
+    
+    if (filterOptions.timeSort) {
+      // Sort by delivery time (using rating as proxy for better restaurants)
+      filteredRestaurants.sort((a, b) {
+        final aRating = double.tryParse(a.rating?.toString() ?? '0') ?? 0.0;
+        final bRating = double.tryParse(b.rating?.toString() ?? '0') ?? 0.0;
+        return bRating.compareTo(aRating);
+      });
+      debugPrint('HomePage: Applied time sort');
+      
+      // Debug: Print sorted by time (rating)
+      debugPrint('=== TIME SORT (BY RATING) ===');
+      for (int i = 0; i < filteredRestaurants.length; i++) {
+        final restaurant = filteredRestaurants[i];
+        final rating = double.tryParse(restaurant.rating?.toString() ?? '0') ?? 0.0;
+        debugPrint('Position $i: ${restaurant.name} - Rating: $rating');
+      }
+    }
+    
+    // For price sorting, we'll use a simple heuristic based on restaurant type
+    if (filterOptions.priceLowToHigh) {
+      // Sort by restaurant type (assuming premium types are more expensive)
+      filteredRestaurants.sort((a, b) {
+        final aType = a.restaurantType?.toLowerCase() ?? '';
+        final bType = b.restaurantType?.toLowerCase() ?? '';
+        
+        // Simple price ranking based on restaurant type
+        int getPriceRank(String type) {
+          if (type.contains('premium') || type.contains('fine') || type.contains('restaurant')) return 3;
+          if (type.contains('casual') || type.contains('family') || type.contains('cloud kitchen')) return 2;
+          return 1; // budget/fast food
+        }
+        
+        return getPriceRank(aType).compareTo(getPriceRank(bType));
+      });
+      debugPrint('HomePage: Applied price sort low to high');
+      
+      // Debug: Print sorted by price (type)
+      debugPrint('=== PRICE SORT LOW TO HIGH ===');
+      for (int i = 0; i < filteredRestaurants.length; i++) {
+        final restaurant = filteredRestaurants[i];
+        final type = restaurant.restaurantType?.toLowerCase() ?? '';
+        int getPriceRank(String t) {
+          if (t.contains('premium') || t.contains('fine') || t.contains('restaurant')) return 3;
+          if (t.contains('casual') || t.contains('family') || t.contains('cloud kitchen')) return 2;
+          return 1;
+        }
+        final priceRank = getPriceRank(type);
+        debugPrint('Position $i: ${restaurant.name} - Type: $type (Price Rank: $priceRank)');
+      }
+    } else if (filterOptions.priceHighToLow) {
+      // Sort by restaurant type (premium first)
+      filteredRestaurants.sort((a, b) {
+        final aType = a.restaurantType?.toLowerCase() ?? '';
+        final bType = b.restaurantType?.toLowerCase() ?? '';
+        
+        // Simple price ranking based on restaurant type
+        int getPriceRank(String type) {
+          if (type.contains('premium') || type.contains('fine') || type.contains('restaurant')) return 3;
+          if (type.contains('casual') || type.contains('family') || type.contains('cloud kitchen')) return 2;
+          return 1; // budget/fast food
+        }
+        
+        return getPriceRank(bType).compareTo(getPriceRank(aType));
+      });
+      debugPrint('HomePage: Applied price sort high to low');
+      
+      // Debug: Print sorted by price (type)
+      debugPrint('=== PRICE SORT HIGH TO LOW ===');
+      for (int i = 0; i < filteredRestaurants.length; i++) {
+        final restaurant = filteredRestaurants[i];
+        final type = restaurant.restaurantType?.toLowerCase() ?? '';
+        int getPriceRank(String t) {
+          if (t.contains('premium') || t.contains('fine') || t.contains('restaurant')) return 3;
+          if (t.contains('casual') || t.contains('family') || t.contains('cloud kitchen')) return 2;
+          return 1;
+        }
+        final priceRank = getPriceRank(type);
+        debugPrint('Position $i: ${restaurant.name} - Type: $type (Price Rank: $priceRank)');
+      }
+    }
+    
+    // Debug: Print final filtered results
+    debugPrint('=== FINAL FILTERED RESULTS ===');
+    for (int i = 0; i < filteredRestaurants.length; i++) {
+      final restaurant = filteredRestaurants[i];
+      final rating = double.tryParse(restaurant.rating?.toString() ?? '0') ?? 0.0;
+      final type = restaurant.restaurantType?.toLowerCase() ?? '';
+      debugPrint('Final Position $i: ${restaurant.name} - Rating: $rating, Type: $type, Veg: ${restaurant.isVeg}');
+    }
+    
+    final isOutsideServiceableArea = state.userAddress != 'Add delivery address' && 
+                                   filteredRestaurants.isEmpty;
     
     return Container(
       margin: const EdgeInsets.only(top: 16),
@@ -784,47 +1050,152 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             ),
           ),
           const SizedBox(height: 16),
-          // Restaurant List or Empty State
-          filteredRestaurants.isEmpty
-              ? _buildEmptyRestaurantsList()
-              : Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredRestaurants.length,
-                    itemBuilder: (context, index) {
-                      final restaurant = filteredRestaurants[index];
-                      
-                      debugPrint('HomePage: Restaurant ${restaurant.name} coordinates - Lat: ${restaurant.latitude}, Long: ${restaurant.longitude}');
-                      
-                      return Hero(
-                        tag: 'restaurant-${restaurant.name}',
-                        child: RestaurantCard(
-                          name: restaurant.name,
-                          imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
-                          cuisine: restaurant.cuisine,
-                          rating: restaurant.rating ?? 0.0,
-                          deliveryTime: '20-30 mins', // Default as model doesn't have this
-                          isVeg: restaurant.isVeg,
-                          restaurantLatitude: restaurant.latitude,
-                          restaurantLongitude: restaurant.longitude,
-                          userLatitude: state.userLatitude,
-                          userLongitude: state.userLongitude,
-                          restaurantType: restaurant.restaurantType,
-                          onTap: () => _navigateToRestaurantDetails(context, restaurant),
-                        ).animate(controller: _animationController)
-                          .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
-                          .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
-                      );
-                    },
-                  ),
-                ),
+          // Restaurant List or Error/Empty State
+          if (isOutsideServiceableArea)
+            _buildOutsideServiceableArea(context)
+          else if (filteredRestaurants.isEmpty)
+            _buildEmptyRestaurantsList()
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Calculate number of columns based on width
+                  final double screenWidth = constraints.maxWidth;
+                  final int columns = (screenWidth / 400).floor().clamp(1, 2);
+                  final bool useGrid = columns > 1;
+                  
+                  if (useGrid) {
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        childAspectRatio: 1.6,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: filteredRestaurants.length,
+                      itemBuilder: (context, index) => _buildRestaurantItem(
+                        context, filteredRestaurants[index], state, index
+                      ),
+                    );
+                  } else {
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredRestaurants.length,
+                      itemBuilder: (context, index) => _buildRestaurantItem(
+                        context, filteredRestaurants[index], state, index
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
         ],
       ),
     );
   }
-  
+
+  Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded state, int index) {
+    final sanitizedName = _sanitizeRestaurantName(restaurant.name);
+    
+    return Hero(
+      tag: 'restaurant-$sanitizedName',
+      child: RestaurantCard(
+        name: restaurant.name,
+        imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
+        cuisine: restaurant.cuisine,
+        rating: restaurant.rating ?? 0.0,
+        deliveryTime: '20-30 mins',
+        isVeg: restaurant.isVeg,
+        restaurantLatitude: restaurant.latitude,
+        restaurantLongitude: restaurant.longitude,
+        userLatitude: state.userLatitude,
+        userLongitude: state.userLongitude,
+        restaurantType: restaurant.restaurantType,
+        onTap: () => _navigateToRestaurantDetails(context, restaurant),
+      ).animate(controller: _animationController)
+        .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+        .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
+    );
+  }
+
+  Widget _buildOutsideServiceableArea(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset(
+            'assets/images/duckling.jpg',
+            width: 200,
+            height: 200,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Outside Service Area',
+            style: GoogleFonts.poppins(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'We haven\'t spread our wings to this area yet.',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please try a different location within our service area.',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () {
+              final state = context.read<HomeBloc>().state;
+              if (state is HomeLoaded) {
+                _showAddressPicker(context, state);
+              }
+            },
+            icon: const Icon(Icons.place, color: Colors.white),
+            label: Text(
+              'Change Location',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFCF7C42),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(double.infinity, 54),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyRestaurantsList() {
     return Container(
       width: double.infinity,
@@ -899,7 +1270,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  void _navigateToRestaurantDetails(BuildContext context, restaurant) {
+  void _navigateToRestaurantDetails(BuildContext context, dynamic restaurant) {
     debugPrint('HomePage: Navigating to restaurant details');
     
     final state = context.read<HomeBloc>().state;
@@ -912,29 +1283,29 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       debugPrint('HomePage: User coordinates - Lat: $userLatitude, Long: $userLongitude');
     }
     
-    // Convert Restaurant model to the expected Map format for RestaurantDetailsPage
+    // Convert restaurant data to the expected Map format for RestaurantDetailsPage
     final restaurantData = <String, dynamic>{
-      'id': restaurant.id,
-      'partner_id': restaurant.id, // For compatibility
-      'name': restaurant.name,
-      'restaurant_name': restaurant.name, // For compatibility
-      'imageUrl': restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
-      'cuisine': restaurant.cuisine,
-      'category': restaurant.cuisine, // For compatibility
-      'rating': restaurant.rating ?? 0.0,
-      'isVegetarian': restaurant.isVeg,
-      'isVeg': restaurant.isVeg, // For compatibility
-      'veg_nonveg': restaurant.isVeg ? 'veg' : 'non-veg', // For compatibility
-      'address': restaurant.address,
-      'latitude': restaurant.latitude,
-      'longitude': restaurant.longitude,
-      'restaurantType': restaurant.restaurantType,
-      'restaurant_type': restaurant.restaurantType, // For compatibility
-      'description': restaurant.description,
-      'openTimings': restaurant.openTimings,
-      'open_timings': restaurant.openTimings, // For compatibility
-      'ownerName': restaurant.ownerName,
-      'owner_name': restaurant.ownerName, // For compatibility
+      'id': restaurant is Map ? restaurant['id'] : restaurant.id,
+      'partner_id': restaurant is Map ? restaurant['partner_id'] : restaurant.id,
+      'name': restaurant is Map ? restaurant['name'] : restaurant.name,
+      'restaurant_name': restaurant is Map ? restaurant['restaurant_name'] : restaurant.name,
+      'imageUrl': restaurant is Map ? restaurant['imageUrl'] : restaurant.imageUrl,
+      'cuisine': restaurant is Map ? restaurant['cuisine'] : restaurant.cuisine,
+      'category': restaurant is Map ? restaurant['category'] : restaurant.cuisine,
+      'rating': restaurant is Map ? restaurant['rating'] : restaurant.rating,
+      'isVegetarian': restaurant is Map ? restaurant['isVegetarian'] : restaurant.isVeg,
+      'isVeg': restaurant is Map ? restaurant['isVeg'] : restaurant.isVeg,
+      'veg_nonveg': restaurant is Map ? restaurant['veg_nonveg'] : (restaurant.isVeg ? 'veg' : 'non-veg'),
+      'address': restaurant is Map ? restaurant['address'] : restaurant.address,
+      'latitude': restaurant is Map ? restaurant['latitude'] : restaurant.latitude,
+      'longitude': restaurant is Map ? restaurant['longitude'] : restaurant.longitude,
+      'restaurantType': restaurant is Map ? restaurant['restaurantType'] : restaurant.restaurantType,
+      'restaurant_type': restaurant is Map ? restaurant['restaurant_type'] : restaurant.restaurantType,
+      'description': restaurant is Map ? restaurant['description'] : restaurant.description,
+      'openTimings': restaurant is Map ? restaurant['openTimings'] : restaurant.openTimings,
+      'open_timings': restaurant is Map ? restaurant['open_timings'] : restaurant.openTimings,
+      'ownerName': restaurant is Map ? restaurant['ownerName'] : restaurant.ownerName,
+      'owner_name': restaurant is Map ? restaurant['owner_name'] : restaurant.ownerName,
     };
     
     Navigator.of(context).push(
@@ -1023,8 +1394,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     final blocContext = context;
     FilterOptions tempFilters = FilterOptions(
       vegOnly: filterOptions.vegOnly,
-      priceSort: filterOptions.priceSort,
-      ratingSort: filterOptions.ratingSort,
+      priceLowToHigh: filterOptions.priceLowToHigh,
+      priceHighToLow: filterOptions.priceHighToLow,
+      ratingHighToLow: filterOptions.ratingHighToLow,
+      ratingLowToHigh: filterOptions.ratingLowToHigh,
       timeSort: filterOptions.timeSort,
     );
     showDialog(
@@ -1107,10 +1480,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           height: 280,
                           child: TabBarView(
                             children: [
-                              _buildSimpleTab('Price filtering coming soon!'),
-                              _buildSimpleTab('Time filtering coming soon!'),
+                              _buildPriceFilterTab(tempFilters, setStateDialog),
+                              _buildTimeFilterTab(tempFilters, setStateDialog),
                               _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
-                              _buildSimpleTab('Rating filtering coming soon!'),
+                              _buildRatingFilterTab(tempFilters, setStateDialog),
                             ],
                           ),
                         ),
@@ -1122,12 +1495,16 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: () {
+                                    debugPrint('HomePage: Resetting all filters');
+                                    
                                     setStateDialog(() {
                                       tempFilters = FilterOptions();
                                     });
+                                    
                                     setState(() {
                                       filterOptions = FilterOptions();
                                     });
+                                    
                                     blocContext.read<HomeBloc>().add(const ToggleVegOnly(false));
                                   },
                                   style: OutlinedButton.styleFrom(
@@ -1152,15 +1529,22 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                 flex: 2,
                                 child: ElevatedButton(
                                   onPressed: () {
+                                    debugPrint('HomePage: Applying filters - vegOnly: ${tempFilters.vegOnly}, priceLowToHigh: ${tempFilters.priceLowToHigh}, priceHighToLow: ${tempFilters.priceHighToLow}, ratingHighToLow: ${tempFilters.ratingHighToLow}, ratingLowToHigh: ${tempFilters.ratingLowToHigh}, timeSort: ${tempFilters.timeSort}');
+                                    
                                     setState(() {
                                       filterOptions = FilterOptions(
                                         vegOnly: tempFilters.vegOnly,
-                                        priceSort: tempFilters.priceSort,
-                                        ratingSort: tempFilters.ratingSort,
+                                        priceLowToHigh: tempFilters.priceLowToHigh,
+                                        priceHighToLow: tempFilters.priceHighToLow,
+                                        ratingHighToLow: tempFilters.ratingHighToLow,
+                                        ratingLowToHigh: tempFilters.ratingLowToHigh,
                                         timeSort: tempFilters.timeSort,
                                       );
                                     });
+                                    
+                                    // Apply veg filter through bloc
                                     blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
+                                    
                                     Navigator.pop(dialogContext);
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -1196,17 +1580,134 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildSimpleTab(String message) {
-    return Center(
+  Widget _buildPriceFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Text(
-          message,
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            color: Colors.grey[600],
-          ),
-          textAlign: TextAlign.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Sort by Price',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            _buildCheckboxOption(
+              title: 'Low to High',
+              subtitle: 'Sort by lowest price first',
+              value: tempFilters.priceLowToHigh,
+              color: Colors.green,
+              onChanged: (value) {
+                setStateDialog(() {
+                  tempFilters.priceLowToHigh = value;
+                  if (value) tempFilters.priceHighToLow = false; // Uncheck the other option
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildCheckboxOption(
+              title: 'High to Low',
+              subtitle: 'Sort by highest price first',
+              value: tempFilters.priceHighToLow,
+              color: Colors.orange,
+              onChanged: (value) {
+                setStateDialog(() {
+                  tempFilters.priceHighToLow = value;
+                  if (value) tempFilters.priceLowToHigh = false; // Uncheck the other option
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Sort by Delivery Time',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            _buildCheckboxOption(
+              title: 'Fastest First',
+              subtitle: 'Sort by shortest delivery time',
+              value: tempFilters.timeSort,
+              color: Colors.blue,
+              onChanged: (value) {
+                setStateDialog(() {
+                  tempFilters.timeSort = value;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRatingFilterTab(FilterOptions tempFilters, StateSetter setStateDialog) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Sort by Rating',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            _buildCheckboxOption(
+              title: 'Highest Rated',
+              subtitle: 'Sort by highest rating first',
+              value: tempFilters.ratingHighToLow,
+              color: Colors.amber,
+              onChanged: (value) {
+                setStateDialog(() {
+                  tempFilters.ratingHighToLow = value;
+                  if (value) tempFilters.ratingLowToHigh = false; // Uncheck the other option
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildCheckboxOption(
+              title: 'Lowest Rated',
+              subtitle: 'Sort by lowest rating first',
+              value: tempFilters.ratingLowToHigh,
+              color: Colors.grey,
+              onChanged: (value) {
+                setStateDialog(() {
+                  tempFilters.ratingLowToHigh = value;
+                  if (value) tempFilters.ratingHighToLow = false; // Uncheck the other option
+                });
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1230,71 +1731,16 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: tempFilters.vegOnly ? Colors.green.withOpacity(0.1) : Colors.grey[100],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: tempFilters.vegOnly ? Colors.green.withOpacity(0.3) : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: tempFilters.vegOnly ? Colors.green.withOpacity(0.2) : Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.grass_outlined,
-                      color: tempFilters.vegOnly ? Colors.green : Colors.grey[600],
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Vegetarian Only',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: tempFilters.vegOnly ? Colors.green : Colors.grey[800],
-                          ),
-                        ),
-                        Text(
-                          'Show only vegetarian restaurants',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: tempFilters.vegOnly,
-                    onChanged: (value) {
-                      setStateDialog(() {
-                        tempFilters.vegOnly = value;
-                      });
-                    },
-                    activeColor: Colors.green,
-                  ),
-                ],
-              ),
+            _buildCheckboxOption(
+              title: 'Vegetarian Only',
+              subtitle: 'Show only vegetarian restaurants',
+              value: tempFilters.vegOnly,
+              color: Colors.green,
+              onChanged: (value) {
+                setStateDialog(() {
+                  tempFilters.vegOnly = value;
+                });
+              },
             ),
           ],
         ),
@@ -1401,20 +1847,28 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             ),
             const SizedBox(height: 24),
             Text(
-              'Oops! Something went wrong',
+              'Location Not Serviceable',
               style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800]),
             ),
             const SizedBox(height: 12),
             Text(
-              state.message,
+              'We haven\'t spread our wings to this area yet.',
               style: GoogleFonts.poppins(fontSize: 16, color: Colors.red[400]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => context.read<HomeBloc>().add(const LoadHomeData()),
-              icon: const Icon(Icons.refresh),
-              label: Text('Try Again', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+              onPressed: () {
+                // Go back to previous location or default
+                if (previousAddress != null && previousAddress != 'Add delivery address') {
+                  // This would need to be implemented in the bloc
+                  context.read<HomeBloc>().add(const LoadHomeData());
+                } else {
+                  context.read<HomeBloc>().add(const LoadHomeData());
+                }
+              },
+              icon: const Icon(Icons.arrow_back),
+              label: Text('Back to last location', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ColorManager.primary,
                 foregroundColor: Colors.white,
@@ -1427,6 +1881,71 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           ],
         ),
       ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut),
+    );
+  }
+
+  // Helper method to sanitize restaurant names for Hero tags
+  String _sanitizeRestaurantName(String name) {
+    // Remove special characters and replace spaces with underscores
+    return name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '') // Remove special characters
+        .replaceAll(RegExp(r'\s+'), '_') // Replace spaces with underscores
+        .trim();
+  }
+
+  Widget _buildCheckboxOption({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required Color color,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: value ? color.withOpacity(0.1) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: value ? color.withOpacity(0.3) : Colors.transparent,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: value,
+            onChanged: (newValue) => onChanged(newValue ?? false),
+            activeColor: color,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: value ? color : Colors.grey[800],
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

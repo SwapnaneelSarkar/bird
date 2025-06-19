@@ -72,7 +72,7 @@ class HomeLoaded extends HomeState {
       userLatitude: userLatitude ?? this.userLatitude,
       userLongitude: userLongitude ?? this.userLongitude,
       vegOnly: vegOnly ?? this.vegOnly,
-      selectedCategory: selectedCategory ?? this.selectedCategory,
+      selectedCategory: selectedCategory,
       savedAddresses: savedAddresses ?? this.savedAddresses,
     );
   }

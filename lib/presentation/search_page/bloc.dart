@@ -163,15 +163,21 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       );
     }
 
-    // Extract restaurants from menu items and convert to SearchRestaurant format
-    final List<SearchRestaurant> restaurantsFromMenuItems = [];
-    final Set<String> addedRestaurantIds = {}; // To avoid duplicates
+    // Use a Map to store unique restaurants by their partner_id
+    final Map<String, SearchRestaurant> uniqueRestaurants = {};
     
+    // Add direct restaurants first
+    for (final restaurant in directRestaurants) {
+      uniqueRestaurants[restaurant.partnerId] = restaurant;
+    }
+    
+    // Add restaurants from menu items only if they don't already exist
     for (final menuItem in menuItems) {
       final restaurantInfo = menuItem.restaurant;
       
-      // Skip if we already added this restaurant
-      if (addedRestaurantIds.contains(restaurantInfo.id)) {
+      // Skip if we already have this restaurant from direct restaurants
+      if (uniqueRestaurants.containsKey(restaurantInfo.id)) {
+        debugPrint('SearchBloc: Skipping duplicate restaurant with ID: ${restaurantInfo.id}');
         continue;
       }
       
@@ -188,35 +194,16 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         distance: restaurantInfo.distance,
       );
       
-      restaurantsFromMenuItems.add(restaurantFromMenuItem);
-      addedRestaurantIds.add(restaurantInfo.id);
-    }
-
-    // Combine both restaurant lists and remove duplicates
-    final Map<String, SearchRestaurant> uniqueRestaurants = {};
-    
-    // Add direct restaurants
-    for (final restaurant in directRestaurants) {
-      uniqueRestaurants[restaurant.partnerId] = restaurant;
+      uniqueRestaurants[restaurantInfo.id] = restaurantFromMenuItem;
     }
     
-    // Add restaurants from menu items (only if not already present)
-    for (final restaurant in restaurantsFromMenuItems) {
-      if (!uniqueRestaurants.containsKey(restaurant.partnerId)) {
-        uniqueRestaurants[restaurant.partnerId] = restaurant;
-      }
-    }
-    
-    // Convert back to list
+    // Convert back to list and sort by distance
     final List<SearchRestaurant> allRestaurants = uniqueRestaurants.values.toList();
-    
-    // Sort by distance (closest first)
     allRestaurants.sort((a, b) => a.distance.compareTo(b.distance));
 
     debugPrint('SearchBloc: Found ${directRestaurants.length} direct restaurants');
-    debugPrint('SearchBloc: Found ${restaurantsFromMenuItems.length} restaurants from menu items');
-    debugPrint('SearchBloc: Total unique restaurants: ${allRestaurants.length}');
     debugPrint('SearchBloc: Found ${menuItems.length} menu items');
+    debugPrint('SearchBloc: Total unique restaurants: ${allRestaurants.length}');
 
     // Check if results are empty
     if (allRestaurants.isEmpty && menuItems.isEmpty) {

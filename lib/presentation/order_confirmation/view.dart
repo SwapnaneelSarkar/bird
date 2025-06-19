@@ -262,6 +262,16 @@ class _OrderConfirmationContent extends StatelessWidget {
                     name: item.name,
                     quantity: item.quantity,
                     price: item.totalPrice,
+                    itemId: item.id,
+                    onQuantityChanged: (itemId, newQuantity) {
+                      debugPrint('OrderConfirmationView: Quantity changed for item $itemId to $newQuantity');
+                      context.read<OrderConfirmationBloc>().add(
+                        UpdateOrderQuantity(
+                          itemId: itemId,
+                          newQuantity: newQuantity,
+                        ),
+                      );
+                    },
                   );
                 }).toList(),
 

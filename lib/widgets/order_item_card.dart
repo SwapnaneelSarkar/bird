@@ -7,6 +7,8 @@ class OrderItemCard extends StatelessWidget {
   final String name;
   final int quantity;
   final double price;
+  final String itemId;
+  final Function(String itemId, int newQuantity)? onQuantityChanged;
 
   const OrderItemCard({
     Key? key,
@@ -14,6 +16,8 @@ class OrderItemCard extends StatelessWidget {
     required this.name,
     required this.quantity,
     required this.price,
+    required this.itemId,
+    this.onQuantityChanged,
   }) : super(key: key);
 
   @override
@@ -89,8 +93,9 @@ class OrderItemCard extends StatelessWidget {
                 
                 SizedBox(height: screenHeight * 0.003), // Reduced spacing
                 
+                // Price per item
                 Text(
-                  'Qty: $quantity',
+                  '₹${(price / quantity).toStringAsFixed(2)} each',
                   style: TextStyle(
                     fontSize: (screenWidth * 0.03).clamp(11.0, 14.0), // Smaller font
                     fontWeight: FontWeightManager.regular,
@@ -102,15 +107,102 @@ class OrderItemCard extends StatelessWidget {
             ),
           ),
           
-          // Price with Rupee symbol
-          Text(
-            '₹${price.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: (screenWidth * 0.035).clamp(13.0, 16.0), // Smaller font
-              fontWeight: FontWeightManager.semiBold,
-              fontFamily: FontFamily.Montserrat,
-              color: ColorManager.black,
-            ),
+          // Quantity controls and total price
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Total price
+              Text(
+                '₹${price.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: (screenWidth * 0.035).clamp(13.0, 16.0), // Smaller font
+                  fontWeight: FontWeightManager.semiBold,
+                  fontFamily: FontFamily.Montserrat,
+                  color: ColorManager.black,
+                ),
+              ),
+              
+              SizedBox(height: screenHeight * 0.005),
+              
+              // Quantity controls
+              if (onQuantityChanged != null)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(
+                      color: Colors.grey[300]!,
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Minus button
+                      InkWell(
+                        onTap: () {
+                          final newQuantity = quantity > 0 ? quantity - 1 : 0;
+                          onQuantityChanged!(itemId, newQuantity);
+                        },
+                        borderRadius: BorderRadius.circular(50),
+                        child: Container(
+                          width: screenWidth * 0.08,
+                          height: screenWidth * 0.08,
+                          alignment: Alignment.center,
+                          child: Text(
+                            '-',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.045,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      // Quantity text
+                      SizedBox(
+                        width: screenWidth * 0.07,
+                        child: Text(
+                          quantity.toString(),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      
+                      // Plus button
+                      InkWell(
+                        onTap: () {
+                          onQuantityChanged!(itemId, quantity + 1);
+                        },
+                        borderRadius: BorderRadius.circular(50),
+                        child: Container(
+                          width: screenWidth * 0.08,
+                          height: screenWidth * 0.08,
+                          alignment: Alignment.center,
+                          child: Text(
+                            '+',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.045,
+                              color: ColorManager.primary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
       ),

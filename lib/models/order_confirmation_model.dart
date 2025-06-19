@@ -35,8 +35,6 @@ class OrderItem {
 
   double get totalPrice {
     final total = price * quantity;
-    // Debug print to see the calculation
-    print('OrderItem $name: price=$price, quantity=$quantity, totalPrice=$total');
     return total;
   }
 }

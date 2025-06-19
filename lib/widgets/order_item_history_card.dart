@@ -1,6 +1,7 @@
 // lib/widgets/order_item_history_card.dart - Updated with Chat Support button
 import 'package:flutter/material.dart';
 import '../presentation/order_history/state.dart';
+import '../constants/api_constant.dart';
 
 class OrderItemCard extends StatelessWidget {
   final OrderItem order;
@@ -48,7 +49,7 @@ class OrderItemCard extends StatelessWidget {
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(screenWidth * 0.02),
                         child: Image.network(
-                          order.imageUrl,
+                          _getFullImageUrl(order.imageUrl),
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Icon(
@@ -236,5 +237,25 @@ class OrderItemCard extends StatelessWidget {
       default:
         return const Color(0xFFE17A47);
     }
+  }
+
+  // Helper method to get the full image URL
+  String _getFullImageUrl(String imagePath) {
+    if (imagePath.isEmpty) {
+      return '';
+    }
+    
+    // Handle JSON-encoded URLs (remove quotes and brackets if present)
+    String cleanPath = imagePath;
+    if (cleanPath.startsWith('["') && cleanPath.endsWith('"]')) {
+      cleanPath = cleanPath.substring(2, cleanPath.length - 2);
+    } else if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+      cleanPath = cleanPath.substring(1, cleanPath.length - 1);
+    }
+    
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+    return '${ApiConstants.baseUrl}/api/${cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath}';
   }
 }

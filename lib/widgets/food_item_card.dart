@@ -4,6 +4,7 @@ import '../constants/color/colorConstant.dart';
 import 'cached_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'menu_item_attributes_dialog.dart';
+import 'menu_item_details_bottom_sheet.dart';
 
 class FoodItemCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -52,36 +53,44 @@ class FoodItemCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Food image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: screenWidth * 0.24,
-              height: screenWidth * 0.24,
-              child: CachedImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
+          // Food image - Make it tappable to show details
+          GestureDetector(
+            onTap: () {
+              MenuItemDetailsBottomSheet.show(
+                context: context,
+                item: item,
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
                 width: screenWidth * 0.24,
                 height: screenWidth * 0.24,
-                placeholder: (context) => Container(
-                  color: Colors.grey[200],
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.0,
-                        valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                child: CachedImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  width: screenWidth * 0.24,
+                  height: screenWidth * 0.24,
+                  placeholder: (context) => Container(
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                          valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                errorWidget: (context, error) => Container(
-                  color: Colors.grey[100],
-                  child: Icon(
-                    Icons.restaurant,
-                    color: Colors.grey[400],
-                    size: 40,
+                  errorWidget: (context, error) => Container(
+                    color: Colors.grey[100],
+                    child: Icon(
+                      Icons.restaurant,
+                      color: Colors.grey[400],
+                      size: 40,
+                    ),
                   ),
                 ),
               ),
@@ -90,240 +99,150 @@ class FoodItemCard extends StatelessWidget {
           
           SizedBox(width: screenWidth * 0.03),
           
-          // Food details section
+          // Food details section - Make it tappable to show details
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Name row with veg indicator inline
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Veg indicator at the start
-                    Container(
-                      margin: EdgeInsets.only(top: 2, right: screenWidth * 0.02), 
-                      child: Container(
-                        width: screenWidth * 0.04,
-                        height: screenWidth * 0.04,
-                        decoration: BoxDecoration(
-                          color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isVeg ? const Color(0xFF3CB043).withOpacity(0.3) : const Color(0xFFE53935).withOpacity(0.3),
-                              blurRadius: 4,
-                              spreadRadius: 1,
+            child: GestureDetector(
+              onTap: () {
+                MenuItemDetailsBottomSheet.show(
+                  context: context,
+                  item: item,
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name row with veg indicator inline
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Veg indicator at the start
+                      Container(
+                        margin: EdgeInsets.only(top: 2, right: screenWidth * 0.02), 
+                        child: Container(
+                          width: screenWidth * 0.04,
+                          height: screenWidth * 0.04,
+                          decoration: BoxDecoration(
+                            color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1.5,
                             ),
-                          ],
+                            boxShadow: [
+                              BoxShadow(
+                                color: isVeg ? const Color(0xFF3CB043).withOpacity(0.3) : const Color(0xFFE53935).withOpacity(0.3),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    
-                    // Name text with proper constraints
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: GoogleFonts.poppins(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                          letterSpacing: -0.5,
+                      
+                      // Name text with proper constraints
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: GoogleFonts.poppins(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            letterSpacing: -0.5,
+                          ),
+                          softWrap: true,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        softWrap: true,
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: screenWidth * 0.015),
+                  
+                  // Description
+                  if (description.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        bottom: screenWidth * 0.03,
+                        left: screenWidth * 0.06, // Align with name text
+                      ),
+                      child: Text(
+                        description,
+                        style: GoogleFonts.poppins(
+                          fontSize: screenWidth * 0.035,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                          height: 1.3,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
-                
-                SizedBox(height: screenWidth * 0.015),
-                
-                // Description
-                if (description.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: screenWidth * 0.03,
-                      left: screenWidth * 0.06, // Align with name text
-                    ),
-                    child: Text(
-                      description,
-                      style: GoogleFonts.poppins(
-                        fontSize: screenWidth * 0.035,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w400,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                
-                // Price and quantity selector in a row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Price (aligned with name text)
-                    Padding(
-                      padding: EdgeInsets.only(left: screenWidth * 0.06),
-                      child: Text(
-                        '₹${price.toString()}',
-                        style: GoogleFonts.poppins(
-                          fontSize: screenWidth * 0.045,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                    
-                    // Quantity controls or Add button
-                    if (!isAvailable)
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: screenWidth * 0.04,
-                          vertical: screenWidth * 0.02,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                  
+                  // Price and quantity selector in a row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Price (aligned with name text)
+                      Padding(
+                        padding: EdgeInsets.only(left: screenWidth * 0.06),
                         child: Text(
-                          'Not Available',
+                          '₹${price.toString()}',
                           style: GoogleFonts.poppins(
-                            fontSize: screenWidth * 0.035,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                            letterSpacing: -0.5,
                           ),
                         ),
-                      )
-                    else if (quantity == 0) 
-                      Container(
-                        height: screenWidth * 0.1,
-                        margin: EdgeInsets.only(right: screenWidth * 0.025),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              ColorManager.primary,
-                              ColorManager.primary.withOpacity(0.8),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      ),
+                      
+                      // Quantity controls or Add button
+                      if (!isAvailable)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.04,
+                            vertical: screenWidth * 0.02,
                           ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: ColorManager.primary.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              if (item['attributes'] != null) {
-                                // Show attributes dialog
-                                MenuItemAttributesDialog.show(
-                                  context: context,
-                                  item: item,
-                                  onAttributesSelected: (attributes) {
-                                    onQuantityChanged(1, attributes: attributes);
-                                  },
-                                );
-                              } else {
-                                // No attributes, add directly
-                                onQuantityChanged(1);
-                              }
-                            },
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(20),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: screenWidth * 0.04, 
-                                vertical: screenWidth * 0.02
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Add',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: screenWidth * 0.035,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                  SizedBox(width: screenWidth * 0.012),
-                                  Icon(
-                                    Icons.add_shopping_cart_rounded,
-                                    color: Colors.white,
-                                    size: screenWidth * 0.04,
-                                  ),
-                                ],
-                              ),
+                          ),
+                          child: Text(
+                            'Not Available',
+                            style: GoogleFonts.poppins(
+                              fontSize: screenWidth * 0.035,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                      )
-                    else
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(50),
-                          border: Border.all(
-                            color: Colors.grey[300]!,
-                            width: 1,
+                        )
+                      else if (quantity == 0) 
+                        Container(
+                          height: screenWidth * 0.1,
+                          margin: EdgeInsets.only(right: screenWidth * 0.025),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                ColorManager.primary,
+                                ColorManager.primary.withOpacity(0.8),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: ColorManager.primary.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            // Minus button
-                            InkWell(
-                              onTap: () => onQuantityChanged(quantity > 0 ? quantity - 1 : 0),
-                              borderRadius: BorderRadius.circular(50),
-                              child: Container(
-                                width: screenWidth * 0.09,
-                                height: screenWidth * 0.09,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '-',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: screenWidth * 0.05,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            
-                            // Quantity text
-                            SizedBox(
-                              width: screenWidth * 0.075,
-                              child: Text(
-                                quantity.toString(),
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.poppins(
-                                  fontSize: screenWidth * 0.04,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            
-                            // Plus button
-                            InkWell(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
                               onTap: () {
                                 if (item['attributes'] != null) {
                                   // Show attributes dialog
@@ -331,35 +250,133 @@ class FoodItemCard extends StatelessWidget {
                                     context: context,
                                     item: item,
                                     onAttributesSelected: (attributes) {
-                                      onQuantityChanged(quantity + 1, attributes: attributes);
+                                      onQuantityChanged(1, attributes: attributes);
                                     },
                                   );
                                 } else {
                                   // No attributes, add directly
-                                  onQuantityChanged(quantity + 1);
+                                  onQuantityChanged(1);
                                 }
                               },
-                              borderRadius: BorderRadius.circular(50),
-                              child: Container(
-                                width: screenWidth * 0.09,
-                                height: screenWidth * 0.09,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '+',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: screenWidth * 0.05,
-                                    color: ColorManager.primary,
-                                    fontWeight: FontWeight.w400,
-                                  ),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.04, 
+                                  vertical: screenWidth * 0.02
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Add',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: screenWidth * 0.035,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                    SizedBox(width: screenWidth * 0.012),
+                                    Icon(
+                                      Icons.add_shopping_cart_rounded,
+                                      color: Colors.white,
+                                      size: screenWidth * 0.04,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                        )
+                      else
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(50),
+                            border: Border.all(
+                              color: Colors.grey[300]!,
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              // Minus button
+                              InkWell(
+                                onTap: () => onQuantityChanged(quantity > 0 ? quantity - 1 : 0),
+                                borderRadius: BorderRadius.circular(50),
+                                child: Container(
+                                  width: screenWidth * 0.09,
+                                  height: screenWidth * 0.09,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '-',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: screenWidth * 0.05,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              
+                              // Quantity text
+                              SizedBox(
+                                width: screenWidth * 0.075,
+                                child: Text(
+                                  quantity.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: screenWidth * 0.04,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              
+                              // Plus button
+                              InkWell(
+                                onTap: () {
+                                  if (item['attributes'] != null) {
+                                    // Show attributes dialog
+                                    MenuItemAttributesDialog.show(
+                                      context: context,
+                                      item: item,
+                                      onAttributesSelected: (attributes) {
+                                        onQuantityChanged(quantity + 1, attributes: attributes);
+                                      },
+                                    );
+                                  } else {
+                                    // No attributes, add directly
+                                    onQuantityChanged(quantity + 1);
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(50),
+                                child: Container(
+                                  width: screenWidth * 0.09,
+                                  height: screenWidth * 0.09,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '+',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: screenWidth * 0.05,
+                                      color: ColorManager.primary,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

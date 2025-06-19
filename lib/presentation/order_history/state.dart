@@ -1,5 +1,6 @@
 // lib/presentation/order_history/state.dart - Updated OrderItem model
 import 'package:equatable/equatable.dart';
+import '../../constants/api_constant.dart';
 
 abstract class OrderHistoryState extends Equatable {
   const OrderHistoryState();
@@ -85,7 +86,7 @@ class OrderItem extends Equatable {
       date: _formatDate(json['datetime']),
       price: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
       status: _mapStatus(json['order_status'] ?? json['status']), // FIXED: Use order_status
-      imageUrl: json['restaurant_picture'] ?? '',
+      imageUrl: _getFullImageUrl(json['restaurant_picture'] ?? ''),
       dateTime: DateTime.tryParse(json['datetime'] ?? '') ?? DateTime.now(),
       restaurantId: json['restaurant_id'] ?? '',
       items: List<Map<String, dynamic>>.from(json['items'] ?? []),
@@ -118,6 +119,28 @@ class OrderItem extends Equatable {
       default:
         return status ?? 'Unknown';
     }
+  }
+
+  // Helper method to get the full image URL
+  static String _getFullImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return '';
+    }
+    
+    // Handle JSON-encoded URLs (remove quotes and brackets if present)
+    String cleanPath = imagePath;
+    if (cleanPath.startsWith('["') && cleanPath.endsWith('"]')) {
+      cleanPath = cleanPath.substring(2, cleanPath.length - 2);
+    } else if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+      cleanPath = cleanPath.substring(1, cleanPath.length - 1);
+    }
+    
+    // Check if the image path already has the base URL
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+    
+    return '${ApiConstants.baseUrl}/api/${cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath}';
   }
 
   @override

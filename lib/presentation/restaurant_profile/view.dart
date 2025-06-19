@@ -535,7 +535,7 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
             // Photo grid
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildPhotoGrid(),
+              child: _buildPhotoGrid(restaurant),
             ),
             
             const SizedBox(height: 40),
@@ -545,26 +545,37 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
     );
   }
   
-  Widget _buildPhotoGrid() {
+  Widget _buildPhotoGrid(Restaurant restaurant) {
+    // Use actual restaurant photos if available
+    final photos = restaurant.photos;
+    
+    if (photos.isEmpty) {
+      // Show placeholder if no photos available
+      return GridView.count(
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        children: [
+          _buildPhotoItem('assets/interior.jpg', 'Interior'),
+          _buildPhotoItem('assets/food1.jpg', 'Food'),
+          _buildPhotoItem('assets/food2.jpg', 'Food'),
+          _buildPhotoItem('assets/outdoor.jpg', 'Outdoor'),
+        ],
+      );
+    }
+    
+    // Show actual restaurant photos
     return GridView.count(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
       crossAxisCount: 2,
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
-      children: [
-        // Interior photo
-        _buildPhotoItem('assets/interior.jpg', 'Interior'),
-        
-        // Food photo 1
-        _buildPhotoItem('assets/food1.jpg', 'Dosa'),
-        
-        // Food photo 2
-        _buildPhotoItem('assets/food2.jpg', 'Thali'),
-        
-        // Outdoor photo
-        _buildPhotoItem('assets/outdoor.jpg', 'Outdoor'),
-      ],
+      children: photos.map((photoUrl) {
+        return _buildPhotoItem(photoUrl, 'Restaurant');
+      }).toList(),
     );
   }
   
@@ -574,22 +585,38 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.grey[200],
-              child: Center(
-                child: Icon(
-                  label == 'Interior' || label == 'Outdoor' 
-                      ? Icons.restaurant 
-                      : Icons.restaurant_menu,
-                  size: 40,
-                  color: Colors.grey[400],
+          // Check if it's a network URL or asset
+          imageUrl.startsWith('http') || imageUrl.startsWith('https')
+              ? Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: Icon(
+                        Icons.restaurant,
+                        size: 40,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ),
+                )
+              : Image.asset(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: Icon(
+                        label == 'Interior' || label == 'Outdoor' 
+                            ? Icons.restaurant 
+                            : Icons.restaurant_menu,
+                        size: 40,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
           Positioned(
             bottom: 0,
             left: 0,

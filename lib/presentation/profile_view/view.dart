@@ -345,12 +345,20 @@ ProfileCardTile(
       return '';
     }
     
-    // Check if the image path already has the base URL
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return imagePath;
+    // Handle JSON-encoded URLs (remove quotes and brackets if present)
+    String cleanPath = imagePath;
+    if (cleanPath.startsWith('["') && cleanPath.endsWith('"]')) {
+      cleanPath = cleanPath.substring(2, cleanPath.length - 2);
+    } else if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+      cleanPath = cleanPath.substring(1, cleanPath.length - 1);
     }
     
-    return '${ApiConstants.baseUrl}/api/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
+    // Check if the image path already has the base URL
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+    
+    return '${ApiConstants.baseUrl}/api/${cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath}';
   }
 
   Widget _buildProfileHeaderShimmer(double width) {
@@ -637,10 +645,18 @@ class _OrderTile extends StatelessWidget {
   }
 
   String _getFullImageUrl(String imagePath) {
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return imagePath;
+    // Handle JSON-encoded URLs (remove quotes and brackets if present)
+    String cleanPath = imagePath;
+    if (cleanPath.startsWith('["') && cleanPath.endsWith('"]')) {
+      cleanPath = cleanPath.substring(2, cleanPath.length - 2);
+    } else if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+      cleanPath = cleanPath.substring(1, cleanPath.length - 1);
     }
-    return '${ApiConstants.baseUrl}/api/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
+    
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+    return '${ApiConstants.baseUrl}/api/${cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath}';
   }
 }
 

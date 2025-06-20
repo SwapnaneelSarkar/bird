@@ -73,23 +73,10 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
         return;
       }
 
-      // Set default values for required attributes
-      Map<String, String> defaultValues = {};
-      for (var group in attributes) {
-        if (group.isRequired && group.values.isNotEmpty) {
-          final defaultOption = group.values.firstWhere(
-            (value) => value.isDefault == true,
-            orElse: () => group.values.first,
-          );
-          if (defaultOption.name != null && defaultOption.valueId != null) {
-            defaultValues[group.attributeId] = defaultOption.valueId!;
-          }
-        }
-      }
-
+      // Don't pre-select any values - let user choose
       setState(() {
         _attributeGroups = attributes;
-        _selectedValues = defaultValues;
+        _selectedValues = {}; // Start with empty selection
         _isLoading = false;
         _totalPrice = _calculateTotalPrice();
       });
@@ -149,12 +136,13 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
   }
 
   bool _isValidSelection() {
-    for (var group in _attributeGroups) {
-      if (group.isRequired && _selectedValues[group.attributeId] == null) {
-        return false;
-      }
-    }
+    // All attributes are optional - no validation required
     return true;
+  }
+
+  String? _getValidationError() {
+    // No validation errors since all attributes are optional
+    return null;
   }
 
   @override
@@ -323,11 +311,11 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
                 SizedBox(width: screenWidth * 0.04),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _isValidSelection() ? () {
+                    onPressed: () {
                       final selectedAttributes = _getSelectedAttributes();
                       widget.onAttributesSelected(selectedAttributes);
                       Navigator.pop(context);
-                    } : null,
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ColorManager.primary,
                       foregroundColor: Colors.white,
@@ -357,25 +345,12 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              group.name,
-              style: GoogleFonts.poppins(
-                fontSize: screenWidth * 0.04,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (group.isRequired)
-              Text(
-                ' *',
-                style: GoogleFonts.poppins(
-                  fontSize: screenWidth * 0.04,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.red,
-                ),
-              ),
-          ],
+        Text(
+          group.name,
+          style: GoogleFonts.poppins(
+            fontSize: screenWidth * 0.04,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         SizedBox(height: screenHeight * 0.01),
         
@@ -405,25 +380,68 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
         borderRadius: BorderRadius.circular(8),
         color: isSelected ? ColorManager.primary.withOpacity(0.05) : Colors.transparent,
       ),
-      child: RadioListTile<String>(
-        value: value.valueId!,
-        groupValue: _selectedValues[group.attributeId],
-        onChanged: (newValue) {
+      child: InkWell(
+        onTap: () {
+          debugPrint('Custom radio button tapped for value: ${value.valueId}');
+          debugPrint('Current selected value for ${group.attributeId}: ${_selectedValues[group.attributeId]}');
+          debugPrint('Is this option currently selected? $isSelected');
+          
           setState(() {
-            _selectedValues[group.attributeId] = newValue!;
+            if (isSelected) {
+              // If already selected, deselect it
+              debugPrint('Deselecting attribute ${group.attributeId}');
+              _selectedValues.remove(group.attributeId);
+            } else {
+              // If not selected, select it
+              debugPrint('Selecting attribute ${group.attributeId} with value: ${value.valueId}');
+              _selectedValues[group.attributeId] = value.valueId!;
+            }
             _totalPrice = _calculateTotalPrice();
+            debugPrint('Updated selected values: $_selectedValues');
           });
         },
-        title: Text(
-          '${value.name!}$priceText',
-          style: GoogleFonts.poppins(
-            fontSize: screenWidth * 0.035,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? ColorManager.primary : Colors.black87,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.03,
+            vertical: screenHeight * 0.015,
+          ),
+          child: Row(
+            children: [
+              // Custom radio button
+              Container(
+                width: screenWidth * 0.05,
+                height: screenWidth * 0.05,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? ColorManager.primary : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                  color: isSelected ? ColorManager.primary : Colors.transparent,
+                ),
+                child: isSelected
+                    ? Icon(
+                        Icons.check,
+                        size: screenWidth * 0.03,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+              SizedBox(width: screenWidth * 0.03),
+              Expanded(
+                child: Text(
+                  '${value.name!}$priceText',
+                  style: GoogleFonts.poppins(
+                    fontSize: screenWidth * 0.035,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? ColorManager.primary : Colors.black87,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        activeColor: ColorManager.primary,
-        contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.03),
       ),
     );
   }

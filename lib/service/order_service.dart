@@ -59,10 +59,20 @@ class OrderService {
       debugPrint('OrderService: Response Status: ${response.statusCode}');
       debugPrint('OrderService: Response Body: ${response.body}');
       
+      // Parse response data
+      Map<String, dynamic> responseData;
+      try {
+        responseData = jsonDecode(response.body);
+      } catch (jsonError) {
+        debugPrint('OrderService: Failed to parse JSON response: $jsonError');
+        return {
+          'success': false,
+          'message': 'Invalid response from server. Please try again.',
+        };
+      }
+      
       // Fix: Accept both 200 and 201 status codes as successful
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-        
         if (responseData['status'] == true) {
           debugPrint('OrderService: Order placed successfully');
           debugPrint('OrderService: Order ID: ${responseData['data']['order_id']}');
@@ -79,11 +89,37 @@ class OrderService {
             'message': responseData['message'] ?? 'Failed to place order',
           };
         }
-      } else {
-        debugPrint('OrderService: Server error: ${response.statusCode}');
+      } else if (response.statusCode == 400) {
+        // Handle 400 error - extract actual message from API
+        final message = responseData['message'] ?? 'Invalid request';
+        debugPrint('OrderService: Bad request - $message');
         return {
           'success': false,
-          'message': 'Server error occurred. Please try again.',
+          'message': message,
+        };
+      } else if (response.statusCode == 401) {
+        debugPrint('OrderService: Unauthorized request');
+        return {
+          'success': false,
+          'message': 'Your session has expired. Please login again.',
+        };
+      } else if (response.statusCode == 403) {
+        debugPrint('OrderService: Forbidden request');
+        return {
+          'success': false,
+          'message': 'You are not authorized to place this order.',
+        };
+      } else if (response.statusCode >= 500) {
+        debugPrint('OrderService: Server error');
+        return {
+          'success': false,
+          'message': 'Server error. Please try again later.',
+        };
+      } else {
+        debugPrint('OrderService: Unexpected status code: ${response.statusCode}');
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Failed to place order. Please try again.',
         };
       }
     } catch (e) {

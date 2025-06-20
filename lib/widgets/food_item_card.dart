@@ -36,14 +36,8 @@ class _FoodItemCardState extends State<FoodItemCard> {
       return;
     }
     
-    // If we already have selected attributes and quantity > 0, use them automatically
-    if (_selectedAttributes != null && widget.quantity > 0) {
-      debugPrint('FoodItemCard: Using stored attributes for quantity increase');
-      widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);
-      return;
-    }
-    
-    // Check if item has attributes
+    // Always check if item has attributes and show dialog if it does
+    // This allows users to modify their selection each time
     AttributeService.fetchMenuItemAttributes(menuId).then((attributes) {
       if (attributes.isNotEmpty) {
         // Item has attributes, show the dialog
@@ -358,8 +352,11 @@ class _FoodItemCardState extends State<FoodItemCard> {
                                 onTap: () {
                                   final newQuantity = widget.quantity - 1;
                                   if (newQuantity == 0) {
-                                    // When removing (quantity = 0), pass the stored attributes
-                                    widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);
+                                    // When removing all items, clear stored attributes
+                                    setState(() {
+                                      _selectedAttributes = null;
+                                    });
+                                    widget.onQuantityChanged(newQuantity);
                                   } else {
                                     // When updating quantity, pass the stored attributes
                                     widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);

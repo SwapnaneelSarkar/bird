@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/color/colorConstant.dart';
 import '../constants/font/fontManager.dart';
 import '../models/attribute_model.dart';
+import '../utils/currency_utils.dart';
 
 class OrderItemCard extends StatelessWidget {
   final String imageUrl;
@@ -119,31 +120,43 @@ class OrderItemCard extends StatelessWidget {
                 SizedBox(height: screenHeight * 0.003), // Reduced spacing
                 
                 // Price per item
-                Text(
-                  '₹${(price / quantity).toStringAsFixed(2)} each',
-                  style: TextStyle(
-                    fontSize: (screenWidth * 0.03).clamp(11.0, 14.0), // Smaller font
-                    fontWeight: FontWeightManager.regular,
-                    fontFamily: FontFamily.Montserrat,
-                    color: Colors.grey[600],
-                  ),
+                FutureBuilder<String>(
+                  future: CurrencyUtils.getCurrencySymbol(null, null),
+                  builder: (context, snapshot) {
+                    final currencySymbol = snapshot.data ?? '₹';
+                    return Text(
+                      '${CurrencyUtils.formatPrice((price / quantity), currencySymbol)} each',
+                      style: TextStyle(
+                        fontSize: (screenWidth * 0.03).clamp(11.0, 14.0), // Smaller font
+                        fontWeight: FontWeightManager.regular,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.grey[600],
+                      ),
+                    );
+                  },
                 ),
 
                 // Display attributes if any
                 if (attributes.isNotEmpty) ...[
                   SizedBox(height: screenHeight * 0.005),
-                  ...attributes.map((attr) => Padding(
-                    padding: EdgeInsets.only(bottom: screenHeight * 0.002),
-                    child: Text(
-                      '${attr.attributeName}: ${attr.valueName}${attr.priceAdjustment > 0 ? ' (+₹${attr.priceAdjustment.toStringAsFixed(2)})' : ''}',
-                      style: TextStyle(
-                        fontSize: (screenWidth * 0.025).clamp(10.0, 12.0),
-                        fontWeight: FontWeightManager.regular,
-                        fontFamily: FontFamily.Montserrat,
-                        color: Colors.grey[500],
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
+                  ...attributes.map((attr) => FutureBuilder<String>(
+                    future: CurrencyUtils.getCurrencySymbol(null, null),
+                    builder: (context, snapshot) {
+                      final currencySymbol = snapshot.data ?? '₹';
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: screenHeight * 0.002),
+                        child: Text(
+                          '${attr.attributeName}: ${attr.valueName}${attr.priceAdjustment > 0 ? ' (+${CurrencyUtils.formatPrice(attr.priceAdjustment, currencySymbol)})' : ''}',
+                          style: TextStyle(
+                            fontSize: (screenWidth * 0.025).clamp(10.0, 12.0),
+                            fontWeight: FontWeightManager.regular,
+                            fontFamily: FontFamily.Montserrat,
+                            color: Colors.grey[500],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      );
+                    },
                   )).toList(),
                 ],
               ],
@@ -155,14 +168,20 @@ class OrderItemCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Total price
-              Text(
-                '₹${price.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: (screenWidth * 0.035).clamp(13.0, 16.0), // Smaller font
-                  fontWeight: FontWeightManager.semiBold,
-                  fontFamily: FontFamily.Montserrat,
-                  color: ColorManager.black,
-                ),
+              FutureBuilder<String>(
+                future: CurrencyUtils.getCurrencySymbol(null, null),
+                builder: (context, snapshot) {
+                  final currencySymbol = snapshot.data ?? '₹';
+                  return Text(
+                    CurrencyUtils.formatPrice(price, currencySymbol),
+                    style: TextStyle(
+                      fontSize: (screenWidth * 0.035).clamp(13.0, 16.0), // Smaller font
+                      fontWeight: FontWeightManager.semiBold,
+                      fontFamily: FontFamily.Montserrat,
+                      color: ColorManager.black,
+                    ),
+                  );
+                },
               ),
               
               SizedBox(height: screenHeight * 0.005),

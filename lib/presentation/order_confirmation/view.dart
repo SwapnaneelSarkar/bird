@@ -4,6 +4,7 @@ import '../../widgets/custom_button_large.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_card.dart';
+import '../../utils/currency_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -319,21 +320,33 @@ class _OrderConfirmationContent extends StatelessWidget {
       child: Column(
         children: [
           // Subtotal
-          _buildSummaryRow(
-            'Subtotal',
-            '₹${state.orderSummary.subtotal.toStringAsFixed(2)}',
-            screenWidth,
-            isTotal: false,
+          FutureBuilder<String>(
+            future: CurrencyUtils.getCurrencySymbol(null, null),
+            builder: (context, snapshot) {
+              final currencySymbol = snapshot.data ?? '₹';
+              return _buildSummaryRow(
+                'Subtotal',
+                CurrencyUtils.formatPrice(state.orderSummary.subtotal, currencySymbol),
+                screenWidth,
+                isTotal: false,
+              );
+            },
           ),
           
           SizedBox(height: screenHeight * 0.01),
           
           // Delivery Fee
-          _buildSummaryRow(
-            'Delivery Fee',
-            '₹${state.orderSummary.deliveryFee.toStringAsFixed(2)}',
-            screenWidth,
-            isTotal: false,
+          FutureBuilder<String>(
+            future: CurrencyUtils.getCurrencySymbol(null, null),
+            builder: (context, snapshot) {
+              final currencySymbol = snapshot.data ?? '₹';
+              return _buildSummaryRow(
+                'Delivery Fee',
+                CurrencyUtils.formatPrice(state.orderSummary.deliveryFee, currencySymbol),
+                screenWidth,
+                isTotal: false,
+              );
+            },
           ),
           
           SizedBox(height: screenHeight * 0.015),
@@ -348,11 +361,17 @@ class _OrderConfirmationContent extends StatelessWidget {
           SizedBox(height: screenHeight * 0.015),
           
           // Total
-          _buildSummaryRow(
-            'Total',
-            '₹${state.orderSummary.total.toStringAsFixed(2)}',
-            screenWidth,
-            isTotal: true,
+          FutureBuilder<String>(
+            future: CurrencyUtils.getCurrencySymbol(null, null),
+            builder: (context, snapshot) {
+              final currencySymbol = snapshot.data ?? '₹';
+              return _buildSummaryRow(
+                'Total',
+                CurrencyUtils.formatPrice(state.orderSummary.total, currencySymbol),
+                screenWidth,
+                isTotal: true,
+              );
+            },
           ),
         ],
       ),

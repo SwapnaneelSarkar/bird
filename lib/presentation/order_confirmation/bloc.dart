@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
@@ -7,12 +8,15 @@ import '../../constants/api_constant.dart';
 import '../../service/cart_service.dart';
 import '../../service/order_service.dart';
 import '../../service/token_service.dart';
+import '../../service/profile_get_service.dart';
 import '../../models/order_confirmation_model.dart';
 import '../../models/attribute_model.dart';
 import 'event.dart';
 import 'state.dart';
 
 class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmationState> {
+  final ProfileApiService _profileApiService = ProfileApiService();
+  
   OrderConfirmationBloc() : super(OrderConfirmationInitial()) {
     debugPrint('OrderConfirmationBloc: Constructor called');
     on<LoadOrderConfirmationData>(_onLoadOrderConfirmationData);
@@ -200,11 +204,53 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           return;
         }
         
-        // Prepare order items with attributes price included in the item price
-        final orderItems = currentState.orderSummary.items.map((item) => {
-          'menu_id': item.id,
-          'quantity': item.quantity,
-          'price': item.pricePerItem, // Base price + attribute prices
+        // Get user coordinates from profile API
+        double? latitude;
+        double? longitude;
+        
+        try {
+          final token = await TokenService.getToken();
+          if (token != null) {
+            final profileResult = await _profileApiService.getUserProfile(
+              token: token,
+              userId: userId,
+            );
+            
+            if (profileResult['success'] == true) {
+              final userData = profileResult['data'] as Map<String, dynamic>;
+              latitude = userData['latitude'] != null ? double.tryParse(userData['latitude'].toString()) : null;
+              longitude = userData['longitude'] != null ? double.tryParse(userData['longitude'].toString()) : null;
+              
+              debugPrint('OrderConfirmationBloc: User coordinates - Lat: $latitude, Long: $longitude');
+            } else {
+              debugPrint('OrderConfirmationBloc: Failed to fetch user coordinates: ${profileResult['message']}');
+            }
+          } else {
+            debugPrint('OrderConfirmationBloc: No token available for fetching coordinates');
+          }
+        } catch (e) {
+          debugPrint('OrderConfirmationBloc: Error fetching user coordinates: $e');
+        }
+        
+        // Prepare order items with attributes
+        final orderItems = currentState.orderSummary.items.map((item) {
+          final itemData = {
+            'menu_id': item.id,
+            'quantity': item.quantity,
+            'price': item.pricePerItem, // Base price + attribute prices
+          };
+          
+          // Add attributes if present
+          if (item.attributes.isNotEmpty) {
+            final attributesMap = <String, String>{};
+            for (var attr in item.attributes) {
+              // Use attribute_id as key and value_id as value
+              attributesMap[attr.attributeId] = attr.valueId;
+            }
+            itemData['attributes'] = attributesMap;
+          }
+          
+          return itemData;
         }).toList();
         
         // Calculate total price as sum of (price × quantity) for all items
@@ -219,6 +265,8 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         debugPrint('  Items: ${orderItems.length}');
         debugPrint('  Calculated Total: ₹$calculatedTotal');
         debugPrint('  Address: $address');
+        debugPrint('  Latitude: $latitude');
+        debugPrint('  Longitude: $longitude');
         
         // Place order
         final orderResult = await OrderService.placeOrder(
@@ -229,6 +277,8 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           address: address,
           deliveryFees: currentState.orderSummary.deliveryFee,
           subtotal: calculatedTotal,
+          latitude: latitude,
+          longitude: longitude,
         );
         
         if (orderResult['success'] == true) {

@@ -202,7 +202,7 @@ class _AddressScreenState extends State<AddressScreen> {
                                           Expanded(
                                             child: Text(
                                               addressController.text.isEmpty 
-                                                  ? 'Enter your delivery address' 
+                                                  ? 'Enter your delivery address *' 
                                                   : addressController.text,
                                               style: TextStyle(
                                                 color: addressController.text.isEmpty

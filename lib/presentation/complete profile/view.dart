@@ -220,6 +220,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                 child: CustomTextField(
                   controller: _nameCtrl,
                   hint: 'Enter your name',
+                  isRequired: true,
                 ),
               ),
 
@@ -234,6 +235,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                   controller: _emailCtrl,
                   hint: 'Enter your email',
                   keyboardType: TextInputType.emailAddress,
+                  isRequired: true,
                 ),
               ),
 

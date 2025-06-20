@@ -105,7 +105,7 @@ class _ReviewRatingWidgetState extends State<ReviewRatingWidget> {
               maxLines: 3,
               maxLength: 500,
               decoration: InputDecoration(
-                hintText: 'Share your experience...',
+                hintText: 'Share your experience... (optional)',
                 hintStyle: TextStyle(
                   fontSize: screenWidth * 0.035,
                   fontFamily: FontFamily.Montserrat,

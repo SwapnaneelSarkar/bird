@@ -15,6 +15,8 @@ class OrderService {
     required String address,
     required double deliveryFees,
     required double subtotal,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       debugPrint('OrderService: Placing order...');
@@ -23,6 +25,8 @@ class OrderService {
       debugPrint('OrderService: Items: ${items.length}');
       debugPrint('OrderService: Total Price: ₹$totalPrice');
       debugPrint('OrderService: Address: $address');
+      debugPrint('OrderService: Latitude: $latitude');
+      debugPrint('OrderService: Longitude: $longitude');
       
       final token = await TokenService.getToken();
       if (token == null) {
@@ -43,6 +47,12 @@ class OrderService {
         'delivery_fees': deliveryFees,
         'subtotal': subtotal,
       };
+      
+      // Add coordinates if available
+      if (latitude != null && longitude != null) {
+        body['latitude'] = latitude;
+        body['longitude'] = longitude;
+      }
       
       debugPrint('OrderService: Request URL: $url');
       debugPrint('OrderService: Request Body: ${jsonEncode(body)}');

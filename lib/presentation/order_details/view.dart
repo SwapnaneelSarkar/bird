@@ -8,6 +8,7 @@ import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/order_details_model.dart';
 import '../../models/menu_model.dart';
+import '../../utils/currency_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -500,13 +501,31 @@ class _OrderDetailsContent extends StatelessWidget {
           ],
           Divider(color: Colors.grey[200]),
           SizedBox(height: screenHeight * 0.015),
-          _buildSummaryRow('Subtotal', '₹${orderDetails.subtotal.toStringAsFixed(2)}', screenWidth, false),
+          FutureBuilder<String>(
+            future: CurrencyUtils.getCurrencySymbol(null, null),
+            builder: (context, snapshot) {
+              final currencySymbol = snapshot.data ?? '₹';
+              return _buildSummaryRow('Subtotal', CurrencyUtils.formatPrice(orderDetails.subtotal, currencySymbol), screenWidth, false);
+            },
+          ),
           SizedBox(height: screenHeight * 0.01),
-          _buildSummaryRow('Delivery Fee', '₹${orderDetails.deliveryFees.toStringAsFixed(2)}', screenWidth, false),
+          FutureBuilder<String>(
+            future: CurrencyUtils.getCurrencySymbol(null, null),
+            builder: (context, snapshot) {
+              final currencySymbol = snapshot.data ?? '₹';
+              return _buildSummaryRow('Delivery Fee', CurrencyUtils.formatPrice(orderDetails.deliveryFees, currencySymbol), screenWidth, false);
+            },
+          ),
           SizedBox(height: screenHeight * 0.015),
           Divider(color: Colors.grey[200]),
           SizedBox(height: screenHeight * 0.015),
-          _buildSummaryRow('Total Amount', '₹${orderDetails.totalAmount.toStringAsFixed(2)}', screenWidth, true),
+          FutureBuilder<String>(
+            future: CurrencyUtils.getCurrencySymbol(null, null),
+            builder: (context, snapshot) {
+              final currencySymbol = snapshot.data ?? '₹';
+              return _buildSummaryRow('Total Amount', CurrencyUtils.formatPrice(orderDetails.totalAmount, currencySymbol), screenWidth, true);
+            },
+          ),
         ],
       ),
     );
@@ -667,13 +686,19 @@ class _OrderDetailsContent extends StatelessWidget {
                       color: Colors.grey[600],
                     ),
                   ),
-                  Text(
-                    ' × ₹${item.itemPrice.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      fontFamily: FontFamily.Montserrat,
-                      color: Colors.grey[600],
-                    ),
+                  FutureBuilder<String>(
+                    future: CurrencyUtils.getCurrencySymbol(null, null),
+                    builder: (context, snapshot) {
+                      final currencySymbol = snapshot.data ?? '₹';
+                      return Text(
+                        ' × ${CurrencyUtils.formatPrice(item.itemPrice, currencySymbol)}',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.035,
+                          fontFamily: FontFamily.Montserrat,
+                          color: Colors.grey[600],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -699,14 +724,20 @@ class _OrderDetailsContent extends StatelessWidget {
         ),
         
         // Total Price
-        Text(
-          '₹${item.totalPrice.toStringAsFixed(2)}',
-          style: TextStyle(
-            fontSize: screenWidth * 0.04,
-            fontWeight: FontWeightManager.bold,
-            fontFamily: FontFamily.Montserrat,
-            color: ColorManager.black,
-          ),
+        FutureBuilder<String>(
+          future: CurrencyUtils.getCurrencySymbol(null, null),
+          builder: (context, snapshot) {
+            final currencySymbol = snapshot.data ?? '₹';
+            return Text(
+              CurrencyUtils.formatPrice(item.totalPrice, currencySymbol),
+              style: TextStyle(
+                fontSize: screenWidth * 0.04,
+                fontWeight: FontWeightManager.bold,
+                fontFamily: FontFamily.Montserrat,
+                color: ColorManager.black,
+              ),
+            );
+          },
         ),
       ],
     );

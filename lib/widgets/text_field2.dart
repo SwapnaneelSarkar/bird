@@ -12,6 +12,7 @@ class CustomTextField extends StatelessWidget {
   final String hint;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final bool isRequired;
 
   const CustomTextField({
     Key? key,
@@ -19,6 +20,7 @@ class CustomTextField extends StatelessWidget {
     required this.hint,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.isRequired = false,
   }) : super(key: key);
 
   @override
@@ -29,7 +31,7 @@ class CustomTextField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: isRequired ? '$hint *' : hint,
         hintStyle: GoogleFonts.poppins(
           fontSize: FontSize.s16,
           fontWeight: FontWeightManager.regular,

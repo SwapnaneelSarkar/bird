@@ -12,6 +12,7 @@ import '../address bottomSheet/view.dart';
 import '../restaurant_menu/view.dart';
 import '../search_page/bloc.dart';
 import '../search_page/searchPage.dart';
+import '../../utils/currency_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -99,6 +100,11 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               }
               previousAddress = state.userAddress;
               debugPrint('HomePage: Address changed to: ${state.userAddress}');
+              
+              // Initialize currency when coordinates are available
+              if (state.userLatitude != null && state.userLongitude != null) {
+                CurrencyUtils.getCurrencySymbol(state.userLatitude, state.userLongitude);
+              }
             }
           },
           child: BlocBuilder<HomeBloc, HomeState>(

@@ -34,7 +34,7 @@ class OtpField extends StatelessWidget {
         letterSpacing: 8.0, // Adding letter spacing for OTP-like appearance
       ),
       decoration: InputDecoration(
-        hintText: "Enter 6-digit OTP",
+        hintText: "Enter 6-digit OTP *",
         hintStyle: GoogleFonts.poppins(
           fontSize: FontSize.s16,
           fontWeight: FontWeightManager.regular,

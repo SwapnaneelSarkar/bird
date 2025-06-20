@@ -223,7 +223,7 @@ class _LoginPageState extends State<LoginPage> {
                 color: isLoading ? Colors.grey.shade600 : ColorManager.black,
               ),
               decoration: InputDecoration(
-                hintText: 'Enter your phone number',
+                hintText: 'Enter your phone number *',
                 hintStyle: TextStyle(
                   color: Colors.grey.shade500,
                   fontSize: FontSize.s14,

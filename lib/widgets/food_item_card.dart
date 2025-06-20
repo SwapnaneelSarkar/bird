@@ -7,6 +7,8 @@ import 'menu_item_attributes_dialog.dart';
 import 'menu_item_details_bottom_sheet.dart';
 import '../service/attribute_service.dart';
 import '../models/attribute_model.dart';
+import '../constants/font/fontManager.dart';
+import '../utils/currency_utils.dart';
 
 class FoodItemCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -240,14 +242,20 @@ class _FoodItemCardState extends State<FoodItemCard> {
                       // Price (aligned with name text)
                       Padding(
                         padding: EdgeInsets.only(left: screenWidth * 0.06),
-                        child: Text(
-                          '₹${price.toString()}',
-                          style: GoogleFonts.poppins(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                            letterSpacing: -0.5,
-                          ),
+                        child: FutureBuilder<String>(
+                          future: CurrencyUtils.getCurrencySymbol(null, null),
+                          builder: (context, snapshot) {
+                            final currencySymbol = snapshot.data ?? '₹';
+                            return Text(
+                              CurrencyUtils.formatPrice(price.toDouble(), currencySymbol),
+                              style: GoogleFonts.poppins(
+                                fontSize: screenWidth * 0.045,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                                letterSpacing: -0.5,
+                              ),
+                            );
+                          },
                         ),
                       ),
                       

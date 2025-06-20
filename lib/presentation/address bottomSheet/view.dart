@@ -432,7 +432,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 decoration: InputDecoration(
-                  hintText: 'Enter your address',
+                  hintText: 'Enter your address *',
                   hintStyle: TextStyle(
                     color: Colors.grey[400],
                     fontSize: FontSize.s14 * textScale,

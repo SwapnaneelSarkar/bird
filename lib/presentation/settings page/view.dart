@@ -6,13 +6,14 @@ import 'package:image_picker/image_picker.dart';
 import '../../constants/api_constant.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
-import 'package:flutter_animate/flutter_animate.dart'; // Add this package
-
-import '../../widgets/shimmer_helper.dart';
-import '../address bottomSheet/view.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../service/token_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../widgets/shimmer_helper.dart';
+import '../address bottomSheet/view.dart';
 import '../../service/address_service.dart';
 
 class SettingsView extends StatefulWidget {
@@ -618,6 +619,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               icon: Icons.person_outline,
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 100,
+                              isRequired: true,
                             ),
                             
                             // Email Field
@@ -628,6 +630,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               icon: Icons.email_outlined,
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 200,
+                              isRequired: true,
                             ),
                             
                             // Phone Number Field
@@ -638,6 +641,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               icon: Icons.phone_outlined,
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 300,
+                              isRequired: true,
                             ),
                             
                             // Address Field with location picker
@@ -760,6 +764,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     required IconData icon,
     required double responsiveTextScale,
     required int animationDelay,
+    bool isRequired = false,
   }) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
@@ -767,7 +772,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            isRequired ? '$label *' : label,
             style: TextStyle(
               fontSize: FontSize.s12 * responsiveTextScale,
               color: Colors.grey,
@@ -820,61 +825,60 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
   }
 
-
-Widget _buildDeleteAccountButton(double responsiveTextScale) {
-  return Container(
-    margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12 * responsiveTextScale),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.03),
-          blurRadius: 8,
-          spreadRadius: 0,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: InkWell(
-      onTap: () => _showDeleteConfirmation(responsiveTextScale),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(vertical: 16 * responsiveTextScale),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Colors.grey.withOpacity(0.2),
-              width: 1,
+  Widget _buildDeleteAccountButton(double responsiveTextScale) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12 * responsiveTextScale),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => _showDeleteConfirmation(responsiveTextScale),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(vertical: 16 * responsiveTextScale),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: Colors.grey.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.delete_outline,
+                  color: Colors.red[500],
+                  size: 20 * responsiveTextScale,
+                ),
+                SizedBox(width: 8 * responsiveTextScale),
+                Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Colors.red[500],
+                    fontSize: 14 * responsiveTextScale,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.delete_outline,
-                color: Colors.red[500],
-                size: 20 * responsiveTextScale,
-              ),
-              SizedBox(width: 8 * responsiveTextScale),
-              Text(
-                'Delete Account',
-                style: TextStyle(
-                  color: Colors.red[500],
-                  fontSize: 14 * responsiveTextScale,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    ),
-  );
-}
+    );
+  }
   
   // Shimmer loading effect UI with more appealing animations
   Widget _buildShimmerView(double responsiveTextScale) {

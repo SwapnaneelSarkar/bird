@@ -8,6 +8,7 @@ import '../../../service/token_service.dart';
 import '../../../service/profile_get_service.dart';
 import '../../../service/address_service.dart';
 import '../../../service/update_user_service.dart';
+import '../../../service/currency_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../models/restaurant_model.dart';
 import 'event.dart';

@@ -150,7 +150,7 @@ class _OtpScreenState extends State<OtpScreen> {
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: ColorManager.black, letterSpacing: 8.0),
         decoration: InputDecoration(
-          hintText: "000000",
+          hintText: "000000 *",
           hintStyle: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w300, color: Colors.grey.shade400, letterSpacing: 8.0),
           counterText: "",
           filled: true,

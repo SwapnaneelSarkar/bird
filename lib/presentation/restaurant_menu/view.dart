@@ -11,6 +11,8 @@ import '../../models/attribute_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../widgets/menu_item_attributes_dialog.dart';
+import '../../utils/currency_utils.dart';
 
 class RestaurantDetailsPage extends StatelessWidget {
   final Map<String, dynamic> restaurantData;
@@ -636,63 +638,75 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   Widget _buildCartFloatingButton(BuildContext context, RestaurantDetailsLoaded state) {
     final screenWidth = MediaQuery.of(context).size.width;
     
-    return Container(
-      width: screenWidth * 0.9,
-      height: 56,
-      margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.pushReplacementNamed(context, Routes.orderConfirmation);
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: ColorManager.primary,
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shadowColor: ColorManager.primary.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
+    // Get coordinates from the widget's context
+    final restaurantDetailsPage = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
+    final userLatitude = restaurantDetailsPage?.userLatitude;
+    final userLongitude = restaurantDetailsPage?.userLongitude;
+    
+    return FutureBuilder<String>(
+      future: CurrencyUtils.getCurrencySymbol(userLatitude, userLongitude),
+      builder: (context, snapshot) {
+        final currencySymbol = snapshot.data ?? '\$';
+        
+        return Container(
+          width: screenWidth * 0.9,
+          height: 56,
+          margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, Routes.orderConfirmation);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorManager.primary,
+              foregroundColor: Colors.white,
+              elevation: 8,
+              shadowColor: ColorManager.primary.withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${state.cartItemCount}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${state.cartItemCount}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'View Cart',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
                 Text(
-                  'View Cart',
+                  CurrencyUtils.formatPrice(state.cartTotal, currencySymbol),
                   style: GoogleFonts.poppins(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            Text(
-              '₹${state.cartTotal.toStringAsFixed(2)}',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

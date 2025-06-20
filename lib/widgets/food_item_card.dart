@@ -5,11 +5,13 @@ import 'cached_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'menu_item_attributes_dialog.dart';
 import 'menu_item_details_bottom_sheet.dart';
+import '../service/attribute_service.dart';
+import '../models/attribute_model.dart';
 
-class FoodItemCard extends StatelessWidget {
+class FoodItemCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final int quantity;
-  final Function(int, {Map<String, dynamic>? attributes}) onQuantityChanged;
+  final Function(int, {List<SelectedAttribute>? attributes}) onQuantityChanged;
 
   const FoodItemCard({
     Key? key,
@@ -19,13 +21,70 @@ class FoodItemCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<FoodItemCard> createState() => _FoodItemCardState();
+}
+
+class _FoodItemCardState extends State<FoodItemCard> {
+  List<SelectedAttribute>? _selectedAttributes;
+
+  void _handleAddToCart(BuildContext context, int newQuantity) {
+    // Check if the item has attributes by making a quick API call
+    final menuId = widget.item['id'];
+    if (menuId == null) {
+      // If no menu ID, just add directly
+      widget.onQuantityChanged(newQuantity);
+      return;
+    }
+    
+    // If we already have selected attributes and quantity > 0, use them automatically
+    if (_selectedAttributes != null && widget.quantity > 0) {
+      debugPrint('FoodItemCard: Using stored attributes for quantity increase');
+      widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);
+      return;
+    }
+    
+    // Check if item has attributes
+    AttributeService.fetchMenuItemAttributes(menuId).then((attributes) {
+      if (attributes.isNotEmpty) {
+        // Item has attributes, show the dialog
+        debugPrint('FoodItemCard: Item has ${attributes.length} attribute groups, showing dialog');
+        MenuItemAttributesDialog.show(
+          context: context,
+          item: widget.item,
+          onAttributesSelected: (selectedAttributes) {
+            // Store the selected attributes for future use
+            setState(() {
+              _selectedAttributes = selectedAttributes;
+            });
+            widget.onQuantityChanged(newQuantity, attributes: selectedAttributes);
+          },
+        );
+      } else {
+        // Item has no attributes, add directly to cart
+        debugPrint('FoodItemCard: Item has no attributes, adding directly to cart');
+        setState(() {
+          _selectedAttributes = null;
+        });
+        widget.onQuantityChanged(newQuantity);
+      }
+    }).catchError((error) {
+      // If there's an error fetching attributes, add directly to cart
+      debugPrint('FoodItemCard: Error fetching attributes: $error, adding directly to cart');
+      setState(() {
+        _selectedAttributes = null;
+      });
+      widget.onQuantityChanged(newQuantity);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    bool isVeg = item['isVeg'] ?? false;
-    String? imageUrl = item['imageUrl'];
-    String name = item['name'] ?? '';
-    num price = item['price'] ?? 0;
-    String description = item['description'] ?? '';
-    bool isAvailable = item['available'] ?? true;
+    bool isVeg = widget.item['isVeg'] ?? false;
+    String? imageUrl = widget.item['imageUrl'];
+    String name = widget.item['name'] ?? '';
+    num price = widget.item['price'] ?? 0;
+    String description = widget.item['description'] ?? '';
+    bool isAvailable = widget.item['available'] ?? true;
     
     final screenWidth = MediaQuery.of(context).size.width;
     
@@ -58,7 +117,7 @@ class FoodItemCard extends StatelessWidget {
             onTap: () {
               MenuItemDetailsBottomSheet.show(
                 context: context,
-                item: item,
+                item: widget.item,
               );
             },
             child: ClipRRect(
@@ -105,7 +164,7 @@ class FoodItemCard extends StatelessWidget {
               onTap: () {
                 MenuItemDetailsBottomSheet.show(
                   context: context,
-                  item: item,
+                  item: widget.item,
                 );
               },
               child: Column(
@@ -218,7 +277,7 @@ class FoodItemCard extends StatelessWidget {
                             ),
                           ),
                         )
-                      else if (quantity == 0) 
+                      else if (widget.quantity == 0) 
                         Container(
                           height: screenWidth * 0.1,
                           margin: EdgeInsets.only(right: screenWidth * 0.025),
@@ -244,19 +303,7 @@ class FoodItemCard extends StatelessWidget {
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () {
-                                if (item['attributes'] != null) {
-                                  // Show attributes dialog
-                                  MenuItemAttributesDialog.show(
-                                    context: context,
-                                    item: item,
-                                    onAttributesSelected: (attributes) {
-                                      onQuantityChanged(1, attributes: attributes);
-                                    },
-                                  );
-                                } else {
-                                  // No attributes, add directly
-                                  onQuantityChanged(1);
-                                }
+                                _handleAddToCart(context, 1);
                               },
                               borderRadius: BorderRadius.circular(20),
                               child: Padding(
@@ -308,7 +355,16 @@ class FoodItemCard extends StatelessWidget {
                             children: [
                               // Minus button
                               InkWell(
-                                onTap: () => onQuantityChanged(quantity > 0 ? quantity - 1 : 0),
+                                onTap: () {
+                                  final newQuantity = widget.quantity - 1;
+                                  if (newQuantity == 0) {
+                                    // When removing (quantity = 0), pass the stored attributes
+                                    widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);
+                                  } else {
+                                    // When updating quantity, pass the stored attributes
+                                    widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);
+                                  }
+                                },
                                 borderRadius: BorderRadius.circular(50),
                                 child: Container(
                                   width: screenWidth * 0.09,
@@ -329,7 +385,7 @@ class FoodItemCard extends StatelessWidget {
                               SizedBox(
                                 width: screenWidth * 0.075,
                                 child: Text(
-                                  quantity.toString(),
+                                  widget.quantity.toString(),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
                                     fontSize: screenWidth * 0.04,
@@ -340,21 +396,7 @@ class FoodItemCard extends StatelessWidget {
                               
                               // Plus button
                               InkWell(
-                                onTap: () {
-                                  if (item['attributes'] != null) {
-                                    // Show attributes dialog
-                                    MenuItemAttributesDialog.show(
-                                      context: context,
-                                      item: item,
-                                      onAttributesSelected: (attributes) {
-                                        onQuantityChanged(quantity + 1, attributes: attributes);
-                                      },
-                                    );
-                                  } else {
-                                    // No attributes, add directly
-                                    onQuantityChanged(quantity + 1);
-                                  }
-                                },
+                                onTap: () => _handleAddToCart(context, widget.quantity + 1),
                                 borderRadius: BorderRadius.circular(50),
                                 child: Container(
                                   width: screenWidth * 0.09,

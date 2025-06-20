@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../models/attribute_model.dart';
 
 abstract class RestaurantDetailsEvent extends Equatable {
   const RestaurantDetailsEvent();
@@ -25,7 +26,7 @@ class LoadRestaurantDetails extends RestaurantDetailsEvent {
 class AddItemToCart extends RestaurantDetailsEvent {
   final Map<String, dynamic> item;
   final int quantity;
-  final Map<String, dynamic>? attributes;
+  final List<SelectedAttribute>? attributes;
   
   const AddItemToCart({
     required this.item,

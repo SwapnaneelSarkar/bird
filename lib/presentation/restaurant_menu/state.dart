@@ -67,23 +67,8 @@ class RestaurantDetailsError extends RestaurantDetailsState {
   List<Object?> get props => [message, needsLogin];
 }
 
-class CartUpdateSuccess extends RestaurantDetailsState {
-  final String message;
-  
-  const CartUpdateSuccess(this.message);
-  
-  @override
-  List<Object?> get props => [message];
-}
-
-class CartUpdateError extends RestaurantDetailsState {
-  final String message;
-  
-  const CartUpdateError(this.message);
-  
-  @override
-  List<Object?> get props => [message];
-}
+// REMOVED: CartUpdateSuccess and CartUpdateError states
+// These were causing the OpenGL UI rebuild issues
 
 class CartConflictDetected extends RestaurantDetailsState {
   final String currentRestaurant;

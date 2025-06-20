@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../service/token_service.dart';
+import '../models/attribute_model.dart';
 
 class CartService {
   static const String _cartKey = 'user_cart';
+  static DateTime? _lastCartOperation;
+  static const Duration _debounceDelay = Duration(milliseconds: 300);
   
   // Get current cart
   static Future<Map<String, dynamic>?> getCart() async {
@@ -57,7 +60,7 @@ class CartService {
     }
   }
   
-  // Add item to cart
+  // Add item to cart with debouncing
   static Future<Map<String, dynamic>> addItemToCart({
     required String partnerId,
     required String restaurantName,
@@ -66,11 +69,42 @@ class CartService {
     required double price,
     required int quantity,
     String? imageUrl,
-    Map<String, dynamic>? attributes,
+    List<SelectedAttribute>? attributes,
   }) async {
+    // Debounce rapid calls to prevent UI conflicts
+    final now = DateTime.now();
+    if (_lastCartOperation != null && 
+        now.difference(_lastCartOperation!) < _debounceDelay) {
+      debugPrint('CART SERVICE: Operation debounced - too rapid');
+      return {
+        'success': false,
+        'message': 'Please wait before making another change',
+      };
+    }
+    _lastCartOperation = now;
+
     try {
+      debugPrint('=== CART SERVICE: ADD ITEM OPERATION START ===');
+      debugPrint('CART SERVICE: Input parameters:');
+      debugPrint('  - Partner ID: $partnerId');
+      debugPrint('  - Restaurant: $restaurantName');
+      debugPrint('  - Menu ID: $menuId');
+      debugPrint('  - Item Name: $itemName');
+      debugPrint('  - Base Price: ₹$price');
+      debugPrint('  - Quantity: $quantity');
+      debugPrint('  - Image URL: $imageUrl');
+      debugPrint('  - Attributes count: ${attributes?.length ?? 0}');
+      
+      if (attributes != null && attributes.isNotEmpty) {
+        for (var attr in attributes) {
+          debugPrint('    - ${attr.attributeName}: ${attr.valueName} (+₹${attr.priceAdjustment})');
+        }
+      }
+
       final userId = await TokenService.getUserId();
       if (userId == null) {
+        debugPrint('CART SERVICE: No user ID found - authentication required');
+        _lastCartOperation = null; // Reset on error
         return {
           'success': false,
           'message': 'Please login to add items to cart',
@@ -79,12 +113,31 @@ class CartService {
       
       // Get current cart
       Map<String, dynamic>? currentCart = await getCart();
+      debugPrint('CART SERVICE: Current cart before operation:');
+      if (currentCart != null) {
+        debugPrint('  - Partner ID: ${currentCart['partner_id']}');
+        debugPrint('  - Restaurant: ${currentCart['restaurant_name']}');
+        debugPrint('  - Items count: ${(currentCart['items'] as List?)?.length ?? 0}');
+        debugPrint('  - Subtotal: ₹${currentCart['subtotal']}');
+        debugPrint('  - Total: ₹${currentCart['total_price']}');
+        
+        if (currentCart['items'] != null) {
+          final items = currentCart['items'] as List;
+          for (int i = 0; i < items.length; i++) {
+            final item = items[i];
+            debugPrint('    Item $i: ${item['name']} - Qty: ${item['quantity']}, Base: ₹${item['price']}, Total: ₹${item['total_price']}');
+          }
+        }
+      } else {
+        debugPrint('  - No existing cart found');
+      }
       
       // Check if cart exists and has different restaurant
       if (currentCart != null && currentCart['partner_id'] != partnerId) {
-        debugPrint('CartService: Different restaurant detected');
-        debugPrint('CartService: Current: ${currentCart['partner_id']}, New: $partnerId');
+        debugPrint('CART SERVICE: Different restaurant detected');
+        debugPrint('CART SERVICE: Current: ${currentCart['partner_id']}, New: $partnerId');
         
+        _lastCartOperation = null; // Reset for conflict handling
         return {
           'success': false,
           'message': 'different_restaurant',
@@ -105,18 +158,65 @@ class CartService {
         'address': '', // Will be updated when placing order
       };
       
-      // Find existing item
+      // Calculate attributes price
+      double attributesPrice = 0.0;
+      List<Map<String, dynamic>> attributesData = [];
+      if (attributes != null && attributes.isNotEmpty) {
+        for (var attr in attributes) {
+          attributesPrice += attr.priceAdjustment;
+          attributesData.add(attr.toJson());
+        }
+      }
+      
+      debugPrint('CART SERVICE: Price calculations:');
+      debugPrint('  - Base price: ₹$price');
+      debugPrint('  - Attributes price: ₹$attributesPrice');
+      debugPrint('  - Total price per item: ₹${price + attributesPrice}');
+      debugPrint('  - Total price for quantity: ₹${(price + attributesPrice) * quantity}');
+      
+      // Calculate total price per item (base price + attributes)
+      double totalPricePerItem = price + attributesPrice;
+      
+      // Find existing item with same attributes
       List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(cart['items']);
-      int existingIndex = items.indexWhere((item) => 
-        item['menu_id'] == menuId && 
-        mapEquals(item['attributes'], attributes)
-      );
+      int existingIndex = -1;
+      
+      if (quantity <= 0) {
+        // When removing, first find by menu ID only
+        existingIndex = items.indexWhere((item) => item['menu_id'] == menuId);
+        
+        // If multiple items with same menu ID, try to match attributes if provided
+        if (existingIndex >= 0 && attributesData.isNotEmpty) {
+          // Look for exact attribute match
+          for (int i = 0; i < items.length; i++) {
+            if (items[i]['menu_id'] == menuId && _compareAttributes(items[i]['attributes'], attributesData)) {
+              existingIndex = i;
+              break;
+            }
+          }
+        }
+      } else {
+        // When adding/updating, find by menu ID and attributes
+        existingIndex = items.indexWhere((item) => 
+          item['menu_id'] == menuId && 
+          _compareAttributes(item['attributes'], attributesData)
+        );
+      }
+      
+      debugPrint('CART SERVICE: Item search:');
+      debugPrint('  - Looking for menu ID: $menuId');
+      debugPrint('  - Quantity: $quantity (${quantity <= 0 ? 'removing' : 'adding/updating'})');
+      debugPrint('  - Attributes provided: ${attributesData.isNotEmpty ? 'yes' : 'no'}');
+      debugPrint('  - Existing item found at index: $existingIndex');
       
       if (quantity <= 0) {
         // Remove item if quantity is 0 or less
+        debugPrint('CART SERVICE: Removing item (quantity <= 0)');
         if (existingIndex >= 0) {
+          final removedItem = items[existingIndex];
+          debugPrint('  - Removing: ${removedItem['name']} (Qty: ${removedItem['quantity']}, Total: ₹${removedItem['total_price']})');
           items.removeAt(existingIndex);
-          debugPrint('CartService: Removed item $itemName from cart');
+          debugPrint('CART SERVICE: Item removed from cart');
         }
       } else {
         // Add or update item
@@ -124,18 +224,35 @@ class CartService {
           'menu_id': menuId,
           'name': itemName,
           'quantity': quantity,
-          'price': price,
-          'total_price': price * quantity,
+          'price': price, // Base price
+          'attributes_price': attributesPrice, // Total attributes price
+          'total_price_per_item': totalPricePerItem, // Price per item including attributes
+          'total_price': totalPricePerItem * quantity, // Total price for this item
           'image_url': imageUrl,
-          'attributes': attributes,
+          'attributes': attributesData,
         };
         
+        debugPrint('CART SERVICE: Cart item data:');
+        debugPrint('  - Menu ID: ${cartItem['menu_id']}');
+        debugPrint('  - Name: ${cartItem['name']}');
+        debugPrint('  - Quantity: ${cartItem['quantity']}');
+        debugPrint('  - Base Price: ₹${cartItem['price']}');
+        debugPrint('  - Attributes Price: ₹${cartItem['attributes_price']}');
+        debugPrint('  - Total Price Per Item: ₹${cartItem['total_price_per_item']}');
+        debugPrint('  - Total Price: ₹${cartItem['total_price']}');
+        debugPrint('  - Attributes: ${cartItem['attributes']}');
+        
         if (existingIndex >= 0) {
+          final oldItem = items[existingIndex];
+          debugPrint('CART SERVICE: Updating existing item:');
+          debugPrint('  - Old: ${oldItem['name']} (Qty: ${oldItem['quantity']}, Total: ₹${oldItem['total_price']})');
+          debugPrint('  - New: ${cartItem['name']} (Qty: ${cartItem['quantity']}, Total: ₹${cartItem['total_price']})');
           items[existingIndex] = cartItem;
-          debugPrint('CartService: Updated item $itemName quantity to $quantity');
+          debugPrint('CART SERVICE: Item updated in cart');
         } else {
+          debugPrint('CART SERVICE: Adding new item to cart');
           items.add(cartItem);
-          debugPrint('CartService: Added new item $itemName to cart');
+          debugPrint('CART SERVICE: New item added to cart');
         }
       }
       
@@ -151,13 +268,27 @@ class CartService {
       cart['subtotal'] = subtotal;
       cart['total_price'] = subtotal + (cart['delivery_fees'] as num).toDouble();
       
+      debugPrint('CART SERVICE: Final cart calculations:');
+      debugPrint('  - Items count: ${items.length}');
+      debugPrint('  - Subtotal: ₹$subtotal');
+      debugPrint('  - Delivery fees: ₹${cart['delivery_fees']}');
+      debugPrint('  - Total price: ₹${cart['total_price']}');
+      
+      debugPrint('CART SERVICE: Final items in cart:');
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        debugPrint('  Item $i: ${item['name']} - Qty: ${item['quantity']}, Base: ₹${item['price']}, Attr: ₹${item['attributes_price']}, Total: ₹${item['total_price']}');
+      }
+      
       // Save cart (or clear if empty)
       if (items.isEmpty) {
         await clearCart();
-        debugPrint('CartService: Cart is empty, cleared from storage');
+        debugPrint('CART SERVICE: Cart is empty, cleared from storage');
       } else {
         await saveCart(cart);
       }
+      
+      debugPrint('=== CART SERVICE: ADD ITEM OPERATION END ===');
       
       return {
         'success': true,
@@ -168,7 +299,8 @@ class CartService {
       };
       
     } catch (e) {
-      debugPrint('CartService: Error adding item to cart: $e');
+      debugPrint('CART SERVICE: Error adding item to cart: $e');
+      _lastCartOperation = null; // Reset on error
       return {
         'success': false,
         'message': 'Error adding item to cart',
@@ -176,7 +308,36 @@ class CartService {
     }
   }
   
-  // Helper function to compare maps
+  // Helper function to compare attributes
+  static bool _compareAttributes(dynamic a, dynamic b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      
+      // If both lists are empty, they match
+      if (a.isEmpty && b.isEmpty) return true;
+      
+      // Sort both lists by attribute_id for consistent comparison
+      final sortedA = List<Map<String, dynamic>>.from(a)
+        ..sort((x, y) => (x['attribute_id'] ?? '').compareTo(y['attribute_id'] ?? ''));
+      final sortedB = List<Map<String, dynamic>>.from(b)
+        ..sort((x, y) => (x['attribute_id'] ?? '').compareTo(y['attribute_id'] ?? ''));
+      
+      for (int i = 0; i < sortedA.length; i++) {
+        if (sortedA[i]['attribute_id'] != sortedB[i]['attribute_id'] ||
+            sortedA[i]['value_id'] != sortedB[i]['value_id']) {
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    return false;
+  }
+  
+  // Helper function to compare maps (keeping for backward compatibility)
   static bool mapEquals(Map<String, dynamic>? a, Map<String, dynamic>? b) {
     if (a == null && b == null) return true;
     if (a == null || b == null) return false;
@@ -210,6 +371,9 @@ class CartService {
       await clearCart();
       debugPrint('CartService: Existing cart cleared');
       
+      // Reset debounce timer for new operation
+      _lastCartOperation = null;
+      
       // Add new item from the new restaurant
       final result = await addItemToCart(
         partnerId: partnerId,
@@ -242,6 +406,7 @@ class CartService {
       
     } catch (e) {
       debugPrint('CartService: Error replacing cart: $e');
+      _lastCartOperation = null; // Reset on error
       return {
         'success': false,
         'message': 'Error updating cart',

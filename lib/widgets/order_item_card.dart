@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/color/colorConstant.dart';
 import '../constants/font/fontManager.dart';
+import '../models/attribute_model.dart';
 
 class OrderItemCard extends StatelessWidget {
   final String imageUrl;
@@ -8,6 +9,7 @@ class OrderItemCard extends StatelessWidget {
   final int quantity;
   final double price;
   final String itemId;
+  final List<SelectedAttribute> attributes;
   final Function(String itemId, int newQuantity)? onQuantityChanged;
 
   const OrderItemCard({
@@ -17,6 +19,7 @@ class OrderItemCard extends StatelessWidget {
     required this.quantity,
     required this.price,
     required this.itemId,
+    this.attributes = const [],
     this.onQuantityChanged,
   }) : super(key: key);
 
@@ -25,22 +28,38 @@ class OrderItemCard extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    debugPrint('OrderItemCard: Building card for $name, Qty: $quantity, Price: ₹${price.toStringAsFixed(2)}');
+    debugPrint('=== ORDER ITEM CARD: BUILD START ===');
+    debugPrint('ORDER ITEM CARD: Item data:');
+    debugPrint('  - Name: $name');
+    debugPrint('  - Quantity: $quantity');
+    debugPrint('  - Base Price: ₹$price');
+    debugPrint('  - Total Price: ₹${price.toStringAsFixed(2)}');
+    debugPrint('  - Item ID: $itemId');
+    debugPrint('  - Attributes count: ${attributes.length}');
+    
+    if (attributes.isNotEmpty) {
+      for (var attr in attributes) {
+        debugPrint('    - ${attr.attributeName}: ${attr.valueName} (+₹${attr.priceAdjustment})');
+      }
+    }
+    
+    // Calculate price per item for display
+    final pricePerItem = price / quantity;
+    debugPrint('ORDER ITEM CARD: Calculated price per item: ₹${pricePerItem.toStringAsFixed(2)}');
 
     return Container(
       margin: EdgeInsets.symmetric(
-        horizontal: screenWidth * 0.04,
-        vertical: screenHeight * 0.005, // Reduced vertical margin
+        horizontal: screenWidth * 0.06,
+        vertical: screenHeight * 0.01,
       ),
-      padding: EdgeInsets.all(screenWidth * 0.025), // Reduced padding
+      padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -48,31 +67,37 @@ class OrderItemCard extends StatelessWidget {
       child: Row(
         children: [
           // Item Image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: screenWidth * 0.16, // Slightly smaller image
-              height: screenWidth * 0.16,
-              color: Colors.grey[200],
-              child: imageUrl.startsWith('assets/')
-                  ? Image.asset(
+          Container(
+            width: screenWidth * 0.15,
+            height: screenWidth * 0.15,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[100],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildPlaceholderImage(screenWidth);
-                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Icons.restaurant,
+                          color: Colors.grey[400],
+                          size: screenWidth * 0.06,
+                        ),
+                      ),
                     )
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildPlaceholderImage(screenWidth);
-                      },
+                  : Icon(
+                      Icons.restaurant,
+                      color: Colors.grey[400],
+                      size: screenWidth * 0.06,
                     ),
             ),
           ),
           
-          SizedBox(width: screenWidth * 0.035), // Reduced spacing
+          SizedBox(width: screenWidth * 0.04),
           
           // Item Details
           Expanded(
@@ -103,6 +128,24 @@ class OrderItemCard extends StatelessWidget {
                     color: Colors.grey[600],
                   ),
                 ),
+
+                // Display attributes if any
+                if (attributes.isNotEmpty) ...[
+                  SizedBox(height: screenHeight * 0.005),
+                  ...attributes.map((attr) => Padding(
+                    padding: EdgeInsets.only(bottom: screenHeight * 0.002),
+                    child: Text(
+                      '${attr.attributeName}: ${attr.valueName}${attr.priceAdjustment > 0 ? ' (+₹${attr.priceAdjustment.toStringAsFixed(2)})' : ''}',
+                      style: TextStyle(
+                        fontSize: (screenWidth * 0.025).clamp(10.0, 12.0),
+                        fontWeight: FontWeightManager.regular,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.grey[500],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  )).toList(),
+                ],
               ],
             ),
           ),
@@ -207,18 +250,7 @@ class OrderItemCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildPlaceholderImage(double screenWidth) {
-    return Container(
-      width: screenWidth * 0.16,
-      height: screenWidth * 0.16,
-      color: Colors.grey[300],
-      child: Icon(
-        Icons.restaurant,
-        color: Colors.grey[500],
-        size: screenWidth * 0.07, // Smaller icon
-      ),
-    );
+    
+    debugPrint('=== ORDER ITEM CARD: BUILD END ===');
   }
 }

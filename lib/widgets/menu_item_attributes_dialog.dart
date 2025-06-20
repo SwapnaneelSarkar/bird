@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/color/colorConstant.dart';
+import '../service/attribute_service.dart';
+import '../models/attribute_model.dart';
 
 class MenuItemAttributesDialog extends StatefulWidget {
   final Map<String, dynamic> item;
-  final Function(Map<String, dynamic> selectedAttributes) onAttributesSelected;
+  final Function(List<SelectedAttribute> selectedAttributes) onAttributesSelected;
 
   const MenuItemAttributesDialog({
     Key? key,
@@ -15,7 +17,7 @@ class MenuItemAttributesDialog extends StatefulWidget {
   static Future<void> show({
     required BuildContext context,
     required Map<String, dynamic> item,
-    required Function(Map<String, dynamic> selectedAttributes) onAttributesSelected,
+    required Function(List<SelectedAttribute> selectedAttributes) onAttributesSelected,
   }) async {
     return showModalBottomSheet(
       context: context,
@@ -33,7 +35,127 @@ class MenuItemAttributesDialog extends StatefulWidget {
 }
 
 class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
-  Map<String, dynamic> selectedAttributes = {};
+  List<AttributeGroup> _attributeGroups = [];
+  Map<String, String> _selectedValues = {};
+  bool _isLoading = true;
+  String? _errorMessage;
+  double _totalPrice = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttributes();
+  }
+
+  Future<void> _loadAttributes() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final menuId = widget.item['id'];
+      if (menuId == null) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Item ID not found';
+        });
+        return;
+      }
+
+      final attributes = await AttributeService.fetchMenuItemAttributes(menuId);
+      
+      if (attributes.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'No attributes available for this item';
+        });
+        return;
+      }
+
+      // Set default values for required attributes
+      Map<String, String> defaultValues = {};
+      for (var group in attributes) {
+        if (group.isRequired && group.values.isNotEmpty) {
+          final defaultOption = group.values.firstWhere(
+            (value) => value.isDefault == true,
+            orElse: () => group.values.first,
+          );
+          if (defaultOption.name != null && defaultOption.valueId != null) {
+            defaultValues[group.attributeId] = defaultOption.valueId!;
+          }
+        }
+      }
+
+      setState(() {
+        _attributeGroups = attributes;
+        _selectedValues = defaultValues;
+        _isLoading = false;
+        _totalPrice = _calculateTotalPrice();
+      });
+
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load attributes';
+      });
+    }
+  }
+
+  double _calculateTotalPrice() {
+    double basePrice = (widget.item['price'] as num?)?.toDouble() ?? 0.0;
+    double attributesPrice = 0.0;
+
+    for (var group in _attributeGroups) {
+      final selectedValueId = _selectedValues[group.attributeId];
+      if (selectedValueId != null) {
+        final selectedValue = group.values.firstWhere(
+          (value) => value.valueId == selectedValueId,
+          orElse: () => AttributeValue(),
+        );
+        if (selectedValue.priceAdjustment != null) {
+          attributesPrice += selectedValue.priceAdjustment!;
+        }
+      }
+    }
+
+    return basePrice + attributesPrice;
+  }
+
+  List<SelectedAttribute> _getSelectedAttributes() {
+    List<SelectedAttribute> selectedAttributes = [];
+
+    for (var group in _attributeGroups) {
+      final selectedValueId = _selectedValues[group.attributeId];
+      if (selectedValueId != null) {
+        final selectedValue = group.values.firstWhere(
+          (value) => value.valueId == selectedValueId,
+          orElse: () => AttributeValue(),
+        );
+        
+        if (selectedValue.name != null && selectedValue.valueId != null) {
+          selectedAttributes.add(SelectedAttribute(
+            attributeId: group.attributeId,
+            attributeName: group.name,
+            valueId: selectedValue.valueId!,
+            valueName: selectedValue.name!,
+            priceAdjustment: selectedValue.priceAdjustment ?? 0.0,
+          ));
+        }
+      }
+    }
+
+    return selectedAttributes;
+  }
+
+  bool _isValidSelection() {
+    for (var group in _attributeGroups) {
+      if (group.isRequired && _selectedValues[group.attributeId] == null) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +163,7 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      height: screenHeight * 0.7,
+      height: screenHeight * 0.8,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -93,7 +215,7 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
                       ),
                       SizedBox(height: screenWidth * 0.01),
                       Text(
-                        '₹${widget.item['price']?.toString() ?? '0'}',
+                        '₹${_totalPrice.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
                           fontSize: screenWidth * 0.04,
                           fontWeight: FontWeight.w500,
@@ -107,36 +229,59 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
             ),
           ),
 
-          // Attributes List
+          // Content
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.all(screenWidth * 0.05),
-              children: [
-                // Add your attributes UI here
-                // This is a placeholder - you'll need to implement the actual attributes UI
-                // based on your data structure
-                Text(
-                  'Select Options',
-                  style: GoogleFonts.poppins(
-                    fontSize: screenWidth * 0.04,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: screenWidth * 0.03),
-                // Example attribute selection
-                _buildAttributeOption(
-                  'Size',
-                  ['Small', 'Medium', 'Large'],
-                  'size',
-                ),
-                SizedBox(height: screenWidth * 0.03),
-                _buildAttributeOption(
-                  'Spice Level',
-                  ['Mild', 'Medium', 'Hot'],
-                  'spice_level',
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: ColorManager.primary),
+                        SizedBox(height: screenHeight * 0.02),
+                        Text(
+                          'Loading options...',
+                          style: GoogleFonts.poppins(
+                            fontSize: screenWidth * 0.035,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, 
+                                 size: screenWidth * 0.15, 
+                                 color: Colors.grey[400]),
+                            SizedBox(height: screenHeight * 0.02),
+                            Text(
+                              _errorMessage!,
+                              style: GoogleFonts.poppins(
+                                fontSize: screenWidth * 0.035,
+                                color: Colors.grey[600],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView(
+                        padding: EdgeInsets.all(screenWidth * 0.05),
+                        children: [
+                          Text(
+                            'Select Options',
+                            style: GoogleFonts.poppins(
+                              fontSize: screenWidth * 0.04,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: screenHeight * 0.02),
+                          ..._attributeGroups.map((group) => _buildAttributeGroup(group, screenWidth, screenHeight)),
+                        ],
+                      ),
           ),
 
           // Bottom Action Buttons
@@ -178,10 +323,11 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
                 SizedBox(width: screenWidth * 0.04),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: _isValidSelection() ? () {
+                      final selectedAttributes = _getSelectedAttributes();
                       widget.onAttributesSelected(selectedAttributes);
                       Navigator.pop(context);
-                    },
+                    } : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ColorManager.primary,
                       foregroundColor: Colors.white,
@@ -207,44 +353,78 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
     );
   }
 
-  Widget _buildAttributeOption(String title, List<String> options, String attributeKey) {
+  Widget _buildAttributeGroup(AttributeGroup group, double screenWidth, double screenHeight) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
+        Row(
+          children: [
+            Text(
+              group.name,
+              style: GoogleFonts.poppins(
+                fontSize: screenWidth * 0.04,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (group.isRequired)
+              Text(
+                ' *',
+                style: GoogleFonts.poppins(
+                  fontSize: screenWidth * 0.04,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: screenHeight * 0.01),
+        
+        if (group.type == 'radio')
+          ...group.values.map((value) => _buildRadioOption(group, value, screenWidth, screenHeight)),
+        
+        SizedBox(height: screenHeight * 0.02),
+      ],
+    );
+  }
+
+  Widget _buildRadioOption(AttributeGroup group, AttributeValue value, double screenWidth, double screenHeight) {
+    if (value.name == null || value.valueId == null) return SizedBox.shrink();
+    
+    final isSelected = _selectedValues[group.attributeId] == value.valueId;
+    final priceText = value.priceAdjustment != null && value.priceAdjustment! > 0 
+        ? ' (+₹${value.priceAdjustment!.toStringAsFixed(2)})' 
+        : '';
+
+    return Container(
+      margin: EdgeInsets.only(bottom: screenHeight * 0.01),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected ? ColorManager.primary : Colors.grey[300]!,
+          width: isSelected ? 2 : 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        color: isSelected ? ColorManager.primary.withOpacity(0.05) : Colors.transparent,
+      ),
+      child: RadioListTile<String>(
+        value: value.valueId!,
+        groupValue: _selectedValues[group.attributeId],
+        onChanged: (newValue) {
+          setState(() {
+            _selectedValues[group.attributeId] = newValue!;
+            _totalPrice = _calculateTotalPrice();
+          });
+        },
+        title: Text(
+          '${value.name!}$priceText',
           style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+            fontSize: screenWidth * 0.035,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? ColorManager.primary : Colors.black87,
           ),
         ),
-        SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: options.map((option) {
-            final isSelected = selectedAttributes[attributeKey] == option;
-            return ChoiceChip(
-              label: Text(option),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    selectedAttributes[attributeKey] = option;
-                  } else {
-                    selectedAttributes.remove(attributeKey);
-                  }
-                });
-              },
-              backgroundColor: Colors.grey[200],
-              selectedColor: ColorManager.primary.withOpacity(0.2),
-              labelStyle: GoogleFonts.poppins(
-                color: isSelected ? ColorManager.primary : Colors.black87,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+        activeColor: ColorManager.primary,
+        contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.03),
+      ),
     );
   }
 } 

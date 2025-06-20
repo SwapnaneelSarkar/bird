@@ -1,9 +1,12 @@
+import 'attribute_model.dart';
+
 class OrderItem {
   final String id;
   final String name;
   final String imageUrl;
   final int quantity;
   final double price;
+  final List<SelectedAttribute> attributes;
 
   OrderItem({
     required this.id,
@@ -11,15 +14,26 @@ class OrderItem {
     required this.imageUrl,
     required this.quantity,
     required this.price,
+    this.attributes = const [],
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    List<SelectedAttribute> parsedAttributes = [];
+    if (json['attributes'] != null) {
+      if (json['attributes'] is List) {
+        parsedAttributes = (json['attributes'] as List)
+            .map((attr) => SelectedAttribute.fromJson(attr))
+            .toList();
+      }
+    }
+
     return OrderItem(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       imageUrl: json['imageUrl'] ?? '',
       quantity: json['quantity'] ?? 0,
       price: (json['price'] ?? 0.0).toDouble(),
+      attributes: parsedAttributes,
     );
   }
 
@@ -30,12 +44,26 @@ class OrderItem {
       'imageUrl': imageUrl,
       'quantity': quantity,
       'price': price,
+      'attributes': attributes.map((attr) => attr.toJson()).toList(),
     };
   }
 
   double get totalPrice {
-    final total = price * quantity;
-    return total;
+    final basePrice = price * quantity;
+    final attributesPrice = attributes.fold<double>(
+      0.0, 
+      (sum, attr) => sum + (attr.priceAdjustment * quantity)
+    );
+    return basePrice + attributesPrice;
+  }
+
+  double get pricePerItem {
+    final basePrice = price;
+    final attributesPrice = attributes.fold<double>(
+      0.0, 
+      (sum, attr) => sum + attr.priceAdjustment
+    );
+    return basePrice + attributesPrice;
   }
 }
 

@@ -163,19 +163,81 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
             // While dialog is being handled, show the previous loaded content
             return _buildUpdatedContent(context, state.previousState);
           } else if (state is RestaurantDetailsError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(state.message, style: const TextStyle(fontSize: 16, color: Colors.red)),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context), 
-                    child: const Text('Go Back')
+            final isNetworkError = state.message.toLowerCase().contains('network error');
+            if (isNetworkError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.wifi_off, size: 72, color: Colors.orangeAccent),
+                      const SizedBox(height: 24),
+                      Text(
+                        'No Internet Connection',
+                        style: GoogleFonts.poppins(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orangeAccent,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'We couldn\'t connect to our servers.\nPlease check your Wi-Fi or mobile data and try again.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 28),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Retry by reloading the restaurant details
+                          final parent = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
+                          if (parent != null) {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => RestaurantDetailsPage(
+                                  restaurantData: parent.restaurantData,
+                                  userLatitude: parent.userLatitude,
+                                  userLongitude: parent.userLongitude,
+                                ),
+                              ),
+                            );
+                          } else {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orangeAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
+                ),
+              );
+            } else {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(state.message, style: const TextStyle(fontSize: 16, color: Colors.red)),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context), 
+                      child: const Text('Go Back')
+                    ),
+                  ],
+                ),
+              );
+            }
           }
           
           return const Center(child: CircularProgressIndicator());

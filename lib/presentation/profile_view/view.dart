@@ -11,6 +11,7 @@ import '../terms_conditions/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import 'package:share_plus/share_plus.dart';
 
 const List<BoxShadow> softBoxShadow = [
   BoxShadow(
@@ -281,7 +282,13 @@ ProfileCardTile(
                     ProfileCardTile(
                       leadingIcon: const Icon(Icons.share, size: 20, color: Color(0xFFE67E22)),
                       title: 'Share App',
-                      onTap: () {},
+                      onTap: () async {
+                        // Share the app link using share_plus
+                        await Share.share(
+                          'Check out Bird App for food delivery! Download now: https://play.google.com/store/apps/details?id=com.birduser.app',
+                          subject: 'Bird App - Food Delivery',
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     ProfileCardTile(

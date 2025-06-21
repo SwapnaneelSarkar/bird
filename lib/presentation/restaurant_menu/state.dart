@@ -94,3 +94,11 @@ class CartConflictDetected extends RestaurantDetailsState {
     previousState,
   ];
 }
+
+class FirstItemAddedToCart extends RestaurantDetailsState {
+  final RestaurantDetailsLoaded loadedState;
+  const FirstItemAddedToCart(this.loadedState);
+
+  @override
+  List<Object?> get props => [loadedState];
+}

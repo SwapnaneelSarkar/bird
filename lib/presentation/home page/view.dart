@@ -17,6 +17,16 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 
+// Responsive text utility function
+double getResponsiveFontSize(BuildContext context, double baseSize) {
+  final screenWidth = MediaQuery.of(context).size.width;
+  if (screenWidth < 320) return baseSize * 0.8; // Small phones
+  if (screenWidth < 480) return baseSize * 0.9; // Medium phones
+  if (screenWidth < 768) return baseSize; // Large phones
+  if (screenWidth < 1024) return baseSize * 1.1; // Tablets
+  return baseSize * 1.2; // Large tablets/desktop
+}
+
 // Main home page widget
 class HomePage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -281,7 +291,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                       Text(
                         'Deliver to',
                         style: GoogleFonts.poppins(
-                          fontSize: isWide ? 14 : 12, 
+                          fontSize: getResponsiveFontSize(context, 12), 
                           color: Colors.grey[600], 
                           letterSpacing: 0.3,
                         ),
@@ -292,7 +302,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                             child: Text(
                               state.userAddress,
                               style: GoogleFonts.poppins(
-                                fontSize: isWide ? 16 : 14, 
+                                fontSize: getResponsiveFontSize(context, 14), 
                                 fontWeight: FontWeight.w600, 
                                 color: Colors.grey[800],
                               ),
@@ -386,7 +396,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           child: Text(
                             'Search restaurants...',
                             style: GoogleFonts.poppins(
-                              fontSize: isWide ? 16 : 14, 
+                              fontSize: getResponsiveFontSize(context, 14), 
                               color: Colors.grey[400], 
                               fontWeight: FontWeight.w400,
                             ),
@@ -748,7 +758,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               child: Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: 10, 
+                  fontSize: getResponsiveFontSize(context, 12), 
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
                   color: isSelected ? accentColor : Colors.grey[800]
                 ),
@@ -867,7 +877,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               child: Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: 12, 
+                  fontSize: getResponsiveFontSize(context, 12), 
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
                   color: isSelected ? accentColor : Colors.grey[800]
                 ),
@@ -1035,7 +1045,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 Text(
                   'All Restaurants',
                   style: GoogleFonts.poppins(
-                    fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
+                    fontSize: getResponsiveFontSize(context, 18), fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1048,7 +1058,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   child: Text(
                     '${filteredRestaurants.length}',
                     style: GoogleFonts.poppins(
-                      fontSize: 12, fontWeight: FontWeight.w600, color: ColorManager.primary,
+                      fontSize: getResponsiveFontSize(context, 12), fontWeight: FontWeight.w600, color: ColorManager.primary,
                     ),
                   ),
                 ),
@@ -1144,7 +1154,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           Text(
             'Outside Service Area',
             style: GoogleFonts.poppins(
-              fontSize: 32,
+              fontSize: getResponsiveFontSize(context, 32),
               fontWeight: FontWeight.bold,
               color: Colors.grey[800],
             ),
@@ -1153,7 +1163,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           Text(
             'We haven\'t spread our wings to this area yet.',
             style: GoogleFonts.poppins(
-              fontSize: 18,
+              fontSize: getResponsiveFontSize(context, 18),
               fontWeight: FontWeight.w500,
               color: Colors.grey[600],
             ),
@@ -1163,7 +1173,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           Text(
             'Please try a different location within our service area.',
             style: GoogleFonts.poppins(
-              fontSize: 18,
+              fontSize: getResponsiveFontSize(context, 18),
               fontWeight: FontWeight.w500,
               color: Colors.grey[600],
             ),
@@ -1182,7 +1192,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               'Change Location',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w500,
-                fontSize: 16,
+                fontSize: getResponsiveFontSize(context, 16),
                 color: Colors.white,
               ),
             ),
@@ -1218,7 +1228,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           Text(
             'Oops!',
             style: GoogleFonts.poppins(
-              fontSize: 32,
+              fontSize: getResponsiveFontSize(context, 32),
               fontWeight: FontWeight.bold,
               color: Colors.grey[800],
             ),
@@ -1227,7 +1237,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           Text(
             'Hello! We\'re not flying to this area yet.',
             style: GoogleFonts.poppins(
-              fontSize: 18,
+              fontSize: getResponsiveFontSize(context, 18),
               fontWeight: FontWeight.w500,
               color: Colors.grey[600],
             ),
@@ -1237,7 +1247,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           Text(
             'Try changing your location.',
             style: GoogleFonts.poppins(
-              fontSize: 18,
+              fontSize: getResponsiveFontSize(context, 18),
               fontWeight: FontWeight.w500,
               color: Colors.grey[600],
             ),
@@ -1256,7 +1266,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               'Change Location',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w500,
-                fontSize: 16,
+                fontSize: getResponsiveFontSize(context, 16),
                 color: Colors.white,
               ),
             ),
@@ -1446,7 +1456,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                               Text(
                                 'Sort & Filter',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 18,
+                                  fontSize: getResponsiveFontSize(context, 18),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
@@ -1478,8 +1488,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           indicatorColor: ColorManager.primary,
                           labelColor: ColorManager.primary,
                           unselectedLabelColor: Colors.grey[600],
-                          labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
-                          unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 12),
+                          labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: getResponsiveFontSize(context, 12)),
+                          unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: getResponsiveFontSize(context, 12)),
                         ),
                         // Tab Content - with fixed height
                         SizedBox(
@@ -1523,7 +1533,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                   child: Text(
                                     'Reset',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 14,
+                                      fontSize: getResponsiveFontSize(context, 14),
                                       fontWeight: FontWeight.w500,
                                       color: ColorManager.primary,
                                     ),
@@ -1566,7 +1576,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                     'Apply Filters',
                                     style: GoogleFonts.poppins(
                                       fontWeight: FontWeight.w500,
-                                      fontSize: 14,
+                                      fontSize: getResponsiveFontSize(context, 14),
                                     ),
                                   ),
                                 ),
@@ -1598,7 +1608,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               child: Text(
                 'Sort by Price',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: getResponsiveFontSize(context, 16),
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[800],
                 ),
@@ -1647,7 +1657,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               child: Text(
                 'Sort by Delivery Time',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: getResponsiveFontSize(context, 16),
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[800],
                 ),
@@ -1682,7 +1692,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               child: Text(
                 'Sort by Rating',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: getResponsiveFontSize(context, 16),
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[800],
                 ),
@@ -1731,7 +1741,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               child: Text(
                 'Dietary Preferences',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: getResponsiveFontSize(context, 16),
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[800],
                 ),
@@ -1802,7 +1812,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           const SizedBox(height: 24),
           Text(
             'Preparing your delicious experience...',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[600]),
+            style: GoogleFonts.poppins(fontSize: getResponsiveFontSize(context, 14), fontWeight: FontWeight.w500, color: Colors.grey[600]),
           ),
         ],
       ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut),
@@ -1854,12 +1864,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             const SizedBox(height: 24),
             Text(
               'Location Not Serviceable',
-              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+              style: GoogleFonts.poppins(fontSize: getResponsiveFontSize(context, 20), fontWeight: FontWeight.bold, color: Colors.grey[800]),
             ),
             const SizedBox(height: 12),
             Text(
               'We haven\'t spread our wings to this area yet.',
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.red[400]),
+              style: GoogleFonts.poppins(fontSize: getResponsiveFontSize(context, 16), color: Colors.red[400]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -1874,7 +1884,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 }
               },
               icon: const Icon(Icons.arrow_back),
-              label: Text('Back to last location', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+              label: Text('Back to last location', style: GoogleFonts.poppins(fontSize: getResponsiveFontSize(context, 16), fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ColorManager.primary,
                 foregroundColor: Colors.white,
@@ -1935,7 +1945,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    fontSize: getResponsiveFontSize(context, 16),
                     fontWeight: FontWeight.w600,
                     color: value ? color : Colors.grey[800],
                   ),
@@ -1943,7 +1953,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: getResponsiveFontSize(context, 13),
                     color: Colors.grey[600],
                   ),
                 ),

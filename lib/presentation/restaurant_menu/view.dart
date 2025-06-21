@@ -7,6 +7,7 @@ import '../../constants/font/fontManager.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/food_item_card.dart';
 import '../../widgets/cart_dialog.dart';
+import '../../widgets/item_added_popup.dart';
 import '../../models/attribute_model.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -83,6 +84,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   bool _isFilterMenuOpen = false;
   bool _isShowingConflictDialog = false;
   
+  // Track previous quantities to detect first-time additions
+  Map<String, int> _previousQuantities = {};
+  
   @override
   void initState() {
     super.initState();
@@ -137,6 +141,30 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     return filteredMenu;
   }
 
+  // Check if item was added for the first time and show popup
+  void _checkAndShowPopup(String itemId, int newQuantity, Map<String, dynamic> item) {
+    final previousQuantity = _previousQuantities[itemId] ?? 0;
+    
+    // Show popup only when quantity changes from 0 to 1 (first time addition)
+    if (previousQuantity == 0 && newQuantity == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ItemAddedPopup.show(
+          context: context,
+          item: item,
+          onViewCart: () {
+            Navigator.pushReplacementNamed(context, Routes.orderConfirmation);
+          },
+          onContinueShopping: () {
+            // Just close the popup, user can continue shopping
+          },
+        );
+      });
+    }
+    
+    // Update the previous quantities
+    _previousQuantities[itemId] = newQuantity;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,6 +180,11 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                 _isShowingConflictDialog = false;
               });
             });
+          } else if (state is RestaurantDetailsLoaded) {
+            // Initialize previous quantities when state is loaded
+            if (_previousQuantities.isEmpty) {
+              _previousQuantities = Map.from(state.cartQuantities);
+            }
           }
         },
         builder: (context, state) {
@@ -458,6 +491,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                                   attributes: attributes,
                                 ),
                               );
+                              
+                              // Check if this is the first time adding this item
+                              _checkAndShowPopup(menuItem['id'], newQuantity, menuItem);
                             },
                           ),
                         );

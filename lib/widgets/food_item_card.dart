@@ -38,39 +38,45 @@ class _FoodItemCardState extends State<FoodItemCard> {
       return;
     }
     
-    // Always check if item has attributes and show dialog if it does
-    // This allows users to modify their selection each time
-    AttributeService.fetchMenuItemAttributes(menuId).then((attributes) {
-      if (attributes.isNotEmpty) {
-        // Item has attributes, show the dialog
-        debugPrint('FoodItemCard: Item has ${attributes.length} attribute groups, showing dialog');
-        MenuItemAttributesDialog.show(
-          context: context,
-          item: widget.item,
-          onAttributesSelected: (selectedAttributes) {
-            // Store the selected attributes for future use
-            setState(() {
-              _selectedAttributes = selectedAttributes;
-            });
-            widget.onQuantityChanged(newQuantity, attributes: selectedAttributes);
-          },
-        );
-      } else {
-        // Item has no attributes, add directly to cart
-        debugPrint('FoodItemCard: Item has no attributes, adding directly to cart');
+    // If this is the first time adding the item (quantity was 0), check for attributes
+    if (widget.quantity == 0) {
+      // First time adding - check if item has attributes and show dialog if it does
+      AttributeService.fetchMenuItemAttributes(menuId).then((attributes) {
+        if (attributes.isNotEmpty) {
+          // Item has attributes, show the dialog
+          debugPrint('FoodItemCard: Item has ${attributes.length} attribute groups, showing dialog');
+          MenuItemAttributesDialog.show(
+            context: context,
+            item: widget.item,
+            onAttributesSelected: (selectedAttributes) {
+              // Store the selected attributes for future use
+              setState(() {
+                _selectedAttributes = selectedAttributes;
+              });
+              widget.onQuantityChanged(newQuantity, attributes: selectedAttributes);
+            },
+          );
+        } else {
+          // Item has no attributes, add directly to cart
+          debugPrint('FoodItemCard: Item has no attributes, adding directly to cart');
+          setState(() {
+            _selectedAttributes = null;
+          });
+          widget.onQuantityChanged(newQuantity);
+        }
+      }).catchError((error) {
+        // If there's an error fetching attributes, add directly to cart
+        debugPrint('FoodItemCard: Error fetching attributes: $error, adding directly to cart');
         setState(() {
           _selectedAttributes = null;
         });
         widget.onQuantityChanged(newQuantity);
-      }
-    }).catchError((error) {
-      // If there's an error fetching attributes, add directly to cart
-      debugPrint('FoodItemCard: Error fetching attributes: $error, adding directly to cart');
-      setState(() {
-        _selectedAttributes = null;
       });
-      widget.onQuantityChanged(newQuantity);
-    });
+    } else {
+      // Subsequent additions - use stored attributes without showing dialog
+      debugPrint('FoodItemCard: Subsequent addition, using stored attributes');
+      widget.onQuantityChanged(newQuantity, attributes: _selectedAttributes);
+    }
   }
 
   @override

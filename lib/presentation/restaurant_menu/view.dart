@@ -195,6 +195,12 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
               
               // Check if cart was empty when page loaded
               _wasCartEmpty = state.cartItemCount == 0;
+            } else {
+              // Track cart state changes dynamically
+              // If cart becomes empty, reset the flag to allow popup on next addition
+              if (state.cartItemCount == 0) {
+                _wasCartEmpty = true;
+              }
             }
           }
         },

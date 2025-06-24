@@ -241,7 +241,7 @@ class ItemAddedPopup extends StatelessWidget {
                       child: Text(
                         'Continue Shopping',
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey[700],
                         ),

@@ -164,7 +164,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
                   'description': item['description'] ?? '',
                   'imageUrl': item['image_url'],
                   'isVeg': item['isVeg'] == 1,
-                  'category': item['category'] ?? '',
+                  'category': item['category'],
                   'available': item['available'] == 1,
                   'isTaxIncluded': item['isTaxIncluded'] == 1,
                   'isCancellable': item['isCancellable'] == 1,

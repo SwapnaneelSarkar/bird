@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../constants/api_constant.dart';
 import '../service/token_service.dart';
 import '../models/chat_models.dart';
+import '../utils/timezone_utils.dart';
 
 class SocketChatService extends ChangeNotifier {
   // Socket.IO Configuration from document
@@ -170,8 +171,11 @@ class SocketChatService extends ChangeNotifier {
         return;
       }
       
+      debugPrint('SocketService: Raw received message data: $messageData');
+      
       final message = ApiChatMessage.fromJson(messageData);
       
+      debugPrint('SocketService: Processed message data: ${message.toJson()}');
       debugPrint('Received message via socket: ${message.content}');
       debugPrint('Message from: ${message.senderType} (ID: ${message.senderId})');
       
@@ -214,7 +218,7 @@ class SocketChatService extends ChangeNotifier {
       final readData = data is Map<String, dynamic> ? data : jsonDecode(data.toString());
       final messageId = readData['messageId'];
       final userId = readData['userId'];
-      final readAt = DateTime.parse(readData['readAt']);
+      final readAt = TimezoneUtils.parseToIST(readData['readAt']);
       
       debugPrint('Message read update - Message: $messageId, User: $userId');
       
@@ -267,7 +271,7 @@ class SocketChatService extends ChangeNotifier {
       final readData = data is Map<String, dynamic> ? data : jsonDecode(data.toString());
       final roomId = readData['roomId'];
       final userId = readData['userId'];
-      final readAt = DateTime.parse(readData['readAt']);
+      final readAt = TimezoneUtils.parseToIST(readData['readAt']);
       
       debugPrint('Messages marked read - Room: $roomId, User: $userId');
       
@@ -461,7 +465,7 @@ class SocketChatService extends ChangeNotifier {
         'roomId': roomId,
         'userId': _currentUserId,
         'userType': 'user', // USER sends as 'user'
-        'timestamp': DateTime.now().toIso8601String(),
+        'timestamp': TimezoneUtils.getCurrentTime().toIso8601String(),
       };
       
       _socket!.emit('mark_as_read', readData);

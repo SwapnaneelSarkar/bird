@@ -15,6 +15,24 @@ class TimezoneUtils {
     return tz.TZDateTime.now(tz.getLocation(_istTimezone));
   }
   
+  // Get current time (handles the case where local time is already IST)
+  static DateTime getCurrentTime() {
+    // Check if local time is already IST
+    final localNow = DateTime.now();
+    final istNow = getCurrentTimeIST();
+    
+    // If local time and IST time are very close (within 5 minutes), 
+    // assume we're already in IST timezone
+    final timeDiff = localNow.difference(istNow).abs();
+    if (timeDiff.inMinutes <= 5) {
+      // We're already in IST timezone, return local time
+      return localNow;
+    } else {
+      // We're in a different timezone, return IST time
+      return istNow;
+    }
+  }
+  
   // Convert UTC DateTime to IST
   static DateTime convertToIST(DateTime utcDateTime) {
     return tz.TZDateTime.from(utcDateTime, tz.getLocation(_istTimezone));
@@ -22,22 +40,39 @@ class TimezoneUtils {
   
   // Convert any DateTime to IST (assuming it's in UTC if no timezone info)
   static DateTime toIST(DateTime dateTime) {
-    // If the DateTime is already in local time, we need to treat it as UTC first
+    // If the DateTime is already in UTC, convert it to IST
     if (dateTime.isUtc) {
       return convertToIST(dateTime);
     } else {
-      // Treat as UTC and convert to IST
-      final utcDateTime = DateTime.utc(
-        dateTime.year,
-        dateTime.month,
-        dateTime.day,
-        dateTime.hour,
-        dateTime.minute,
-        dateTime.second,
-        dateTime.millisecond,
-        dateTime.microsecond,
-      );
-      return convertToIST(utcDateTime);
+      // If it's not UTC, check if we're already in IST timezone
+      // For simplicity, if the DateTime is not UTC, assume it's already in local time
+      // and if local time is IST, return it as is
+      
+      // Get current local time and current IST time
+      final localNow = DateTime.now();
+      final istNow = getCurrentTimeIST();
+      
+      // If local time and IST time are very close (within 5 minutes), 
+      // assume we're already in IST timezone
+      final timeDiff = localNow.difference(istNow).abs();
+      if (timeDiff.inMinutes <= 5) {
+        // We're already in IST timezone, return the DateTime as is
+        return dateTime;
+      } else {
+        // We're in a different timezone, need to convert
+        // Treat the DateTime as UTC and convert to IST
+        final utcDateTime = DateTime.utc(
+          dateTime.year,
+          dateTime.month,
+          dateTime.day,
+          dateTime.hour,
+          dateTime.minute,
+          dateTime.second,
+          dateTime.millisecond,
+          dateTime.microsecond,
+        );
+        return convertToIST(utcDateTime);
+      }
     }
   }
   
@@ -47,16 +82,16 @@ class TimezoneUtils {
     return DateFormat(format).format(istDateTime);
   }
   
-  // Format for chat messages (MMM dd, HH:mm or HH:mm)
+  // Format for chat messages (MMM dd, hh:mm a or hh:mm a)
   static String formatChatTime(DateTime dateTime) {
     final istDateTime = toIST(dateTime);
     final now = getCurrentTimeIST();
     final difference = now.difference(istDateTime);
     
     if (difference.inDays > 0) {
-      return DateFormat('MMM dd, HH:mm').format(istDateTime);
+      return DateFormat('MMM dd, hh:mm a').format(istDateTime);
     } else {
-      return DateFormat('HH:mm').format(istDateTime);
+      return DateFormat('hh:mm a').format(istDateTime);
     }
   }
   
@@ -70,9 +105,9 @@ class TimezoneUtils {
     return formatToIST(dateTime, 'MMM dd, yyyy HH:mm');
   }
   
-  // Format for time only (HH:mm)
+  // Format for time only (hh:mm a)
   static String formatTimeOnly(DateTime dateTime) {
-    return formatToIST(dateTime, 'HH:mm');
+    return formatToIST(dateTime, 'hh:mm a');
   }
   
   // Format for date only (dd/MM/yyyy)

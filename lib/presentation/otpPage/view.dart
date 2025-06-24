@@ -174,28 +174,25 @@ class _OtpScreenState extends State<OtpScreen> {
         Text("Didn't receive code? ", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
         GestureDetector(
           onTap: (_canResend && !isVerifying && !_isResendingInProgress) ? () => _handleResendTap(context) : null,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isResendingInProgress) ...[
-                  SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary))),
-                  const SizedBox(width: 6),
-                  Text('Sending...', style: TextStyle(color: ColorManager.primary, fontSize: 14, fontWeight: FontWeight.w500)),
-                ] else ...[
-                  Text(
-                    _canResend ? 'Resend' : 'Resend in ${_countdown}s',
-                    style: TextStyle(
-                      color: _canResend && !isVerifying ? ColorManager.primary : Colors.grey,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      decoration: _canResend && !isVerifying ? TextDecoration.underline : null,
-                    ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isResendingInProgress) ...[
+                SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary))),
+                const SizedBox(width: 6),
+                Text('Sending...', style: TextStyle(color: ColorManager.primary, fontSize: 14, fontWeight: FontWeight.w500, decoration: TextDecoration.none)),
+              ] else ...[
+                Text(
+                  _canResend ? 'Resend' : 'Resend in ${_countdown}s',
+                  style: TextStyle(
+                    color: _canResend && !isVerifying ? ColorManager.primary : Colors.grey,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.none,
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ],

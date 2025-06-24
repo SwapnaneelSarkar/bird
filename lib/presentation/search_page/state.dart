@@ -53,7 +53,7 @@ class SearchRestaurant extends Equatable {
   final String restaurantName;
   final String address;
   final double rating;
-  final String category;
+  final List<String> categories;
   final double latitude;
   final double longitude;
   final List<String> restaurantPhotos;
@@ -64,7 +64,7 @@ class SearchRestaurant extends Equatable {
     required this.restaurantName,
     required this.address,
     required this.rating,
-    required this.category,
+    required this.categories,
     required this.latitude,
     required this.longitude,
     required this.restaurantPhotos,
@@ -111,12 +111,40 @@ class SearchRestaurant extends Equatable {
       debugPrint('Error parsing restaurant photos: $e');
     }
 
+    // Parse categories from different possible formats
+    List<String> parsedCategories = [];
+    if (json['category'] != null) {
+      if (json['category'] is List) {
+        // If it's already a List, convert each item to String
+        parsedCategories = List<String>.from(json['category'].map((e) => e.toString()));
+      } else if (json['category'] is String) {
+        // If it's a String, try to parse as JSON array first, then as comma-separated
+        String categoryStr = json['category'].toString().trim();
+        if (categoryStr.startsWith('[') && categoryStr.endsWith(']')) {
+          try {
+            // Try to parse as JSON array
+            final parsed = jsonDecode(categoryStr);
+            if (parsed is List) {
+              parsedCategories = parsed.map((e) => e.toString()).toList();
+            }
+          } catch (e) {
+            // If JSON parsing fails, fall back to string splitting
+            categoryStr = categoryStr.substring(1, categoryStr.length - 1);
+            parsedCategories = categoryStr.split(',').map((cat) => cat.trim().replaceAll('"', '')).where((cat) => cat.isNotEmpty).toList();
+          }
+        } else {
+          // Single category as string
+          parsedCategories = [categoryStr];
+        }
+      }
+    }
+
     return SearchRestaurant(
       partnerId: json['partner_id'] ?? '',
       restaurantName: json['restaurant_name'] ?? '',
       address: json['address'] ?? '',
       rating: double.tryParse(json['rating'].toString()) ?? 0.0,
-      category: json['category'] ?? '',
+      categories: parsedCategories,
       latitude: double.tryParse(json['latitude'].toString()) ?? 0.0,
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       restaurantPhotos: photos,
@@ -130,7 +158,7 @@ class SearchRestaurant extends Equatable {
     restaurantName,
     address,
     rating,
-    category,
+    categories,
     latitude,
     longitude,
     restaurantPhotos,
@@ -143,7 +171,7 @@ class SearchMenuItem extends Equatable {
   final String description;
   final double price;
   final String? imageUrl;
-  final String category;
+  final List<String> categories;
   final SearchRestaurantInfo restaurant;
 
   const SearchMenuItem({
@@ -151,23 +179,51 @@ class SearchMenuItem extends Equatable {
     required this.description,
     required this.price,
     this.imageUrl,
-    required this.category,
+    required this.categories,
     required this.restaurant,
   });
 
   factory SearchMenuItem.fromJson(Map<String, dynamic> json) {
+    // Parse categories from different possible formats
+    List<String> parsedCategories = [];
+    if (json['category'] != null) {
+      if (json['category'] is List) {
+        // If it's already a List, convert each item to String
+        parsedCategories = List<String>.from(json['category'].map((e) => e.toString()));
+      } else if (json['category'] is String) {
+        // If it's a String, try to parse as JSON array first, then as comma-separated
+        String categoryStr = json['category'].toString().trim();
+        if (categoryStr.startsWith('[') && categoryStr.endsWith(']')) {
+          try {
+            // Try to parse as JSON array
+            final parsed = jsonDecode(categoryStr);
+            if (parsed is List) {
+              parsedCategories = parsed.map((e) => e.toString()).toList();
+            }
+          } catch (e) {
+            // If JSON parsing fails, fall back to string splitting
+            categoryStr = categoryStr.substring(1, categoryStr.length - 1);
+            parsedCategories = categoryStr.split(',').map((cat) => cat.trim().replaceAll('"', '')).where((cat) => cat.isNotEmpty).toList();
+          }
+        } else {
+          // Single category as string
+          parsedCategories = [categoryStr];
+        }
+      }
+    }
+
     return SearchMenuItem(
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       price: double.tryParse(json['price'].toString()) ?? 0.0,
       imageUrl: json['image_url'],
-      category: json['category'] ?? '',
+      categories: parsedCategories,
       restaurant: SearchRestaurantInfo.fromJson(json['restaurant'] ?? {}),
     );
   }
 
   @override
-  List<Object?> get props => [name, description, price, imageUrl, category, restaurant];
+  List<Object?> get props => [name, description, price, imageUrl, categories, restaurant];
 }
 
 class SearchRestaurantInfo extends Equatable {

@@ -538,6 +538,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     final List<Map<String, dynamic>> convertedRestaurants = state.restaurants.map((restaurant) {
       debugPrint('SearchPage: Converting restaurant ${restaurant.restaurantName} coordinates - Lat: ${restaurant.latitude}, Long: ${restaurant.longitude}');
       
+      // Join categories into a comma-separated string for display
+      final categoryString = restaurant.categories.join(', ');
+      
       return {
         'id': restaurant.partnerId,
         'partner_id': restaurant.partnerId,
@@ -546,8 +549,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'imageUrl': restaurant.restaurantPhotos.isNotEmpty 
           ? restaurant.restaurantPhotos.first 
           : 'assets/images/placeholder.jpg',
-        'cuisine': restaurant.category,
-        'category': restaurant.category,
+        'cuisine': categoryString,
+        'category': categoryString,
         'rating': restaurant.rating,
         'deliveryTime': '${(restaurant.distance / 1000).toStringAsFixed(1)} km',
         'isVegetarian': false,

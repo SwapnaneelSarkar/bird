@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:equatable/equatable.dart';
 import '../../models/chat_models.dart';
 import '../../service/chat_service.dart';
 import '../../service/socket_service.dart';
 import '../../service/token_service.dart';
+import '../../utils/timezone_utils.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -68,7 +70,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         String senderType = '';
         String content = '';
         String messageType = 'text';
-        DateTime createdAt = DateTime.now();
+        DateTime createdAt = TimezoneUtils.getCurrentTime();
         List<ReadByEntry> readBy = [];
         
         // Parse message data safely
@@ -103,11 +105,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Parse createdAt safely
         if (messageData['createdAt'] != null) {
           try {
-            createdAt = DateTime.parse(messageData['createdAt'].toString());
+            createdAt = TimezoneUtils.parseToIST(messageData['createdAt'].toString());
           } catch (e) {
             debugPrint('Error parsing createdAt: $e');
-            createdAt = DateTime.now();
+            createdAt = TimezoneUtils.getCurrentTime();
           }
+        } else {
+          // If no createdAt in socket message, use current IST time
+          // This should only happen for real-time messages that don't have server timestamp
+          createdAt = TimezoneUtils.getCurrentTime();
+          debugPrint('No createdAt in socket message, using current IST time: $createdAt');
         }
         
         // Parse readBy safely
@@ -251,7 +258,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         content: event.content,
         messageType: 'text',
         readBy: [],
-        createdAt: DateTime.now(),
+        createdAt: TimezoneUtils.getCurrentTime(),
       );
       
       // Add the optimistic message to the UI immediately
@@ -704,7 +711,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               if (!updatedReadBy.any((entry) => entry.userId == userId)) {
                 updatedReadBy.add(ReadByEntry(
                   userId: userId,
-                  readAt: DateTime.parse(readData['readAt']),
+                  readAt: TimezoneUtils.parseToIST(readData['readAt']),
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
                 ));
                 hasUpdates = true;
@@ -729,7 +736,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               final updatedReadBy = List<ReadByEntry>.from(message.readBy);
               updatedReadBy.add(ReadByEntry(
                 userId: userId,
-                readAt: DateTime.parse(readData['readAt']),
+                readAt: TimezoneUtils.parseToIST(readData['readAt']),
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
               ));
               hasUpdates = true;

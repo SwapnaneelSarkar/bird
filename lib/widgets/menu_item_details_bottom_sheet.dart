@@ -295,9 +295,45 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
     final price = item['price'] ?? 0;
     final description = item['description'] ?? '';
     final isAvailable = item['available'] ?? true;
-    final category = item['category'] ?? '';
     final isTaxIncluded = item['isTaxIncluded'] ?? false;
     final isCancellable = item['isCancellable'] ?? false;
+    
+    // Parse categories from different possible formats
+    List<String> parsedCategories = [];
+    try {
+      final categoryData = item['category'];
+      if (categoryData != null) {
+        if (categoryData is List) {
+          // If it's already a List, convert each item to String
+          parsedCategories = List<String>.from(categoryData.map((e) => e.toString()));
+        } else if (categoryData is String) {
+          // If it's a String, try to parse as JSON array first, then as comma-separated
+          String categoryStr = categoryData.toString().trim();
+          if (categoryStr.startsWith('[') && categoryStr.endsWith(']')) {
+            try {
+              // Try to parse as JSON array
+              final parsed = jsonDecode(categoryStr);
+              if (parsed is List) {
+                parsedCategories = parsed.map((e) => e.toString()).toList();
+              }
+            } catch (e) {
+              // If JSON parsing fails, fall back to string splitting
+              categoryStr = categoryStr.substring(1, categoryStr.length - 1);
+              parsedCategories = categoryStr.split(',').map((cat) => cat.trim().replaceAll('"', '')).where((cat) => cat.isNotEmpty).toList();
+            }
+          } else {
+            // Single category as string
+            parsedCategories = [categoryStr];
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('MenuItemDetailsBottomSheet: Error parsing categories: $e');
+      parsedCategories = [];
+    }
+    
+    // Join categories for display
+    final categoryString = parsedCategories.join(', ');
     
     // Parse tags properly - handle both string and list formats
     List<String> tags = [];
@@ -469,7 +505,7 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
           const SizedBox(height: 12),
           
           // Category badge with enhanced styling
-          if (category.isNotEmpty)
+          if (categoryString.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -486,7 +522,7 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
                 ),
               ),
               child: Text(
-                category,
+                categoryString,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: ColorManager.yellowAcc,

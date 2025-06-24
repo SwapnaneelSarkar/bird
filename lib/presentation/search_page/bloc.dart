@@ -187,7 +187,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         restaurantName: restaurantInfo.name,
         address: restaurantInfo.address,
         rating: restaurantInfo.rating,
-        category: restaurantInfo.cuisineType,
+        categories: [restaurantInfo.cuisineType],
         latitude: restaurantInfo.latitude,
         longitude: restaurantInfo.longitude,
         restaurantPhotos: restaurantInfo.restaurantPhotos,

@@ -1,6 +1,6 @@
 {
-    "name": "bird",
-    "short_name": "bird",
+    "name": "Bird",
+    "short_name": "Bird",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

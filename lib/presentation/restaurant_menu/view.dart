@@ -87,6 +87,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   // Track previous quantities to detect first-time additions
   Map<String, int> _previousQuantities = {};
   
+  // Track if cart was empty when page loaded
+  bool _wasCartEmpty = true;
+  
   @override
   void initState() {
     super.initState();
@@ -145,8 +148,10 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   void _checkAndShowPopup(String itemId, int newQuantity, Map<String, dynamic> item) {
     final previousQuantity = _previousQuantities[itemId] ?? 0;
     
-    // Show popup only when quantity changes from 0 to 1 (first time addition)
-    if (previousQuantity == 0 && newQuantity == 1) {
+    // Show popup only when:
+    // 1. Quantity changes from 0 to 1 (first time addition for this item)
+    // 2. Cart was empty when page loaded (first item added to empty cart)
+    if (previousQuantity == 0 && newQuantity == 1 && _wasCartEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ItemAddedPopup.show(
           context: context,
@@ -159,6 +164,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
           },
         );
       });
+      
+      // Mark that cart is no longer empty after showing popup
+      _wasCartEmpty = false;
     }
     
     // Update the previous quantities
@@ -184,6 +192,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
             // Initialize previous quantities when state is loaded
             if (_previousQuantities.isEmpty) {
               _previousQuantities = Map.from(state.cartQuantities);
+              
+              // Check if cart was empty when page loaded
+              _wasCartEmpty = state.cartItemCount == 0;
             }
           }
         },

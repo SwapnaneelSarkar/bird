@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../utils/timezone_utils.dart';
 
 // ReadByEntry Model as per document
 class ReadByEntry {
@@ -15,7 +16,7 @@ class ReadByEntry {
   factory ReadByEntry.fromJson(Map<String, dynamic> json) {
     return ReadByEntry(
       userId: json['userId'] ?? '',
-      readAt: DateTime.parse(json['readAt']),
+      readAt: TimezoneUtils.parseToIST(json['readAt']),
       id: json['_id'] ?? '',
     );
   }
@@ -62,7 +63,7 @@ class ApiChatMessage {
       readBy: (json['readBy'] as List<dynamic>?)
           ?.map((e) => ReadByEntry.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: TimezoneUtils.parseToIST(json['createdAt']),
     );
   }
 
@@ -137,7 +138,7 @@ class ChatMessage {
       readBy: (json['readBy'] as List<dynamic>?)
           ?.map((e) => ReadByEntry.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: TimezoneUtils.parseToIST(json['createdAt']),
     );
   }
 
@@ -170,16 +171,7 @@ class ChatMessage {
 
   // Get formatted time string
   String get formattedTime {
-    final now = DateTime.now();
-    final difference = now.difference(createdAt);
-    
-    if (difference.inDays > 0) {
-      return DateFormat('MMM dd, HH:mm').format(createdAt);
-    } else if (difference.inHours > 0) {
-      return DateFormat('HH:mm').format(createdAt);
-    } else {
-      return DateFormat('HH:mm').format(createdAt);
-    }
+    return TimezoneUtils.formatChatTime(createdAt);
   }
 }
 
@@ -213,9 +205,9 @@ class ChatRoom {
           .toList() ?? [],
       lastMessage: json['lastMessage'],
       lastMessageTime: json['lastMessageTime'] != null 
-          ? DateTime.parse(json['lastMessageTime'])
+          ? TimezoneUtils.parseToIST(json['lastMessageTime'])
           : null,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: TimezoneUtils.parseToIST(json['createdAt']),
     );
   }
 

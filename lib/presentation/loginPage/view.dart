@@ -611,29 +611,41 @@ class _LoginPageState extends State<LoginPage> {
       builder: (context) => WillPopScope(
         onWillPop: () async => false,
         child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Sending OTP...',
-                  style: TextStyle(
-                    fontSize: FontSize.s16,
-                    fontFamily: FontFamily.Montserrat,
-                    fontWeight: FontWeightManager.medium,
-                    color: ColorManager.black,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Sending OTP...',
+                    style: TextStyle(
+                      fontSize: FontSize.s16,
+                      fontFamily: FontFamily.Montserrat,
+                      fontWeight: FontWeightManager.medium,
+                      color: ColorManager.black,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

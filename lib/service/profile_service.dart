@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import '../constants/api_constant.dart';
+import '../service/token_service.dart';
+import '../utils/timezone_utils.dart';
 
 class ProfileService {
   static const String _nameKey = 'user_name';
@@ -72,7 +75,7 @@ class ProfileService {
       }
       
       // Generate a unique filename
-      final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}${path.extension(photo.path)}';
+      final fileName = 'profile_${TimezoneUtils.getCurrentTimeIST().millisecondsSinceEpoch}${path.extension(photo.path)}';
       final savedImagePath = '${profilePhotosDir.path}/$fileName';
       
       // Copy the file to the application directory

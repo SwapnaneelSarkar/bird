@@ -1,4 +1,6 @@
 // lib/models/order_details_model.dart
+import '../utils/timezone_utils.dart';
+
 class OrderDetails {
   final String orderId;
   final String userId;
@@ -45,7 +47,7 @@ class OrderDetails {
       deliveryFees: double.tryParse(json['delivery_fees']?.toString() ?? '0') ?? 0.0,
       orderStatus: json['order_status']?.toString() ?? 'Unknown',
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString())
+          ? TimezoneUtils.parseToIST(json['created_at'].toString())
           : null,
       restaurantName: json['restaurant_name']?.toString(),
       deliveryAddress: json['delivery_address']?.toString(),

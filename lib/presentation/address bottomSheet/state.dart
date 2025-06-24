@@ -1,5 +1,6 @@
 // lib/presentation/address bottomSheet/state.dart
 import 'package:equatable/equatable.dart';
+import '../../utils/timezone_utils.dart';
 
 class AddressSuggestion extends Equatable {
   final String mainText;
@@ -64,8 +65,8 @@ class SavedAddress extends Equatable {
       isDefault: json['is_default'] == 1 || json['is_default'] == true,
       latitude: double.tryParse(json['latitude']?.toString() ?? '0') ?? 0.0,
       longitude: double.tryParse(json['longitude']?.toString() ?? '0') ?? 0.0,
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? '') ?? DateTime.now(),
+      createdAt: TimezoneUtils.parseToIST(json['created_at']?.toString() ?? ''),
+      updatedAt: TimezoneUtils.parseToIST(json['updated_at']?.toString() ?? ''),
     );
   }
 

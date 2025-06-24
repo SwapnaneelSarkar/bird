@@ -1,13 +1,16 @@
 // lib/services/notification_service.dart
 import 'dart:convert';
 import 'dart:io';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_constant.dart';
+import '../utils/timezone_utils.dart';
 
 // At the top of your notification_service.dart file
 @pragma('vm:entry-point')
@@ -291,7 +294,7 @@ class NotificationService {
 
     try {
       await _localNotifications.show(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        TimezoneUtils.getCurrentTimeIST().millisecondsSinceEpoch ~/ 1000,
         title,
         body,
         platformChannelSpecifics,

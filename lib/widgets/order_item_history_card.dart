@@ -96,32 +96,38 @@ class OrderItemCard extends StatelessWidget {
                     SizedBox(height: screenHeight * 0.005),
                     Row(
                       children: [
-                        Text(
-                          order.date,
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.03,
-                            fontWeight: FontWeight.w400,
-                            color: const Color(0xFF999999),
-                            fontFamily: 'Roboto',
+                        Flexible(
+                          child: Text(
+                            order.date,
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.03,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF999999),
+                              fontFamily: 'Roboto',
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         SizedBox(width: screenWidth * 0.02),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.02,
-                            vertical: screenHeight * 0.003,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(order.status),
-                            borderRadius: BorderRadius.circular(screenWidth * 0.01),
-                          ),
-                          child: Text(
-                            order.status,
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.025,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                              fontFamily: 'Roboto',
+                        Flexible(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: screenWidth * 0.02,
+                              vertical: screenHeight * 0.003,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(order.status),
+                              borderRadius: BorderRadius.circular(screenWidth * 0.01),
+                            ),
+                            child: Text(
+                              order.status,
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.025,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                                fontFamily: 'Roboto',
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),

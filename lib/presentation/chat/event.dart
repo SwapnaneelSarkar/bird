@@ -46,3 +46,29 @@ class ReceiveMessage extends ChatEvent {
   @override
   List<Object?> get props => [message];
 }
+
+class MarkAsRead extends ChatEvent {
+  final String roomId;
+  
+  const MarkAsRead(this.roomId);
+  
+  @override
+  List<Object?> get props => [roomId];
+}
+
+class StartTyping extends ChatEvent {
+  const StartTyping();
+}
+
+class StopTyping extends ChatEvent {
+  const StopTyping();
+}
+
+class UpdateMessageReadStatus extends ChatEvent {
+  final Map<String, dynamic> readData;
+  
+  const UpdateMessageReadStatus(this.readData);
+  
+  @override
+  List<Object?> get props => [readData];
+}

@@ -9,6 +9,7 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../utils/timezone_utils.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -60,7 +61,7 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _handleResendTap(BuildContext context) {
-    final now = DateTime.now();
+    final now = TimezoneUtils.getCurrentTimeIST();
     if (_lastResendTap != null && now.difference(_lastResendTap!).inSeconds < 2) return;
     _lastResendTap = now;
     

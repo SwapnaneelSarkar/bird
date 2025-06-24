@@ -2,13 +2,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/custom_button_large.dart';
 import '../../widgets/review_rating_widget.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/order_details_model.dart';
 import '../../models/menu_model.dart';
+import '../../service/currency_service.dart';
 import '../../utils/currency_utils.dart';
+import '../../utils/timezone_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -429,7 +432,7 @@ class _OrderDetailsContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${orderDetails.createdAt!.day}/${orderDetails.createdAt!.month}/${orderDetails.createdAt!.year}',
+                      TimezoneUtils.formatDateOnly(orderDetails.createdAt!),
                       style: TextStyle(
                         fontSize: screenWidth * 0.035,
                         fontWeight: FontWeightManager.medium,

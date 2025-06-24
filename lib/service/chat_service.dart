@@ -5,7 +5,80 @@ import '../constants/api_constant.dart';
 import '../service/token_service.dart';
 
 class ChatService {
-  // Create or get chat room for an order
+  // API Base URLs from document
+  static const String baseUrl = 'https://api.bird.delivery/api/';
+  
+  // 1. Get Chat Rooms - As per document
+  static Future<Map<String, dynamic>> getChatRooms() async {
+    try {
+      debugPrint('ChatService: Getting chat rooms');
+      
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        return {
+          'success': false,
+          'message': 'Authentication token or user ID not found. Please login again.',
+        };
+      }
+      
+      // Query params: userId={userId}&userType=user
+      final url = Uri.parse('${baseUrl}chat/rooms/').replace(queryParameters: {
+        'userId': userId,
+        'userType': 'user',
+      });
+      
+      debugPrint('ChatService: Chat rooms URL: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('ChatService: Chat rooms response status: ${response.statusCode}');
+      debugPrint('ChatService: Chat rooms response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        // Response is array of ChatRoom objects
+        if (responseData is List) {
+          debugPrint('ChatService: Chat rooms retrieved successfully');
+          debugPrint('ChatService: Room count: ${responseData.length}');
+          
+          return {
+            'success': true,
+            'message': 'Chat rooms retrieved successfully',
+            'data': responseData,
+          };
+        } else {
+          debugPrint('ChatService: Unexpected response format');
+          return {
+            'success': false,
+            'message': 'Unexpected response format',
+          };
+        }
+      } else {
+        debugPrint('ChatService: Chat rooms server error: ${response.statusCode}');
+        return {
+          'success': false,
+          'message': 'Server error occurred. Please try again.',
+        };
+      }
+    } catch (e) {
+      debugPrint('ChatService: Chat rooms exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error occurred. Please check your connection.',
+      };
+    }
+  }
+
+  // 2. Create or get chat room for an order (Modified to match document)
   static Future<Map<String, dynamic>> createOrGetChatRoom(String orderId) async {
     try {
       debugPrint('ChatService: Creating/Getting chat room for order: $orderId');
@@ -18,7 +91,8 @@ class ChatService {
         };
       }
       
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/chat/rooms/$orderId');
+      // This might be a custom endpoint for your app
+      final url = Uri.parse('${baseUrl}chat/rooms/$orderId');
       
       debugPrint('ChatService: Chat room URL: $url');
       
@@ -68,8 +142,8 @@ class ChatService {
     }
   }
   
-  // Get chat history for a room
-  static Future<Map<String, dynamic>> getChatHistory(String roomId) async {
+  // 3. Get Message History - As per document
+  static Future<Map<String, dynamic>> getChatHistory(String roomId, {int limit = 100}) async {
     try {
       debugPrint('ChatService: Getting chat history for room: $roomId');
       
@@ -81,7 +155,10 @@ class ChatService {
         };
       }
       
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/chat/history/$roomId');
+      // Endpoint: GET /chat/history/{roomId}
+      final url = Uri.parse('${baseUrl}chat/history/$roomId').replace(queryParameters: {
+        'limit': limit.toString(),
+      });
       
       debugPrint('ChatService: Chat history URL: $url');
       
@@ -99,7 +176,7 @@ class ChatService {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         
-        // The response is directly an array of messages
+        // The response is directly an array of ChatMessage objects
         if (responseData is List) {
           debugPrint('ChatService: Chat history retrieved successfully');
           debugPrint('ChatService: Message count: ${responseData.length}');
@@ -132,7 +209,7 @@ class ChatService {
     }
   }
   
-  // Send a message with the correct API format - FIXED VERSION
+  // 4. Send Message (Persistence) - Updated to match document format
   static Future<Map<String, dynamic>> sendMessage({
     required String roomId,
     required String content,
@@ -143,24 +220,19 @@ class ChatService {
       debugPrint('ChatService: Message content: $content');
       
       final token = await TokenService.getToken();
-      if (token == null) {
-        return {
-          'success': false,
-          'message': 'Authentication token not found. Please login again.',
-        };
-      }
-      
-      // Get current user ID
       final userId = await TokenService.getUserId();
-      if (userId == null) {
+      
+      if (token == null || userId == null) {
         return {
           'success': false,
-          'message': 'User ID not found. Please login again.',
+          'message': 'Authentication token or user ID not found. Please login again.',
         };
       }
       
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/chat/message');
+      // Endpoint: POST /chat/message
+      final url = Uri.parse('${baseUrl}chat/message');
       
+      // Body format as per document
       final body = {
         'roomId': roomId,
         'senderId': userId,
@@ -187,8 +259,7 @@ class ChatService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
         
-        // FIXED: Check for the actual response format from the API
-        // The API returns the message object directly without a status field
+        // Response format as per document: ChatMessage object with _id
         if (responseData['_id'] != null) {
           debugPrint('ChatService: Message sent successfully');
           debugPrint('ChatService: Message ID: ${responseData['_id']}');
@@ -225,6 +296,89 @@ class ChatService {
       return {
         'success': false,
         'message': 'Network error occurred. Please check your connection.',
+      };
+    }
+  }
+
+  // 5. Mark Messages as Read - Enhanced with better error handling
+  static Future<Map<String, dynamic>> markMessagesAsRead({
+    required String roomId,
+  }) async {
+    try {
+      debugPrint('ChatService: Marking messages as read for room: $roomId');
+      
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('ChatService: Missing auth credentials for mark as read');
+        return {
+          'success': false,
+          'message': 'Authentication token or user ID not found. Please login again.',
+        };
+      }
+      
+      // Endpoint: POST /chat/read
+      final url = Uri.parse('${baseUrl}chat/read');
+      
+      // Body format as per document
+      final body = {
+        'roomId': roomId,
+        'userId': userId,
+      };
+      
+      debugPrint('ChatService: Mark as read URL: $url');
+      debugPrint('ChatService: Mark as read body: ${jsonEncode(body)}');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+      
+      debugPrint('ChatService: Mark as read response status: ${response.statusCode}');
+      debugPrint('ChatService: Mark as read response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        // Response format as per document: {"success": boolean}
+        if (responseData['success'] == true) {
+          debugPrint('ChatService: Messages marked as read successfully via API');
+          
+          return {
+            'success': true,
+            'message': 'Messages marked as read successfully',
+            'data': responseData,
+          };
+        } else {
+          debugPrint('ChatService: API returned success=false for mark as read');
+          return {
+            'success': false,
+            'message': responseData['message'] ?? 'Failed to mark messages as read',
+          };
+        }
+      } else if (response.statusCode == 404) {
+        debugPrint('ChatService: Mark as read endpoint not found (404)');
+        return {
+          'success': false,
+          'message': 'Mark as read feature not available on server',
+        };
+      } else {
+        debugPrint('ChatService: Mark as read server error: ${response.statusCode}');
+        return {
+          'success': false,
+          'message': 'Server error occurred while marking messages as read. Please try again.',
+        };
+      }
+    } catch (e) {
+      debugPrint('ChatService: Mark as read exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error occurred while marking messages as read. Please check your connection.',
       };
     }
   }

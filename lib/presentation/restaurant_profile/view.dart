@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/color/colorConstant.dart';
+import '../../constants/font/fontManager.dart';
 import '../../models/restaurant_model.dart';
-
+import '../../utils/timezone_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -704,7 +705,7 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
   
   // Helper method to check if day is today
   bool _isToday(String day) {
-    final now = DateTime.now();
+    final now = TimezoneUtils.getCurrentTimeIST();
     final weekday = now.weekday;
     
     switch (day.toLowerCase()) {

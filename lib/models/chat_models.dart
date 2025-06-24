@@ -1,59 +1,110 @@
-// models/chat_models.dart
+import 'package:intl/intl.dart';
 
-class ChatRoom {
+// ReadByEntry Model as per document
+class ReadByEntry {
+  final String userId;
+  final DateTime readAt;
+  final String id;
+
+  ReadByEntry({
+    required this.userId,
+    required this.readAt,
+    required this.id,
+  });
+
+  factory ReadByEntry.fromJson(Map<String, dynamic> json) {
+    return ReadByEntry(
+      userId: json['userId'] ?? '',
+      readAt: DateTime.parse(json['readAt']),
+      id: json['_id'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'readAt': readAt.toIso8601String(),
+      '_id': id,
+    };
+  }
+}
+
+// ApiChatMessage Model as per document
+class ApiChatMessage {
   final String id;
   final String roomId;
-  final String orderId;
-  final List<ChatParticipant> participants;
-  final String lastMessage;
-  final DateTime lastMessageTime;
+  final String senderId;
+  final String senderType;
+  final String content;
+  final String messageType;
+  final List<ReadByEntry> readBy;
   final DateTime createdAt;
 
-  ChatRoom({
+  ApiChatMessage({
     required this.id,
     required this.roomId,
-    required this.orderId,
-    required this.participants,
-    required this.lastMessage,
-    required this.lastMessageTime,
+    required this.senderId,
+    required this.senderType,
+    required this.content,
+    required this.messageType,
+    required this.readBy,
     required this.createdAt,
   });
 
-  factory ChatRoom.fromJson(Map<String, dynamic> json) {
-    return ChatRoom(
-      id: json['_id'] ?? '',
+  factory ApiChatMessage.fromJson(Map<String, dynamic> json) {
+    return ApiChatMessage(
+      id: json['_id'] ?? json['id'] ?? '',
       roomId: json['roomId'] ?? '',
-      orderId: json['orderId'] ?? '',
-      participants: (json['participants'] as List<dynamic>?)
-          ?.map((p) => ChatParticipant.fromJson(p))
+      senderId: json['senderId'] ?? '',
+      senderType: json['senderType'] ?? '',
+      content: json['content'] ?? '',
+      messageType: json['messageType'] ?? 'text',
+      readBy: (json['readBy'] as List<dynamic>?)
+          ?.map((e) => ReadByEntry.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
-      lastMessage: json['lastMessage'] ?? '',
-      lastMessageTime: DateTime.tryParse(json['lastMessageTime'] ?? '') ?? DateTime.now(),
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: DateTime.parse(json['createdAt']),
     );
   }
-}
 
-class ChatParticipant {
-  final String userId;
-  final String userType;
-  final String id;
-
-  ChatParticipant({
-    required this.userId,
-    required this.userType,
-    required this.id,
-  });
-
-  factory ChatParticipant.fromJson(Map<String, dynamic> json) {
-    return ChatParticipant(
-      userId: json['userId'] ?? '',
-      userType: json['userType'] ?? '',
-      id: json['_id'] ?? '',
-    );
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'roomId': roomId,
+      'senderId': senderId,
+      'senderType': senderType,
+      'content': content,
+      'messageType': messageType,
+      'readBy': readBy.map((e) => e.toJson()).toList(),
+      'createdAt': createdAt.toIso8601String(),
+    };
   }
+
+  // Check if this message is from current user
+  bool isFromCurrentUser(String? currentUserId) {
+    if (currentUserId == null || currentUserId.isEmpty) return false;
+    return senderId == currentUserId;
+  }
+
+  // Check if message is read by anyone other than sender  
+  bool isReadByOthers(String senderId) {
+    return readBy.any((entry) => entry.userId != senderId);
+  }
+
+  // Get read status for UI (blue tick if read, grey if not)
+  bool get isRead => readBy.isNotEmpty && readBy.any((entry) => entry.userId != senderId);
+
+  // Enhanced method to check if read by others for UI
+  // bool isReadByOthers(String currentUserId) {
+  //   // For messages sent by current user, check if read by others (partner/support)
+  //   if (senderId == currentUserId) {
+  //     return readBy.any((entry) => entry.userId != currentUserId);
+  //   }
+  //   // For messages from others, always return false (we don't show read status on incoming messages)
+  //   return false;
+  // }
 }
 
+// ChatMessage Model (for UI) - Enhanced with read receipt support
 class ChatMessage {
   final String id;
   final String roomId;
@@ -61,10 +112,10 @@ class ChatMessage {
   final String senderType;
   final String content;
   final String messageType;
-  final List<String> readBy;
+  final List<ReadByEntry> readBy;
   final DateTime createdAt;
 
-  ChatMessage({
+  const ChatMessage({
     required this.id,
     required this.roomId,
     required this.senderId,
@@ -77,39 +128,131 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       roomId: json['roomId'] ?? '',
       senderId: json['senderId'] ?? '',
       senderType: json['senderType'] ?? '',
       content: json['content'] ?? '',
       messageType: json['messageType'] ?? 'text',
       readBy: (json['readBy'] as List<dynamic>?)
-          ?.map((e) => e.toString())
+          ?.map((e) => ReadByEntry.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: DateTime.parse(json['createdAt']),
     );
   }
 
-  // Helper method to determine if message is from current user
-  bool isFromCurrentUser(String currentUserId) {
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'roomId': roomId,
+      'senderId': senderId,
+      'senderType': senderType,
+      'content': content,
+      'messageType': messageType,
+      'readBy': readBy.map((e) => e.toJson()).toList(),
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  // Check if this message is from current user
+  bool isFromCurrentUser(String? currentUserId) {
+    if (currentUserId == null || currentUserId.isEmpty) return false;
     return senderId == currentUserId;
   }
 
-  // Helper method to get formatted time in IST
+  // Check if message is read by anyone other than sender
+  bool isReadByOthers(String senderId) {
+    return readBy.any((entry) => entry.userId != senderId);
+  }
+
+  // Get read status for UI (blue tick if read, grey if not)
+  bool get isRead => readBy.isNotEmpty && readBy.any((entry) => entry.userId != senderId);
+
+  // Get formatted time string
   String get formattedTime {
-    // Convert to IST (UTC+5:30)
-    final istTime = createdAt.add(const Duration(hours: 5, minutes: 30));
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
     
-    final now = DateTime.now().add(const Duration(hours: 5, minutes: 30)); // Current IST time
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(istTime.year, istTime.month, istTime.day);
-    
-    if (messageDate == today) {
-      // Today - show time only in IST
-      return '${istTime.hour.toString().padLeft(2, '0')}:${istTime.minute.toString().padLeft(2, '0')}';
+    if (difference.inDays > 0) {
+      return DateFormat('MMM dd, HH:mm').format(createdAt);
+    } else if (difference.inHours > 0) {
+      return DateFormat('HH:mm').format(createdAt);
     } else {
-      // Other days - show date and time in IST
-      return '${istTime.day}/${istTime.month} ${istTime.hour.toString().padLeft(2, '0')}:${istTime.minute.toString().padLeft(2, '0')}';
+      return DateFormat('HH:mm').format(createdAt);
     }
+  }
+}
+
+// ChatRoom Model with participants
+class ChatRoom {
+  final String id;
+  final String roomId;
+  final String orderId;
+  final List<Participant> participants;
+  final String? lastMessage;
+  final DateTime? lastMessageTime;
+  final DateTime createdAt;
+
+  ChatRoom({
+    required this.id,
+    required this.roomId,
+    required this.orderId,
+    required this.participants,
+    this.lastMessage,
+    this.lastMessageTime,
+    required this.createdAt,
+  });
+
+  factory ChatRoom.fromJson(Map<String, dynamic> json) {
+    return ChatRoom(
+      id: json['_id'] ?? '',
+      roomId: json['roomId'] ?? '',
+      orderId: json['orderId'] ?? '',
+      participants: (json['participants'] as List<dynamic>?)
+          ?.map((e) => Participant.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      lastMessage: json['lastMessage'],
+      lastMessageTime: json['lastMessageTime'] != null 
+          ? DateTime.parse(json['lastMessageTime'])
+          : null,
+      createdAt: DateTime.parse(json['createdAt']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'roomId': roomId,
+      'orderId': orderId,
+      'participants': participants.map((e) => e.toJson()).toList(),
+      'lastMessage': lastMessage,
+      'lastMessageTime': lastMessageTime?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+}
+
+// Participant Model
+class Participant {
+  final String userId;
+  final String userType;
+
+  Participant({
+    required this.userId,
+    required this.userType,
+  });
+
+  factory Participant.fromJson(Map<String, dynamic> json) {
+    return Participant(
+      userId: json['userId'] ?? '',
+      userType: json['userType'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'userType': userType,
+    };
   }
 }

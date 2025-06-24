@@ -9,6 +9,7 @@ import '../../models/chat_models.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import 'dart:async';
 
 class ChatView extends StatefulWidget {
   final String? orderId;
@@ -26,6 +27,9 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  Timer? _typingTimer;
+  bool _isTyping = false;
+  ChatBloc? _chatBloc; // Store reference to avoid provider issues
   
   // Add this to track message input state
   bool _hasText = false;
@@ -33,7 +37,7 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
-    // Listen to text changes to update send button state
+    // Listen to text changes to update send button state and typing indicators
     _messageController.addListener(_onTextChanged);
     
     // Listen to focus changes to handle keyboard
@@ -46,6 +50,7 @@ class _ChatViewState extends State<ChatView> {
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
+    _typingTimer?.cancel();
     super.dispose();
   }
 
@@ -54,6 +59,23 @@ class _ChatViewState extends State<ChatView> {
     if (hasText != _hasText) {
       setState(() {
         _hasText = hasText;
+      });
+    }
+    
+    // Handle typing indicators - check if chatBloc is available
+    if (_chatBloc != null) {
+      if (hasText && !_isTyping) {
+        _isTyping = true;
+        _chatBloc!.add(const StartTyping());
+      }
+      
+      // Reset typing timer
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 2), () {
+        if (_isTyping && _chatBloc != null) {
+          _isTyping = false;
+          _chatBloc!.add(const StopTyping());
+        }
       });
     }
   }
@@ -135,7 +157,10 @@ class _ChatViewState extends State<ChatView> {
     debugPrint('ChatView: Building with order ID: $orderId');
     
     return BlocProvider(
-      create: (context) => ChatBloc()..add(LoadChatData(orderId)),
+      create: (context) {
+        _chatBloc = ChatBloc()..add(LoadChatData(orderId));
+        return _chatBloc!;
+      },
       child: Scaffold(
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: true, // This is important for keyboard handling
@@ -233,6 +258,10 @@ class _ChatViewState extends State<ChatView> {
             onTap: () {
               // Unfocus text field before navigating back
               _focusNode.unfocus();
+              // Stop typing indicator
+              if (_chatBloc != null) {
+                _chatBloc!.add(const StopTyping());
+              }
               Navigator.of(context).pop();
             },
             child: Container(
@@ -270,18 +299,7 @@ class _ChatViewState extends State<ChatView> {
                 ),
               ),
               SizedBox(width: screenWidth * 0.02),
-              // Refresh button
-              GestureDetector(
-                onTap: () => context.read<ChatBloc>().add(const RefreshMessages()),
-                child: Container(
-                  padding: EdgeInsets.all(screenWidth * 0.018),
-                  child: Icon(
-                    Icons.refresh,
-                    size: screenWidth * 0.055,
-                    color: ColorManager.black,
-                  ),
-                ),
-              ),
+              // Refresh button - removed to avoid manual refresh in socket mode
             ],
           ),
         ],
@@ -468,6 +486,7 @@ class _ChatViewState extends State<ChatView> {
           message, 
           isFromCurrentUser, 
           isOptimistic,
+          currentUserId,
           screenWidth, 
           screenHeight
         );
@@ -475,13 +494,13 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message, bool isFromCurrentUser, bool isOptimistic, double screenWidth, double screenHeight) {
+  Widget _buildMessageBubble(ChatMessage message, bool isFromCurrentUser, bool isOptimistic, String currentUserId, double screenWidth, double screenHeight) {
     return Padding(
       padding: EdgeInsets.only(bottom: screenHeight * 0.012),
       child: Row(
         mainAxisAlignment: isFromCurrentUser 
-            ? MainAxisAlignment.end 
-            : MainAxisAlignment.start,
+            ? MainAxisAlignment.end     // User messages on RIGHT
+            : MainAxisAlignment.start,  // Partner messages on LEFT
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isFromCurrentUser) const Spacer(),
@@ -584,12 +603,16 @@ class _ChatViewState extends State<ChatView> {
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
+                    // Show read ticks only for USER messages (sent by current user)
                     if (isFromCurrentUser && !isOptimistic) ...[
                       SizedBox(width: screenWidth * 0.01),
                       Icon(
-                        Icons.check,
+                        Icons.done_all,
                         size: screenWidth * 0.03,
-                        color: Colors.grey.shade500,
+                        // BLUE tick if read by others, GREY tick if not read yet
+                        color: message.isReadByOthers(currentUserId)
+                            ? Colors.blue               // BLUE = Read by partner
+                            : Colors.grey.shade500,    // GREY = Not read yet
                       ),
                     ],
                   ],
@@ -750,7 +773,9 @@ class _ChatViewState extends State<ChatView> {
                   final orderId = widget.orderId ?? 
                       (ModalRoute.of(context)?.settings.arguments as String?) ?? 
                       'default_order';
-                  context.read<ChatBloc>().add(LoadChatData(orderId));
+                  if (_chatBloc != null) {
+                    _chatBloc!.add(LoadChatData(orderId));
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: ColorManager.primary,
@@ -781,9 +806,15 @@ class _ChatViewState extends State<ChatView> {
 
   void _sendMessage(BuildContext context) {
     final message = _messageController.text.trim();
-    if (message.isNotEmpty) {
-      context.read<ChatBloc>().add(SendMessage(message));
+    if (message.isNotEmpty && _chatBloc != null) {
+      _chatBloc!.add(SendMessage(message));
       _messageController.clear();
+      // Stop typing indicator when message is sent
+      _typingTimer?.cancel();
+      if (_isTyping) {
+        _isTyping = false;
+        _chatBloc!.add(const StopTyping());
+      }
     }
   }
 }

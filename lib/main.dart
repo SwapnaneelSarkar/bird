@@ -9,9 +9,13 @@ import 'firebase_options.dart';
 import 'presentation/restaurant_profile/bloc.dart';
 import 'presentation/splash_screen/view.dart';
 import 'service/firebase_services.dart';
+import 'utils/timezone_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize timezone data for IST
+  TimezoneUtils.initialize();
   
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

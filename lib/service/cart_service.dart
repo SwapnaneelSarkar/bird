@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../service/token_service.dart';
 import '../models/attribute_model.dart';
+import '../utils/timezone_utils.dart';
 
 class CartService {
   static const String _cartKey = 'user_cart';
@@ -71,16 +72,18 @@ class CartService {
     String? imageUrl,
     List<SelectedAttribute>? attributes,
   }) async {
-    // Debounce rapid calls to prevent UI conflicts
-    final now = DateTime.now();
-    if (_lastCartOperation != null && 
+    final now = TimezoneUtils.getCurrentTimeIST();
+    
+    // Debounce rapid operations
+    if (_lastCartOperation != null &&
         now.difference(_lastCartOperation!) < _debounceDelay) {
-      debugPrint('CART SERVICE: Operation debounced - too rapid');
+      debugPrint('CartService: Debouncing cart operation');
       return {
         'success': false,
         'message': 'Please wait before making another change',
       };
     }
+    
     _lastCartOperation = now;
 
     try {

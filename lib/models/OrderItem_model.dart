@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../utils/timezone_utils.dart';
 
 class OrderItem extends Equatable {
   final String id;
@@ -34,7 +35,7 @@ class OrderItem extends Equatable {
       price: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
       status: _mapStatus(json['status']),
       imageUrl: json['restaurant_picture'] ?? '',
-      dateTime: DateTime.tryParse(json['datetime'] ?? '') ?? DateTime.now(),
+      dateTime: TimezoneUtils.parseToIST(json['datetime'] ?? ''),
       restaurantId: json['restaurant_id'] ?? '',
       items: List<Map<String, dynamic>>.from(json['items'] ?? []),
     );
@@ -43,10 +44,8 @@ class OrderItem extends Equatable {
   static String _formatDate(String? dateTimeStr) {
     if (dateTimeStr == null) return 'Unknown date';
     try {
-      final dateTime = DateTime.parse(dateTimeStr);
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
+      final dateTime = TimezoneUtils.parseToIST(dateTimeStr);
+      return TimezoneUtils.formatOrderDate(dateTime);
     } catch (e) {
       return 'Unknown date';
     }

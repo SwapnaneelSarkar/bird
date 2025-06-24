@@ -1,6 +1,7 @@
 // lib/models/restaurant_model.dart - UPDATED VERSION WITH BETTER ERROR HANDLING
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../utils/timezone_utils.dart';
 
 class Restaurant {
   final String id;
@@ -211,8 +212,8 @@ class Restaurant {
       // Simple check - if it contains "24" or "24/7", assume always open
       if (openTimings.toLowerCase().contains('24')) return true;
       
-      // Get current time
-      final now = DateTime.now();
+      // Get current time in IST
+      final now = TimezoneUtils.getCurrentTimeIST();
       final currentHour = now.hour;
       
       // Simple heuristic: assume open between 9 AM and 11 PM if no specific format

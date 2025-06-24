@@ -12,6 +12,11 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../constants/color/colorConstant.dart';
+import '../../constants/font/fontManager.dart';
+import '../../service/profile_get_service.dart';
+import '../../utils/timezone_utils.dart';
 
 const List<BoxShadow> softBoxShadow = [
   BoxShadow(
@@ -339,8 +344,8 @@ ProfileCardTile(
   // Helper method to format date
   String _formatDate(String datetime) {
     try {
-      final date = DateTime.parse(datetime);
-      return DateFormat('MMM dd, yyyy').format(date);
+      final date = TimezoneUtils.parseToIST(datetime);
+      return TimezoneUtils.formatOrderDate(date);
     } catch (e) {
       return 'Unknown date';
     }

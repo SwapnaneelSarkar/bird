@@ -51,7 +51,7 @@ class OrderHistoryService {
           if (data['Ongoing'] != null) {
             final ongoingOrders = List<Map<String, dynamic>>.from(data['Ongoing']);
             for (var order in ongoingOrders) {
-              order['status'] = 'Ongoing';
+              order['status'] = 'Preparing';
             }
             allOrders.addAll(ongoingOrders);
             debugPrint('OrderHistoryService: Found ${ongoingOrders.length} ongoing orders');

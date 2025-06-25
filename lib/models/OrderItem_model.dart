@@ -59,7 +59,7 @@ class OrderItem extends Equatable {
       case 'pending':
       case 'ongoing':
       case 'preparing':
-        return 'Ongoing';
+        return 'Preparing';
       case 'cancelled':
         return 'Cancelled';
       default:

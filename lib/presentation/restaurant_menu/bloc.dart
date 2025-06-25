@@ -82,8 +82,8 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
       
       debugPrint('RestaurantDetailsBloc: Loading details for restaurant ID: ${partnerId ?? 'unknown'}, name: ${restaurantName ?? 'unknown'}');
       
-      if (partnerId == null) {
-        debugPrint('RestaurantDetailsBloc: Restaurant ID is missing');
+      if (partnerId == null || partnerId.toString().trim().isEmpty) {
+        debugPrint('RestaurantDetailsBloc: Restaurant ID is missing or empty');
         emit(RestaurantDetailsError('Restaurant information is incomplete. Please try again.'));
         return;
       }

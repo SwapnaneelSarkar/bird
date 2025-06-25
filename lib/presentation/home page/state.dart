@@ -46,6 +46,14 @@ class HomeLoaded extends HomeState {
     // Filter by category if selected
     if (selectedCategory != null) {
       filtered = filtered.where((restaurant) {
+        // First check if the selected category is in the restaurant's availableCategories
+        if (restaurant.availableCategories.isNotEmpty) {
+          return restaurant.availableCategories.any((category) => 
+            category.toLowerCase().contains(selectedCategory!.toLowerCase())
+          );
+        }
+        
+        // Fallback to the old logic using cuisine and name if availableCategories is empty
         return restaurant.cuisine.toLowerCase().contains(selectedCategory!.toLowerCase()) ||
                restaurant.name.toLowerCase().contains(selectedCategory!.toLowerCase());
       }).toList();

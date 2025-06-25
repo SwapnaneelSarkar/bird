@@ -291,6 +291,20 @@ class SearchRestaurantInfo extends Equatable {
     } else if (json['id'] != null) {
       partnerId = json['id'].toString();
     }
+    
+    // If still no partner_id, try to extract from photos URL
+    if (partnerId.isEmpty && photos.isNotEmpty) {
+      final photoUrl = photos.first;
+      final urlParts = photoUrl.split('/');
+      if (urlParts.length >= 5) {
+        // The partner_id is the 4th part of the URL (index 3)
+        final potentialPartnerId = urlParts[3];
+        if (potentialPartnerId.isNotEmpty && potentialPartnerId != 'photos') {
+          partnerId = potentialPartnerId;
+          debugPrint('SearchRestaurantInfo: Extracted partner_id from URL: $partnerId');
+        }
+      }
+    }
 
     return SearchRestaurantInfo(
       id: partnerId,

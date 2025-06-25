@@ -237,7 +237,6 @@ class OrderItemCard extends StatelessWidget {
         return Colors.green;
       case 'cancelled':
         return Colors.red;
-      case 'ongoing':
       case 'preparing':
         return Colors.orange;
       default:

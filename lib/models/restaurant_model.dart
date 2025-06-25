@@ -20,6 +20,7 @@ class Restaurant {
   final String? ownerName;
   final String? restaurantType;
   final List<String> photos;
+  final List<String> availableCategories;
 
   Restaurant({
     required this.id,
@@ -38,6 +39,7 @@ class Restaurant {
     this.ownerName,
     this.restaurantType,
     this.photos = const [],
+    this.availableCategories = const [],
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -115,6 +117,37 @@ class Restaurant {
       
       final restaurantType = json['restaurant_type']?.toString();
 
+      // Parse availableCategories field
+      List<String> availableCategories = [];
+      try {
+        final availableCategoriesField = json['availableCategories'];
+        if (availableCategoriesField != null) {
+          if (availableCategoriesField is List) {
+            availableCategories = List<String>.from(availableCategoriesField.where((e) => e != null && e.toString().isNotEmpty));
+          } else if (availableCategoriesField is String) {
+            // Handle string representation like "[\"category1\", \"category2\"]" or just "category"
+            String categoriesString = availableCategoriesField.toString().trim();
+            if (categoriesString.startsWith('[') && categoriesString.endsWith(']')) {
+              // Remove brackets and parse
+              categoriesString = categoriesString.substring(1, categoriesString.length - 1);
+              if (categoriesString.isNotEmpty) {
+                availableCategories = categoriesString
+                    .split(',')
+                    .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
+                    .where((e) => e.isNotEmpty && e != 'null')
+                    .toList();
+              }
+            } else if (categoriesString.isNotEmpty && !categoriesString.startsWith('[') && categoriesString != 'null') {
+              // Single category as string
+              availableCategories = [categoriesString];
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Restaurant: Error parsing availableCategories: $e');
+        availableCategories = [];
+      }
+
       debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name (ID: $id)');
       
       return Restaurant(
@@ -134,6 +167,7 @@ class Restaurant {
         ownerName: ownerName,
         restaurantType: restaurantType,
         photos: photos,
+        availableCategories: availableCategories,
       );
     } catch (e) {
       debugPrint('Restaurant.fromJson: Error parsing restaurant: $e');
@@ -146,6 +180,7 @@ class Restaurant {
         address: json['address']?.toString() ?? 'Address not available',
         cuisine: json['category']?.toString() ?? json['cuisine']?.toString() ?? 'Various',
         isVeg: _parseVegStatus(json),
+        availableCategories: [],
       );
     }
   }
@@ -313,6 +348,7 @@ class Restaurant {
     String? ownerName,
     String? restaurantType,
     List<String>? photos,
+    List<String>? availableCategories,
   }) {
     return Restaurant(
       id: id ?? this.id,
@@ -331,6 +367,7 @@ class Restaurant {
       ownerName: ownerName ?? this.ownerName,
       restaurantType: restaurantType ?? this.restaurantType,
       photos: photos ?? this.photos,
+      availableCategories: availableCategories ?? this.availableCategories,
     );
   }
 }

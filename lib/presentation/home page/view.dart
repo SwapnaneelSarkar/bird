@@ -445,57 +445,83 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Popular Categories',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
-                  ),
-                ),
-                Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth;
+              // Scale factor: 1 for >=400, down to 0.7 for 280px
+              final double scale = (maxWidth / 400).clamp(0.7, 1.0);
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 8 * scale),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Show "All" button when a category is selected
-                    if (state.selectedCategory != null)
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        child: Material(
+                    Text(
+                      'Popular Categories',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        if (state.selectedCategory != null)
+                          Container(
+                            margin: EdgeInsets.only(right: 8 * scale),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12 * scale),
+                                onTap: () {
+                                  debugPrint('HomePage: Show All button clicked. Current selected category: ${state.selectedCategory}');
+                                  debugPrint('HomePage: Resetting all filters and category selection');
+                                  setState(() {
+                                    filterOptions = FilterOptions();
+                                  });
+                                  context.read<HomeBloc>().add(const FilterByCategory(null));
+                                  context.read<HomeBloc>().add(const ToggleVegOnly(false));
+                                  debugPrint('HomePage: All filters and category selection reset');
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12 * scale),
+                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.clear, color: Colors.grey[600], size: 14 * scale),
+                                      SizedBox(width: 3 * scale),
+                                      Text(
+                                        'Show All',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11 * scale, fontWeight: FontWeight.w500, color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              debugPrint('HomePage: Show All button clicked. Current selected category: ${state.selectedCategory}');
-                              debugPrint('HomePage: Resetting all filters and category selection');
-                              
-                              // Reset the view's filter options
-                              setState(() {
-                                filterOptions = FilterOptions();
-                              });
-                              
-                              // Reset the bloc state
-                              context.read<HomeBloc>().add(const FilterByCategory(null));
-                              context.read<HomeBloc>().add(const ToggleVegOnly(false));
-                              
-                              debugPrint('HomePage: All filters and category selection reset');
-                            },
+                            borderRadius: BorderRadius.circular(12 * scale),
+                            onTap: () => _showFuturisticFilterDialog(context),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
                               decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                color: ColorManager.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12 * scale),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.clear, color: Colors.grey[600], size: 16),
-                                  const SizedBox(width: 4),
+                                  Icon(Icons.tune, color: ColorManager.primary, size: 16 * scale),
+                                  SizedBox(width: 3 * scale),
                                   Text(
-                                    'Show All',
+                                    'Filter',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[600],
+                                      fontSize: 12 * scale, fontWeight: FontWeight.w500, color: ColorManager.primary,
                                     ),
                                   ),
                                 ],
@@ -503,62 +529,37 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                             ),
                           ),
                         ),
-                      ),
-                    // Filter button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => _showFuturisticFilterDialog(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: ColorManager.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.tune, color: ColorManager.primary, size: 18),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Filter',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13, fontWeight: FontWeight.w500, color: ColorManager.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           LayoutBuilder(
             builder: (context, constraints) {
-              final double itemWidth = 100.0;
+              final double maxWidth = constraints.maxWidth;
+              final double scale = (maxWidth / 400).clamp(0.7, 1.0);
+              final double itemWidth = 90.0 * scale;
+              final double itemHeight = 120.0 * scale;
               final double screenWidth = constraints.maxWidth;
               final int maxVisibleItems = (screenWidth / itemWidth).floor();
               final bool shouldScroll = state.categories.length > maxVisibleItems;
-              
-              final categoryItems = _getCategoryItems(state.categories, state.selectedCategory);
-              
+              final categoryItems = _getCategoryItems(state.categories, state.selectedCategory, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
               if (shouldScroll) {
                 return SizedBox(
-                  height: 140,
+                  height: itemHeight,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
                     children: categoryItems,
                   ),
                 );
               } else {
                 return Container(
-                  height: 140,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  height: itemHeight,
+                  padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: categoryItems,
@@ -572,10 +573,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategory) {
+  List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategory, {double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
     debugPrint('HomePage: Building category items. Selected category: $selectedCategory');
-    
-    // Map for known category image associations
     final Map<String, String> imageMap = {
       'pizza': 'assets/images/pizza.jpg',
       'burger': 'assets/images/burger.jpg',
@@ -583,103 +582,45 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       'dessert': 'assets/images/desert.jpg',
       'drinks': 'assets/images/drinks.jpg',
     };
-    
     return categories.map((category) {
       String categoryName = category['name'].toString().toLowerCase();
       String categoryDisplayName = category['name'].toString();
       String? imagePath;
       bool isSelected = selectedCategory?.toLowerCase() == categoryName;
-      
       debugPrint('HomePage: Category $categoryDisplayName - isSelected: $isSelected');
-      
-      // Try to find exact matching image based on category name
       for (final entry in imageMap.entries) {
-        if (categoryName == entry.key || 
-            (categoryName.contains(entry.key) && entry.key.length > 3)) {
+        if (categoryName == entry.key || (categoryName.contains(entry.key) && entry.key.length > 3)) {
           imagePath = entry.value;
           break;
         }
       }
-      
-      // Get smart icon and color based on category name
       final iconAndColor = _getSmartCategoryIconAndColor(categoryName);
       final icon = iconAndColor['icon'] ?? category['icon'] ?? 'restaurant';
       final color = iconAndColor['color'] ?? category['color'] ?? 'orange';
-      
-      // If we have an image, build with image
       if (imagePath != null) {
-        return _buildCategoryItem(
-          categoryDisplayName, 
-          imagePath, 
-          color,
-          isSelected: isSelected,
-          onTap: () {
-            debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
-            final newCategory = isSelected ? null : categoryDisplayName;
-            debugPrint('HomePage: Setting new category to: $newCategory');
-            context.read<HomeBloc>().add(FilterByCategory(newCategory));
-          },
-        );
-      } 
-      // Otherwise build with an icon instead
-      else {
-        return _buildCategoryItemWithIcon(
-          categoryDisplayName,
-          _getIconData(icon), 
-          _getCategoryColor(color),
-          isSelected: isSelected,
-          onTap: () {
-            debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
-            final newCategory = isSelected ? null : categoryDisplayName;
-            debugPrint('HomePage: Setting new category to: $newCategory');
-            context.read<HomeBloc>().add(FilterByCategory(newCategory));
-          },
-        );
+        return _buildCategoryItem(categoryDisplayName, imagePath, color, isSelected: isSelected, onTap: () {
+          debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
+          final newCategory = isSelected ? null : categoryDisplayName;
+          debugPrint('HomePage: Setting new category to: $newCategory');
+          context.read<HomeBloc>().add(FilterByCategory(newCategory));
+        }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
+      } else {
+        return _buildCategoryItemWithIcon(categoryDisplayName, _getIconData(icon), _getCategoryColor(color), isSelected: isSelected, onTap: () {
+          debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
+          final newCategory = isSelected ? null : categoryDisplayName;
+          debugPrint('HomePage: Setting new category to: $newCategory');
+          context.read<HomeBloc>().add(FilterByCategory(newCategory));
+        }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       }
     }).toList();
   }
 
-  // Smart category icon and color selector based on category name
-  Map<String, String> _getSmartCategoryIconAndColor(String categoryName) {
-    // Food type based mapping
-    if (categoryName.contains('pizza')) {
-      return {'icon': 'local_pizza', 'color': 'red'};
-    } else if (categoryName.contains('burger') || categoryName.contains('sandwich')) {
-      return {'icon': 'lunch_dining', 'color': 'amber'};
-    } else if (categoryName.contains('sushi') || categoryName.contains('japanese') || categoryName.contains('asian')) {
-      return {'icon': 'set_meal', 'color': 'blue'};
-    } else if (categoryName.contains('dessert') || categoryName.contains('sweet') || categoryName.contains('ice') || categoryName.contains('cake')) {
-      return {'icon': 'icecream', 'color': 'pink'};
-    } else if (categoryName.contains('drink') || categoryName.contains('beverage') || categoryName.contains('juice') || categoryName.contains('coffee')) {
-      return {'icon': 'local_drink', 'color': 'teal'};
-    } else if (categoryName.contains('chinese') || categoryName.contains('noodle') || categoryName.contains('ramen')) {
-      return {'icon': 'ramen_dining', 'color': 'orange'};
-    } else if (categoryName.contains('breakfast') || categoryName.contains('bread') || categoryName.contains('bakery')) {
-      return {'icon': 'bakery_dining', 'color': 'brown'};
-    } else if (categoryName.contains('veg') || categoryName.contains('salad') || categoryName.contains('healthy')) {
-      return {'icon': 'spa', 'color': 'green'};
-    } else if (categoryName.contains('biryani') || categoryName.contains('rice') || categoryName.contains('indian')) {
-      return {'icon': 'restaurant', 'color': 'deepOrange'};
-    } else if (categoryName.contains('chicken') || categoryName.contains('meat') || categoryName.contains('grill')) {
-      return {'icon': 'restaurant_menu', 'color': 'red'};
-    } else if (categoryName.contains('seafood') || categoryName.contains('fish')) {
-      return {'icon': 'set_meal', 'color': 'blue'};
-    } else if (categoryName.contains('thai') || categoryName.contains('spicy')) {
-      return {'icon': 'whatshot', 'color': 'red'};
-    } else if (categoryName.contains('mexican') || categoryName.contains('taco')) {
-      return {'icon': 'local_dining', 'color': 'green'};
-    }
-    
-    // Default
-    return {'icon': 'restaurant', 'color': 'orange'};
-  }
-
-  Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor, {bool isSelected = false, VoidCallback? onTap}) {
+  Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor, {bool isSelected = false, VoidCallback? onTap, double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        width: 100,
+        margin: EdgeInsets.symmetric(horizontal: 6 * scale),
+        width: itemWidth,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -687,41 +628,42 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: 74,
-                  height: 74,
+                  width: 60 * scale,
+                  height: 60 * scale,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.transparent,
                     boxShadow: [
                       BoxShadow(
-                        color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2), 
-                        blurRadius: isSelected ? 16 : 12, 
-                        offset: const Offset(0, 6), 
-                        spreadRadius: isSelected ? 4 : 2
+                        color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2),
+                        blurRadius: isSelected ? 12 * scale : 8 * scale,
+                        offset: Offset(0, 4 * scale),
+                        spreadRadius: isSelected ? 3 * scale : 1.5 * scale,
                       )
                     ],
                   ),
                 ),
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 56 * scale,
+                  height: 56 * scale,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: isSelected 
+                      colors: isSelected
                           ? [accentColor.withOpacity(0.3), accentColor.withOpacity(0.5)]
                           : [Colors.white, accentColor.withOpacity(0.15)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                     border: Border.all(
-                      color: isSelected ? accentColor : Colors.white, 
-                      width: isSelected ? 4 : 3
+                      color: isSelected ? accentColor : Colors.white,
+                      width: isSelected ? 3 * scale : 2 * scale,
                     ),
                   ),
                   child: Center(
                     child: Icon(
                       icon,
-                      size: isSelected ? 40 : 36,
+                      size: isSelected ? 28 * scale : 24 * scale,
                       color: accentColor,
                     ),
                   ),
@@ -731,36 +673,36 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     bottom: 0,
                     right: 0,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 18 * scale,
+                      height: 18 * scale,
                       decoration: BoxDecoration(
                         color: accentColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: Colors.white, width: 1.5 * scale),
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 14),
+                      child: Icon(Icons.check, color: Colors.white, size: 10 * scale),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 8 * scale),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 4 * scale),
               decoration: BoxDecoration(
                 color: isSelected ? accentColor.withOpacity(0.1) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+                borderRadius: BorderRadius.circular(10 * scale),
+                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 3 * scale, offset: Offset(0, 1.5 * scale))],
                 border: Border.all(
-                  color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3), 
-                  width: isSelected ? 2 : 1
+                  color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3),
+                  width: isSelected ? 1.5 * scale : 1 * scale,
                 ),
               ),
               child: Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: getResponsiveFontSize(context, 12), 
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
-                  color: isSelected ? accentColor : Colors.grey[800]
+                  fontSize: getResponsiveFontSize(context, 11 * scale),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? accentColor : Colors.grey[800],
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -772,31 +714,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'local_pizza': return Icons.local_pizza;
-      case 'lunch_dining': return Icons.lunch_dining;
-      case 'set_meal': return Icons.set_meal;
-      case 'icecream': return Icons.icecream;
-      case 'local_drink': return Icons.local_drink;
-      case 'bakery_dining': return Icons.bakery_dining;
-      case 'free_breakfast': return Icons.free_breakfast;
-      case 'spa': return Icons.spa;
-      case 'egg': return Icons.egg_alt;
-      case 'ramen_dining': return Icons.ramen_dining;
-      case 'restaurant': return Icons.restaurant;
-      default: return Icons.restaurant;
-    }
-  }
-
-  Widget _buildCategoryItem(String title, String imagePath, String colorName, {bool isSelected = false, VoidCallback? onTap}) {
+  Widget _buildCategoryItem(String title, String imagePath, String colorName, {bool isSelected = false, VoidCallback? onTap, double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
     Color accentColor = _getCategoryColor(colorName);
-    
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        width: 100,
+        margin: EdgeInsets.symmetric(horizontal: 6 * scale),
+        width: itemWidth,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -804,45 +728,28 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: 74,
-                  height: 74,
+                  width: 48 * scale,
+                  height: 48 * scale,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.transparent,
                     boxShadow: [
                       BoxShadow(
-                        color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2), 
-                        blurRadius: isSelected ? 16 : 12, 
-                        offset: const Offset(0, 6), 
-                        spreadRadius: isSelected ? 4 : 2
+                        color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2),
+                        blurRadius: isSelected ? 10 * scale : 7 * scale,
+                        offset: Offset(0, 3 * scale),
+                        spreadRadius: isSelected ? 2.5 * scale : 1 * scale,
                       )
                     ],
                   ),
                 ),
                 Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: isSelected 
-                          ? [accentColor.withOpacity(0.3), accentColor.withOpacity(0.5)]
-                          : [Colors.white, accentColor.withOpacity(0.3)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(
-                      color: isSelected ? accentColor : Colors.white, 
-                      width: isSelected ? 4 : 3
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 64,
-                  height: 64,
+                  width: 44 * scale,
+                  height: 44 * scale,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(image: AssetImage(imagePath), fit: BoxFit.cover),
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: Colors.white, width: 1.5 * scale),
                   ),
                 ),
                 if (isSelected)
@@ -850,36 +757,36 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     bottom: 0,
                     right: 0,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 18 * scale,
+                      height: 18 * scale,
                       decoration: BoxDecoration(
                         color: accentColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: Colors.white, width: 1.5 * scale),
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 14),
+                      child: Icon(Icons.check, color: Colors.white, size: 10 * scale),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 8 * scale),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 4 * scale),
               decoration: BoxDecoration(
                 color: isSelected ? accentColor.withOpacity(0.1) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+                borderRadius: BorderRadius.circular(10 * scale),
+                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 3 * scale, offset: Offset(0, 1.5 * scale))],
                 border: Border.all(
-                  color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3), 
-                  width: isSelected ? 2 : 1
+                  color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3),
+                  width: isSelected ? 1.5 * scale : 1 * scale,
                 ),
               ),
               child: Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: getResponsiveFontSize(context, 12), 
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, 
-                  color: isSelected ? accentColor : Colors.grey[800]
+                  fontSize: getResponsiveFontSize(context, 11 * scale),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? accentColor : Colors.grey[800],
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -1322,6 +1229,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       'open_timings': restaurant is Map ? restaurant['open_timings'] : restaurant.openTimings,
       'ownerName': restaurant is Map ? restaurant['ownerName'] : restaurant.ownerName,
       'owner_name': restaurant is Map ? restaurant['owner_name'] : restaurant.ownerName,
+      'availableCategories': restaurant is Map ? restaurant['availableCategories'] : restaurant.availableCategories,
     };
     
     Navigator.of(context).push(
@@ -1545,22 +1453,28 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                 flex: 2,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    debugPrint('HomePage: Applying filters - vegOnly: ${tempFilters.vegOnly}, priceLowToHigh: ${tempFilters.priceLowToHigh}, priceHighToLow: ${tempFilters.priceHighToLow}, ratingHighToLow: ${tempFilters.ratingHighToLow}, ratingLowToHigh: ${tempFilters.ratingLowToHigh}, timeSort: ${tempFilters.timeSort}');
-                                    
-                                    setState(() {
-                                      filterOptions = FilterOptions(
-                                        vegOnly: tempFilters.vegOnly,
-                                        priceLowToHigh: tempFilters.priceLowToHigh,
-                                        priceHighToLow: tempFilters.priceHighToLow,
-                                        ratingHighToLow: tempFilters.ratingHighToLow,
-                                        ratingLowToHigh: tempFilters.ratingLowToHigh,
-                                        timeSort: tempFilters.timeSort,
-                                      );
-                                    });
-                                    
-                                    // Apply veg filter through bloc
-                                    blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
-                                    
+                                    debugPrint('HomePage: Applying filters - vegOnly: \\${tempFilters.vegOnly}, priceLowToHigh: \\${tempFilters.priceLowToHigh}, priceHighToLow: \\${tempFilters.priceHighToLow}, ratingHighToLow: \\${tempFilters.ratingHighToLow}, ratingLowToHigh: \\${tempFilters.ratingLowToHigh}, timeSort: \\${tempFilters.timeSort}');
+                                    final allCleared = !tempFilters.vegOnly && !tempFilters.priceLowToHigh && !tempFilters.priceHighToLow && !tempFilters.ratingHighToLow && !tempFilters.ratingLowToHigh && !tempFilters.timeSort;
+                                    if (allCleared) {
+                                      setState(() {
+                                        filterOptions = FilterOptions();
+                                      });
+                                      blocContext.read<HomeBloc>().add(const ResetFilters());
+                                      blocContext.read<HomeBloc>().add(const LoadHomeData());
+                                    } else {
+                                      setState(() {
+                                        filterOptions = FilterOptions(
+                                          vegOnly: tempFilters.vegOnly,
+                                          priceLowToHigh: tempFilters.priceLowToHigh,
+                                          priceHighToLow: tempFilters.priceHighToLow,
+                                          ratingHighToLow: tempFilters.ratingHighToLow,
+                                          ratingLowToHigh: tempFilters.ratingLowToHigh,
+                                          timeSort: tempFilters.timeSort,
+                                        );
+                                      });
+                                      // Apply veg filter through bloc
+                                      blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
+                                    }
                                     Navigator.pop(dialogContext);
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -1963,5 +1877,59 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         ],
       ),
     );
+  }
+
+  // Smart category icon and color selector based on category name
+  Map<String, String> _getSmartCategoryIconAndColor(String categoryName) {
+    // Food type based mapping
+    if (categoryName.contains('pizza')) {
+      return {'icon': 'local_pizza', 'color': 'red'};
+    } else if (categoryName.contains('burger') || categoryName.contains('sandwich')) {
+      return {'icon': 'lunch_dining', 'color': 'amber'};
+    } else if (categoryName.contains('sushi') || categoryName.contains('japanese') || categoryName.contains('asian')) {
+      return {'icon': 'set_meal', 'color': 'blue'};
+    } else if (categoryName.contains('dessert') || categoryName.contains('sweet') || categoryName.contains('ice') || categoryName.contains('cake')) {
+      return {'icon': 'icecream', 'color': 'pink'};
+    } else if (categoryName.contains('drink') || categoryName.contains('beverage') || categoryName.contains('juice') || categoryName.contains('coffee')) {
+      return {'icon': 'local_drink', 'color': 'teal'};
+    } else if (categoryName.contains('chinese') || categoryName.contains('noodle') || categoryName.contains('ramen')) {
+      return {'icon': 'ramen_dining', 'color': 'orange'};
+    } else if (categoryName.contains('breakfast') || categoryName.contains('bread') || categoryName.contains('bakery')) {
+      return {'icon': 'bakery_dining', 'color': 'brown'};
+    } else if (categoryName.contains('veg') || categoryName.contains('salad') || categoryName.contains('healthy')) {
+      return {'icon': 'spa', 'color': 'green'};
+    } else if (categoryName.contains('biryani') || categoryName.contains('rice') || categoryName.contains('indian')) {
+      return {'icon': 'restaurant', 'color': 'deepOrange'};
+    } else if (categoryName.contains('chicken') || categoryName.contains('meat') || categoryName.contains('grill')) {
+      return {'icon': 'restaurant_menu', 'color': 'red'};
+    } else if (categoryName.contains('seafood') || categoryName.contains('fish')) {
+      return {'icon': 'set_meal', 'color': 'blue'};
+    } else if (categoryName.contains('thai') || categoryName.contains('spicy')) {
+      return {'icon': 'whatshot', 'color': 'red'};
+    } else if (categoryName.contains('mexican') || categoryName.contains('taco')) {
+      return {'icon': 'local_dining', 'color': 'green'};
+    }
+    // Default
+    return {'icon': 'restaurant', 'color': 'orange'};
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'local_pizza': return Icons.local_pizza;
+      case 'lunch_dining': return Icons.lunch_dining;
+      case 'set_meal': return Icons.set_meal;
+      case 'icecream': return Icons.icecream;
+      case 'local_drink': return Icons.local_drink;
+      case 'bakery_dining': return Icons.bakery_dining;
+      case 'free_breakfast': return Icons.free_breakfast;
+      case 'spa': return Icons.spa;
+      case 'egg': return Icons.egg_alt;
+      case 'ramen_dining': return Icons.ramen_dining;
+      case 'restaurant': return Icons.restaurant;
+      case 'restaurant_menu': return Icons.restaurant_menu;
+      case 'whatshot': return Icons.whatshot;
+      case 'local_dining': return Icons.local_dining;
+      default: return Icons.restaurant;
+    }
   }
 }

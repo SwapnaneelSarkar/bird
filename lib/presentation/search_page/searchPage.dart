@@ -357,7 +357,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         int? resultCount;
         
         if (state is SearchLoadedState) {
-          resultCount = state.restaurants.length + state.menuItems.length;
+          // Calculate the number of unique restaurant cards being shown
+          // 1. Collect direct restaurant IDs
+          final directIds = state.restaurants.map((r) => r.partnerId).toSet();
+          // 2. Collect unique menu restaurant IDs not in direct
+          final menuIds = state.menuItems
+              .map((m) => m.restaurant.id)
+              .where((id) => id.isNotEmpty && !directIds.contains(id))
+              .toSet();
+          resultCount = directIds.length + menuIds.length;
           headerText = 'Search Results';
         } else if (state is SearchEmptyState && state.query.isNotEmpty) {
           resultCount = 0;
@@ -534,13 +542,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   }
   
   Widget _buildResultsList(SearchLoadedState state) {
-    // Convert SearchRestaurant to the format expected by existing RestaurantCard
-    final List<Map<String, dynamic>> convertedRestaurants = state.restaurants.map((restaurant) {
-      debugPrint('SearchPage: Converting restaurant ${restaurant.restaurantName} coordinates - Lat: ${restaurant.latitude}, Long: ${restaurant.longitude}');
-      
-      // Join categories into a comma-separated string for display
+    // 1. Collect direct restaurants
+    final List<Map<String, dynamic>> directRestaurants = state.restaurants.map((restaurant) {
       final categoryString = restaurant.categories.join(', ');
-      
       return {
         'id': restaurant.partnerId,
         'partner_id': restaurant.partnerId,
@@ -567,9 +571,47 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       };
     }).toList();
 
-    // If there are also menu items, we could show them separately
-    // For now, let's focus on restaurants to keep the original UI
-    if (convertedRestaurants.isEmpty) {
+    // 2. Collect unique restaurants from menu items
+    final Map<String, Map<String, dynamic>> menuRestaurantsMap = {};
+    for (final menuItem in state.menuItems) {
+      final r = menuItem.restaurant;
+      if (r.id.isEmpty) continue;
+      if (directRestaurants.any((dr) => dr['partner_id'] == r.id)) continue; // skip if already in direct
+      if (menuRestaurantsMap.containsKey(r.id)) continue; // skip duplicates
+      menuRestaurantsMap[r.id] = {
+        'id': r.id,
+        'partner_id': r.id,
+        'name': r.name,
+        'restaurant_name': r.name,
+        'imageUrl': r.restaurantPhotos.isNotEmpty 
+          ? r.restaurantPhotos.first 
+          : 'assets/images/placeholder.jpg',
+        'cuisine': r.cuisineType,
+        'category': r.cuisineType,
+        'rating': r.rating,
+        'deliveryTime': '${(r.distance / 1000).toStringAsFixed(1)} km',
+        'isVegetarian': false,
+        'isVeg': false,
+        'veg_nonveg': 'non-veg',
+        'address': r.address,
+        'latitude': r.latitude.toString(),
+        'longitude': r.longitude.toString(),
+        'distance': r.distance,
+        'description': '',
+        'open_timings': '',
+        'owner_name': '',
+        'restaurant_type': '',
+      };
+    }
+    final List<Map<String, dynamic>> menuRestaurants = menuRestaurantsMap.values.toList();
+
+    // 3. Merge all unique restaurants
+    final List<Map<String, dynamic>> allRestaurants = [
+      ...directRestaurants,
+      ...menuRestaurants,
+    ];
+
+    if (allRestaurants.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -602,36 +644,28 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
          .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
       );
     }
-    
-    // Use the same GridView structure as the original
+    // 4. Render all restaurants
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1, // Keep as 1 to maintain original UI layout
-        childAspectRatio: 1.6, // Same as original
+        crossAxisCount: 1,
+        childAspectRatio: 1.6,
         mainAxisSpacing: 4,
         crossAxisSpacing: 4,
       ),
-      itemCount: convertedRestaurants.length,
+      itemCount: allRestaurants.length,
       itemBuilder: (context, index) {
-        final restaurant = convertedRestaurants[index];
-        
-        // Extract coordinates for debugging
+        final restaurant = allRestaurants[index];
         final restaurantLat = restaurant['latitude'] != null 
             ? double.tryParse(restaurant['latitude'].toString())
             : null;
         final restaurantLng = restaurant['longitude'] != null 
             ? double.tryParse(restaurant['longitude'].toString())
             : null;
-            
-        debugPrint('SearchPage: Restaurant ${restaurant['name']} coordinates - Lat: $restaurantLat, Long: $restaurantLng');
-        
-        // Sanitize restaurant name for Hero tag
         final sanitizedName = _sanitizeRestaurantName(restaurant['name']);
-        
-        // Using the same RestaurantCard as in the original
+        final uniqueHeroTag = 'search-result-${restaurant['partner_id']}-$sanitizedName';
         return Hero(
-          tag: 'search-result-$sanitizedName',
+          tag: uniqueHeroTag,
           child: RestaurantCard(
             name: restaurant['name'],
             imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
@@ -639,7 +673,6 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             rating: restaurant['rating'] ?? 0.0,
             deliveryTime: restaurant['deliveryTime'] ?? '30 min',
             isVeg: restaurant['isVegetarian'] as bool? ?? false,
-            // Pass restaurant and user coordinates
             restaurantLatitude: restaurantLat,
             restaurantLongitude: restaurantLng,
             userLatitude: widget.userLatitude,

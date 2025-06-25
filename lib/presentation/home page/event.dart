@@ -95,3 +95,7 @@ class SelectSavedAddress extends HomeEvent {
   @override
   List<Object?> get props => [address];
 }
+
+class ResetFilters extends HomeEvent {
+  const ResetFilters();
+}

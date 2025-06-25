@@ -26,6 +26,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<LoadSavedAddresses>(_onLoadSavedAddresses);
     on<SaveNewAddress>(_onSaveNewAddress);
     on<SelectSavedAddress>(_onSelectSavedAddress);
+    on<ResetFilters>((event, emit) {
+      final currentState = state;
+      if (currentState is HomeLoaded) {
+        emit(currentState.copyWith(vegOnly: false, selectedCategory: null));
+      }
+    });
   }
   
   Future<void> _onLoadHomeData(LoadHomeData event, Emitter<HomeState> emit) async {

@@ -168,22 +168,47 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     
     // Add direct restaurants first
     for (final restaurant in directRestaurants) {
-      uniqueRestaurants[restaurant.partnerId] = restaurant;
+      if (restaurant.partnerId.isNotEmpty) {
+        uniqueRestaurants[restaurant.partnerId] = restaurant;
+      }
     }
     
     // Add restaurants from menu items only if they don't already exist
     for (final menuItem in menuItems) {
       final restaurantInfo = menuItem.restaurant;
       
+      // Extract partner_id from restaurant photos URL if not available directly
+      String partnerId = restaurantInfo.id;
+      if (partnerId.isEmpty && restaurantInfo.restaurantPhotos.isNotEmpty) {
+        // Try to extract partner_id from the first photo URL
+        // URL format: https://bird-bucket-2.s3.ap-south-1.amazonaws.com/photos/R4dcc94f725/1749668142740
+        final photoUrl = restaurantInfo.restaurantPhotos.first;
+        final urlParts = photoUrl.split('/');
+        if (urlParts.length >= 5) {
+          // The partner_id is the 4th part of the URL (index 3)
+          final potentialPartnerId = urlParts[3];
+          if (potentialPartnerId.isNotEmpty && potentialPartnerId != 'photos') {
+            partnerId = potentialPartnerId;
+            debugPrint('SearchBloc: Extracted partner_id from URL: $partnerId');
+          }
+        }
+      }
+      
       // Skip if we already have this restaurant from direct restaurants
-      if (uniqueRestaurants.containsKey(restaurantInfo.id)) {
-        debugPrint('SearchBloc: Skipping duplicate restaurant with ID: ${restaurantInfo.id}');
+      if (uniqueRestaurants.containsKey(partnerId)) {
+        debugPrint('SearchBloc: Skipping duplicate restaurant with ID: $partnerId');
+        continue;
+      }
+      
+      // Skip restaurants without a valid partner_id since they can't be used for API calls
+      if (partnerId.isEmpty) {
+        debugPrint('SearchBloc: Skipping restaurant without partner_id: ${restaurantInfo.name}');
         continue;
       }
       
       // Convert SearchRestaurantInfo to SearchRestaurant format
       final restaurantFromMenuItem = SearchRestaurant(
-        partnerId: restaurantInfo.id,
+        partnerId: partnerId,
         restaurantName: restaurantInfo.name,
         address: restaurantInfo.address,
         rating: restaurantInfo.rating,
@@ -194,7 +219,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         distance: restaurantInfo.distance,
       );
       
-      uniqueRestaurants[restaurantInfo.id] = restaurantFromMenuItem;
+      uniqueRestaurants[partnerId] = restaurantFromMenuItem;
     }
     
     // Convert back to list and sort by distance

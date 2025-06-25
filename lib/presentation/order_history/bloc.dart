@@ -34,7 +34,7 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
       // Fetch order history from API
       final orders = await _fetchOrderHistory(token, userId);
       
-      const filterTabs = ['All Orders', 'Ongoing', 'Completed', 'Cancelled'];
+      const filterTabs = ['All Orders', 'Preparing', 'Completed', 'Cancelled'];
       const selectedFilter = 'All Orders';
       
       emit(OrderHistoryLoaded(
@@ -78,7 +78,7 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             final ongoingOrders = List<Map<String, dynamic>>.from(data['Ongoing']);
             debugPrint('OrderHistoryBloc: Processing ${ongoingOrders.length} ongoing orders');
             for (var order in ongoingOrders) {
-              order['status'] = 'Ongoing';
+              order['status'] = 'Preparing';
               debugPrint('OrderHistoryBloc: Ongoing order ID: ${order['order_id']}');
             }
             allOrdersData.addAll(ongoingOrders);
@@ -148,9 +148,9 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
           case 'All Orders':
             filteredOrders = currentState.allOrders;
             break;
-          case 'Ongoing':
+          case 'Preparing':
             filteredOrders = currentState.allOrders
-                .where((order) => order.status == 'Ongoing' || order.status == 'Preparing')
+                .where((order) => order.status == 'Preparing')
                 .toList();
             break;
           case 'Completed':

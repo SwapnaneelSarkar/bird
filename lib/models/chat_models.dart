@@ -91,6 +91,23 @@ class ApiChatMessage {
     return readBy.any((entry) => entry.userId != senderId);
   }
 
+  // Check if a specific user has read this message
+  bool isReadByUser(String userId) {
+    return readBy.any((entry) => entry.userId == userId);
+  }
+
+  // Check if message is read by both users (current user and partner)
+  // This is used to determine if we should show blue ticks
+  bool isReadByBothUsers(String currentUserId, List<String> partnerUserIds) {
+    // For messages sent by current user: check if at least one partner has read it
+    if (senderId == currentUserId) {
+      return partnerUserIds.any((partnerId) => isReadByUser(partnerId));
+    }
+    
+    // For messages from partners: check if current user has read it
+    return isReadByUser(currentUserId);
+  }
+
   // Get read status for UI (blue tick if read, grey if not)
   bool get isRead => readBy.isNotEmpty && readBy.any((entry) => entry.userId != senderId);
 
@@ -164,6 +181,23 @@ class ChatMessage {
   // Check if message is read by anyone other than sender
   bool isReadByOthers(String senderId) {
     return readBy.any((entry) => entry.userId != senderId);
+  }
+
+  // Check if a specific user has read this message
+  bool isReadByUser(String userId) {
+    return readBy.any((entry) => entry.userId == userId);
+  }
+
+  // Check if message is read by both users (current user and partner)
+  // This is used to determine if we should show blue ticks
+  bool isReadByBothUsers(String currentUserId, List<String> partnerUserIds) {
+    // For messages sent by current user: check if at least one partner has read it
+    if (senderId == currentUserId) {
+      return partnerUserIds.any((partnerId) => isReadByUser(partnerId));
+    }
+    
+    // For messages from partners: check if current user has read it
+    return isReadByUser(currentUserId);
   }
 
   // Get read status for UI (blue tick if read, grey if not)

@@ -12,18 +12,27 @@ import 'event.dart';
 import 'state.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
+  final ChatService _chatService;
+  final SocketService _socketService;
   String? _currentRoomId;
   String? _currentUserId;
-  late SocketService _socketService;
-  StreamSubscription? _messageSubscription;
-  StreamSubscription? _connectionSubscription;
+  StreamSubscription<Map<String, dynamic>>? _messageSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
   StreamSubscription? _readReceiptSubscription;
   StreamSubscription? _typingSubscription;
   bool _isSocketConnected = false;
   Timer? _typingTimer;
   
-  ChatBloc() : super(ChatInitial()) {
-    _socketService = SocketService();
+  // Add global message tracking to prevent duplicates
+  final Set<String> _processedMessageHashes = <String>{};
+  static const int _maxProcessedHashes = 200;
+  
+  ChatBloc({required ChatService chatService, required SocketService socketService})
+      : _chatService = chatService,
+        _socketService = socketService,
+        super(ChatInitial()) {
+    _setupSocketListeners();
+    _setupConnectionListener();
     on<LoadChatData>(_onLoadChatData);
     on<SendMessage>(_onSendMessage);
     on<ConnectSocket>(_onConnectSocket);
@@ -62,6 +71,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _messageSubscription = _socketService.messageStream.listen((messageData) {
       try {
         debugPrint('ChatBloc: Received socket message: $messageData');
+        debugPrint('ChatBloc: Message data type: ${messageData.runtimeType}');
         
         // Handle different message data formats
         String messageId = '';
@@ -141,9 +151,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
         
         debugPrint('ChatBloc: Parsed socket message: ${chatMessage.content}');
+        debugPrint('ChatBloc: Message from: ${chatMessage.senderType} (ID: ${chatMessage.senderId})');
+        debugPrint('ChatBloc: Current user ID: $_currentUserId');
         
         // Only add messages from OTHER users (avoid duplicates)
         if (senderId != _currentUserId) {
+          debugPrint('ChatBloc: Adding message from other user to UI');
           add(ReceiveMessage(chatMessage));
         } else {
           debugPrint('ChatBloc: Ignoring own message from socket');
@@ -167,37 +180,59 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     });
   }
   
-  Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
-    emit(ChatLoading());
-    
-    try {
-      debugPrint('ChatBloc: Loading chat data for order: ${event.orderId}');
+  void _setupConnectionListener() {
+    // Listen for socket connection status
+    _connectionSubscription = _socketService.connectionStream.listen((connected) {
+      _isSocketConnected = connected;
+      debugPrint('ChatBloc: Socket connection status: $connected');
       
-      // Get current user ID
-      final currentUserId = await TokenService.getUserId();
-      if (currentUserId == null) {
+      if (connected && _currentRoomId != null) {
+        _socketService.joinRoom(_currentRoomId!);
+        debugPrint('ChatBloc: Socket joined room on reconnection');
+      }
+    });
+  }
+  
+  Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
+    try {
+      emit(ChatLoading());
+      
+      // Get current user ID first
+      _currentUserId = await TokenService.getUserId();
+      if (_currentUserId == null) {
         debugPrint('ChatBloc: No user ID found');
         emit(const ChatError('Please login to access chat.'));
         return;
       }
       
-      _currentUserId = currentUserId;
-      debugPrint('ChatBloc: Current user ID: $currentUserId');
+      debugPrint('ChatBloc: Loading chat data for order: ${event.orderId}');
+      debugPrint('ChatBloc: Current user ID: $_currentUserId');
       
       // Create or get chat room
       final roomResult = await ChatService.createOrGetChatRoom(event.orderId);
       
       if (roomResult['success'] != true) {
-        debugPrint('ChatBloc: Failed to get chat room: ${roomResult['message']}');
-        emit(ChatError(roomResult['message'] ?? 'Failed to load chat room.'));
+        debugPrint('ChatBloc: Failed to create/get chat room: ${roomResult['message']}');
+        emit(ChatError(roomResult['message'] ?? 'Failed to load chat room'));
         return;
       }
       
       final chatRoom = ChatRoom.fromJson(roomResult['data']);
       _currentRoomId = chatRoom.roomId;
       
+      // Clear processed messages when joining a new room
+      _clearProcessedMessages();
+      
       debugPrint('ChatBloc: Chat room loaded: ${chatRoom.roomId}');
-      debugPrint('ChatBloc: Participants: ${chatRoom.participants.length}');
+      
+      // Connect to socket and join room
+      final connected = await _socketService.connect();
+      if (connected && _currentRoomId != null) {
+        _socketService.joinRoom(_currentRoomId!);
+        debugPrint('ChatBloc: Socket connected and joined room');
+      } else {
+        debugPrint('ChatBloc: Failed to connect to socket or roomId is null');
+      }
       
       // Get initial chat history
       final historyResult = await ChatService.getChatHistory(chatRoom.roomId);
@@ -220,7 +255,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(ChatLoaded(
         chatRoom: chatRoom,
         messages: messages,
-        currentUserId: currentUserId,
+        currentUserId: _currentUserId!,
       ));
       
       // Setup socket listeners AFTER emitting loaded state
@@ -430,27 +465,51 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
   
   Future<void> _onReceiveMessage(ReceiveMessage event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: _onReceiveMessage called with message: ${event.message.content}');
+    
     if (state is ChatLoaded) {
       final currentState = state as ChatLoaded;
       
       debugPrint('ChatBloc: Processing received message: ${event.message.content}');
       debugPrint('ChatBloc: Message from: ${event.message.senderType} (ID: ${event.message.senderId})');
       debugPrint('ChatBloc: Message timestamp: ${event.message.createdAt}');
+      debugPrint('ChatBloc: Current messages count: ${currentState.messages.length}');
       
-      // Check if message is already in the list to avoid duplicates
+      // Check if message has been processed recently using global tracking
+      if (_isMessageProcessed(event.message)) {
+        debugPrint('ChatBloc: Message already processed recently, ignoring duplicate');
+        debugPrint('ChatBloc: Duplicate message content: "${event.message.content}"');
+        return;
+      }
+      
+      // Mark message as processed immediately to prevent future duplicates
+      _markMessageAsProcessed(event.message);
+      
+      // Additional check for existing messages in the current list
       final existingMessageIndex = currentState.messages
-          .indexWhere((msg) => msg.id == event.message.id || 
-                                (msg.content == event.message.content && 
-                                 msg.senderId == event.message.senderId &&
-                                 msg.createdAt.difference(event.message.createdAt).abs().inSeconds < 5));
+          .indexWhere((msg) => 
+              // Exact ID match
+              msg.id == event.message.id ||
+              // Same content, sender, and very recent timestamp (within 2 seconds)
+              (msg.content == event.message.content && 
+               msg.senderId == event.message.senderId &&
+               msg.senderType == event.message.senderType &&
+               msg.createdAt.difference(event.message.createdAt).abs().inSeconds < 2));
+      
+      debugPrint('ChatBloc: Existing message index: $existingMessageIndex');
+      debugPrint('ChatBloc: Checking for duplicates - Content: "${event.message.content}", Sender: ${event.message.senderId}');
       
       if (existingMessageIndex == -1) {
+        debugPrint('ChatBloc: Message is new, adding to UI');
+        
         // Remove any temporary optimistic messages that might match this content
         final messagesWithoutOptimistic = currentState.messages
             .where((msg) => !(msg.id.startsWith('temp_') && 
                             msg.content == event.message.content &&
                             msg.senderId == event.message.senderId))
             .toList();
+        
+        debugPrint('ChatBloc: Messages without optimistic: ${messagesWithoutOptimistic.length}');
         
         // Create a new message with adjusted timestamp if needed
         var newMessage = event.message;
@@ -509,14 +568,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         }
         
         // Emit the updated state first
+        debugPrint('ChatBloc: Emitting updated state with ${updatedMessages.length} messages');
         emit(currentState.copyWith(
           messages: updatedMessages,
           isSendingMessage: false,
         ));
-        
-        // IMPORTANT: Fetch updated chat history to check read status of previous messages
-        debugPrint('ChatBloc: Fetching chat history to update read status after receiving message');
-        await _refreshChatHistoryForReadStatus(emit);
         
         // Auto mark as read for incoming messages (not from current user)
         if (_currentRoomId != null && newMessage.senderId != _currentUserId) {
@@ -527,109 +583,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         }
         
       } else {
-        debugPrint('ChatBloc: Message already exists, ignoring duplicate');
+        debugPrint('ChatBloc: Message already exists in current list, ignoring duplicate');
+        debugPrint('ChatBloc: Duplicate message content: "${event.message.content}"');
       }
+    } else {
+      debugPrint('ChatBloc: Cannot process message - state is not ChatLoaded');
     }
-  }
-  
-  // New method to refresh chat history and update read status
-  Future<void> _refreshChatHistoryForReadStatus(Emitter<ChatState> emit) async {
-    if (state is ChatLoaded && _currentRoomId != null) {
-      final currentState = state as ChatLoaded;
-      
-      try {
-        debugPrint('ChatBloc: Refreshing chat history to check read status...');
-        
-        // Get updated chat history
-        final historyResult = await ChatService.getChatHistory(_currentRoomId!);
-        
-        if (historyResult['success'] == true) {
-          final historyData = historyResult['data'] as List<dynamic>;
-          final apiMessages = historyData
-              .map((messageData) => ChatMessage.fromJson(messageData))
-              .toList();
-          
-          // Sort by creation time
-          apiMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          
-          debugPrint('ChatBloc: Got ${apiMessages.length} messages from history API');
-          
-          // Update current messages with fresh read status from API
-          final updatedMessages = <ChatMessage>[];
-          
-          for (final currentMsg in currentState.messages) {
-            // Skip temporary messages
-            if (currentMsg.id.startsWith('temp_')) {
-              updatedMessages.add(currentMsg);
-              continue;
-            }
-            
-            // Find corresponding message in API response
-            final apiMsg = apiMessages.firstWhere(
-              (msg) => msg.id == currentMsg.id,
-              orElse: () => currentMsg, // Use current if not found in API
-            );
-            
-            // Check if read status changed
-            final currentReadCount = currentMsg.readBy.length;
-            final apiReadCount = apiMsg.readBy.length;
-            
-            if (apiReadCount != currentReadCount) {
-              debugPrint('ChatBloc: Read status updated for message "${currentMsg.content}" - ReadBy count: $currentReadCount → $apiReadCount');
-              updatedMessages.add(apiMsg); // Use API version with updated read status
-            } else {
-              updatedMessages.add(currentMsg); // Keep current version
-            }
-          }
-          
-          // Add any new messages from API that aren't in current list
-          for (final apiMsg in apiMessages) {
-            final existsInCurrent = updatedMessages.any((msg) => msg.id == apiMsg.id);
-            if (!existsInCurrent) {
-              debugPrint('ChatBloc: Found new message in API that was missing locally: ${apiMsg.content}');
-              updatedMessages.add(apiMsg);
-            }
-          }
-          
-          // Sort final list
-          updatedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          
-          // Only emit if there are actual changes
-          if (_hasReadStatusChanges(currentState.messages, updatedMessages)) {
-            debugPrint('ChatBloc: Read status changes detected, updating UI');
-            emit(currentState.copyWith(messages: updatedMessages));
-          } else {
-            debugPrint('ChatBloc: No read status changes detected');
-          }
-          
-        } else {
-          debugPrint('ChatBloc: Failed to refresh chat history: ${historyResult['message']}');
-        }
-        
-      } catch (e) {
-        debugPrint('ChatBloc: Error refreshing chat history for read status: $e');
-      }
-    }
-  }
-  
-  // Helper method to check if there are read status changes
-  bool _hasReadStatusChanges(List<ChatMessage> oldMessages, List<ChatMessage> newMessages) {
-    if (oldMessages.length != newMessages.length) return true;
-    
-    for (int i = 0; i < oldMessages.length; i++) {
-      final oldMsg = oldMessages[i];
-      final newMsg = newMessages[i];
-      
-      // Skip temporary messages
-      if (oldMsg.id.startsWith('temp_') || newMsg.id.startsWith('temp_')) continue;
-      
-      // Check if read status changed
-      if (oldMsg.id == newMsg.id && oldMsg.readBy.length != newMsg.readBy.length) {
-        return true;
-      }
-    }
-    
-    return false;
   }
   
   Future<void> _onMarkAsRead(MarkAsRead event, Emitter<ChatState> emit) async {
@@ -765,5 +724,40 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         debugPrint('ChatBloc: Error updating message read status: $e');
       }
     }
+  }
+  
+  // Helper method to create a unique hash for a message
+  String _createMessageHash(ChatMessage message) {
+    // Create a more unique hash using content, sender, and a time window
+    final timeWindow = (message.createdAt.millisecondsSinceEpoch / 1000).round(); // Round to nearest second
+    return '${message.content}_${message.senderId}_${message.senderType}_$timeWindow';
+  }
+  
+  // Helper method to check if message has been processed recently
+  bool _isMessageProcessed(ChatMessage message) {
+    final hash = _createMessageHash(message);
+    final isProcessed = _processedMessageHashes.contains(hash);
+    debugPrint('ChatBloc: Checking message hash: $hash - Processed: $isProcessed');
+    return isProcessed;
+  }
+  
+  // Helper method to mark message as processed
+  void _markMessageAsProcessed(ChatMessage message) {
+    final hash = _createMessageHash(message);
+    _processedMessageHashes.add(hash);
+    debugPrint('ChatBloc: Marked message as processed: $hash');
+    
+    // Maintain size limit
+    if (_processedMessageHashes.length > _maxProcessedHashes) {
+      final removed = _processedMessageHashes.first;
+      _processedMessageHashes.remove(removed);
+      debugPrint('ChatBloc: Removed old message hash: $removed');
+    }
+  }
+  
+  // Helper method to clear processed messages when joining new room
+  void _clearProcessedMessages() {
+    _processedMessageHashes.clear();
+    debugPrint('ChatBloc: Cleared processed message hashes for new room');
   }
 }

@@ -1,4 +1,6 @@
 import 'package:bird/service/order_service.dart';
+import 'package:bird/service/chat_service.dart';
+import 'package:bird/service/socket_service.dart';
 import 'package:bird/utils/snackbar_utils.dart';
 import 'package:bird/widgets/cancel_order_bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -158,7 +160,10 @@ class _ChatViewState extends State<ChatView> {
     
     return BlocProvider(
       create: (context) {
-        _chatBloc = ChatBloc()..add(LoadChatData(orderId));
+        _chatBloc = ChatBloc(
+          chatService: ChatService(),
+          socketService: SocketService(),
+        )..add(LoadChatData(orderId));
         return _chatBloc!;
       },
       child: Scaffold(
@@ -609,10 +614,10 @@ class _ChatViewState extends State<ChatView> {
                       Icon(
                         Icons.done_all,
                         size: screenWidth * 0.03,
-                        // BLUE tick if read by others, GREY tick if not read yet
-                        color: message.isReadByOthers(currentUserId)
-                            ? Colors.blue               // BLUE = Read by partner
-                            : Colors.grey.shade500,    // GREY = Not read yet
+                        // BLUE tick if read by both users, GREY tick if not read yet
+                        color: _shouldShowBlueTick(message, currentUserId)
+                            ? Colors.blue               // BLUE = Read by both users
+                            : Colors.grey.shade500,    // GREY = Not read by both yet
                       ),
                     ],
                   ],
@@ -624,6 +629,35 @@ class _ChatViewState extends State<ChatView> {
         ],
       ),
     );
+  }
+
+  // Helper method to determine if we should show blue tick
+  bool _shouldShowBlueTick(ChatMessage message, String currentUserId) {
+    // Get partner user IDs from the chat room
+    if (_chatBloc != null && _chatBloc!.state is ChatLoaded) {
+      final chatState = _chatBloc!.state as ChatLoaded;
+      final partnerUserIds = chatState.chatRoom.participants
+          .where((participant) => participant.userId != currentUserId)
+          .map((participant) => participant.userId)
+          .toList();
+      
+      debugPrint('ChatView: Checking blue tick for message: ${message.content}');
+      debugPrint('ChatView: Message sender: ${message.senderId}');
+      debugPrint('ChatView: Current user: $currentUserId');
+      debugPrint('ChatView: Partner IDs: $partnerUserIds');
+      debugPrint('ChatView: ReadBy entries: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      
+      // Check if message is read by both current user and at least one partner
+      final shouldShowBlue = message.isReadByBothUsers(currentUserId, partnerUserIds);
+      debugPrint('ChatView: Should show blue tick: $shouldShowBlue');
+      
+      return shouldShowBlue;
+    }
+    
+    // Fallback to the old method if we can't get partner IDs
+    final fallbackResult = message.isReadByOthers(currentUserId);
+    debugPrint('ChatView: Using fallback method, should show blue tick: $fallbackResult');
+    return fallbackResult;
   }
 
   Widget _buildMessageInput(BuildContext context, bool isSending, double screenWidth, double screenHeight) {

@@ -11,6 +11,7 @@ class SocketService {
   SocketService._internal();
 
   // Socket.IO Configuration from document
+  static const String baseUrl = 'https://api.bird.delivery/api/';
   static const String wsUrl = 'https://api.bird.delivery/';
   
   IO.Socket? _socket;
@@ -21,6 +22,10 @@ class SocketService {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   Timer? _reconnectTimer;
+  
+  // Add duplicate detection
+  final Set<String> _recentMessageHashes = <String>{};
+  static const int _maxRecentHashes = 100;
   
   // Stream controllers for different events
   final StreamController<Map<String, dynamic>> _messageStreamController = 
@@ -45,39 +50,77 @@ class SocketService {
   String? get currentRoomId => _currentRoomId;
 
   Future<bool> connect() async {
-    debugPrint('SocketService: Attempting to connect...');
-    
     try {
-      _token = await TokenService.getToken();
-      _currentUserId = await TokenService.getUserId();
+      debugPrint('SocketService: Attempting to connect...');
       
-      if (_token == null || _currentUserId == null) {
-        debugPrint('SocketService: No auth token or user ID available');
-        _errorStreamController.add('Authentication required');
+      // Get authentication token
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        debugPrint('SocketService: Missing auth credentials');
+        _errorStreamController.add('Authentication token or user ID not found');
         return false;
       }
-
-      // Socket.IO initialization for USER app (as per document)
-      _socket = IO.io(wsUrl, <String, dynamic>{
-        'transports': ['websocket'],
-        'autoConnect': false,
-        'query': {
-          'userId': _currentUserId,
-          'userType': 'user', // USER app sends as 'user'
-        },
-        'extraHeaders': {
-          'Authorization': 'Bearer $_token',
-        },
-        'timeout': 20000,
-        'reconnection': true,
-        'reconnectionAttempts': _maxReconnectAttempts,
-        'reconnectionDelay': 3000,
-      });
-
+      
+      _token = token;
+      _currentUserId = userId;
+      
+      debugPrint('SocketService: Token retrieved: ${token.isNotEmpty ? 'Found' : 'Empty'}');
+      debugPrint('SocketService: User ID retrieved: $userId');
+      
+      // Create socket connection with auth
+      _socket = IO.io(
+        wsUrl,
+        IO.OptionBuilder()
+            .setTransports(['websocket'])
+            .enableAutoConnect()
+            .enableReconnection()
+            .setReconnectionAttempts(_maxReconnectAttempts)
+            .setReconnectionDelay(1000)
+            .setReconnectionDelayMax(5000)
+            .setTimeout(20000)
+            .setQuery({
+              'token': token,
+              'userId': userId,
+              'userType': 'user',
+            })
+            .build(),
+      );
+      
+      debugPrint('SocketService: Socket created with URL: $wsUrl');
+      debugPrint('SocketService: Query parameters: token=${token.isNotEmpty ? 'present' : 'missing'}, userId=$userId, userType=user');
+      
+      // Setup event handlers
       _setupSocketEventHandlers();
+      
+      // Connect
       _socket!.connect();
       
-      return true;
+      debugPrint('SocketService: Socket connect() called');
+      
+      // Wait for connection with timeout
+      bool connected = false;
+      Timer? timeoutTimer;
+      
+      timeoutTimer = Timer(const Duration(seconds: 10), () {
+        if (!connected) {
+          debugPrint('SocketService: Connection timeout after 10 seconds');
+          _errorStreamController.add('Connection timeout');
+        }
+      });
+      
+      // Listen for connection
+      _socket!.onConnect((_) {
+        connected = true;
+        timeoutTimer?.cancel();
+        debugPrint('SocketService: Connection established successfully');
+      });
+      
+      // Wait a bit for connection
+      await Future.delayed(const Duration(seconds: 2));
+      
+      return _isConnected;
         
     } catch (e) {
       debugPrint('SocketService: Connection error: $e');
@@ -126,91 +169,137 @@ class SocketService {
 
     // 1. receive_message - Handle with better error checking
     _socket!.on('receive_message', (data) {
+      debugPrint('SocketService: Received "receive_message" event with data: $data');
       _handleReceivedMessage(data);
     });
 
-    // 2. message_read (single message read status)
+    // 2. message - Alternative event name that might be used
+    _socket!.on('message', (data) {
+      debugPrint('SocketService: Received "message" event with data: $data');
+      _handleReceivedMessage(data);
+    });
+
+    // 3. new_message - Another possible event name
+    _socket!.on('new_message', (data) {
+      debugPrint('SocketService: Received "new_message" event with data: $data');
+      _handleReceivedMessage(data);
+    });
+
+    // 4. chat_message - Another possible event name
+    _socket!.on('chat_message', (data) {
+      debugPrint('SocketService: Received "chat_message" event with data: $data');
+      _handleReceivedMessage(data);
+    });
+
+    // 5. message_read (single message read status)
     _socket!.on('message_read', (data) {
+      debugPrint('SocketService: Received "message_read" event with data: $data');
       _handleMessageReadUpdate(data);
     });
 
-    // 3. messages_marked_read (bulk read status)
+    // 6. messages_marked_read (bulk read status)
     _socket!.on('messages_marked_read', (data) {
+      debugPrint('SocketService: Received "messages_marked_read" event with data: $data');
       _handleMessagesMarkedRead(data);
     });
 
-    // 4. user_joined / user_left
+    // 7. user_joined / user_left
     _socket!.on('user_joined', (data) {
-      debugPrint('User joined: $data');
+      debugPrint('SocketService: Received "user_joined" event with data: $data');
     });
 
     _socket!.on('user_left', (data) {
-      debugPrint('User left: $data');
+      debugPrint('SocketService: Received "user_left" event with data: $data');
     });
 
-    // 5. user_typing / user_stop_typing
+    // 8. user_typing / user_stop_typing
     _socket!.on('user_typing', (data) {
+      debugPrint('SocketService: Received "user_typing" event with data: $data');
       _handleTypingStatus(data, true);
     });
 
     _socket!.on('user_stop_typing', (data) {
+      debugPrint('SocketService: Received "user_stop_typing" event with data: $data');
       _handleTypingStatus(data, false);
+    });
+
+    // 9. Catch-all listener to see what events are actually being received
+    _socket!.onAny((event, data) {
+      debugPrint('SocketService: Received ANY event: "$event" with data: $data');
+      
+      // If it's a message-related event we haven't handled, try to handle it
+      if (event.contains('message') || event.contains('chat') || event.contains('receive')) {
+        _handleReceivedMessage(data);
+      }
     });
   }
 
   void _handleReceivedMessage(dynamic data) {
     try {
       debugPrint('SocketService: Raw received message data: $data');
+      debugPrint('SocketService: Data type: ${data.runtimeType}');
       
       Map<String, dynamic> messageData;
       
       if (data is String) {
         try {
           messageData = jsonDecode(data);
+          debugPrint('SocketService: Parsed JSON string successfully');
         } catch (e) {
           debugPrint('SocketService: Error parsing JSON string: $e');
           return;
         }
       } else if (data is Map<String, dynamic>) {
         messageData = data;
+        debugPrint('SocketService: Data is already Map<String, dynamic>');
       } else if (data is List && data.isNotEmpty) {
         // Sometimes socket.io sends arrays
         if (data[0] is Map<String, dynamic>) {
           messageData = data[0] as Map<String, dynamic>;
+          debugPrint('SocketService: Extracted first element from array');
         } else {
           debugPrint('SocketService: Invalid list data format: $data');
           return;
         }
       } else {
         debugPrint('SocketService: Invalid message data format: $data');
+        debugPrint('SocketService: Data type: ${data.runtimeType}');
         return;
       }
       
+      debugPrint('SocketService: Parsed messageData: $messageData');
+      
       // Validate required fields with null safety
-      if (messageData['content'] == null) {
-        debugPrint('SocketService: Message missing content field');
+      // Handle both 'content' and 'message' fields for compatibility
+      final messageContent = messageData['content'] ?? messageData['message'];
+      if (messageContent == null) {
+        debugPrint('SocketService: Message missing content/message field');
+        debugPrint('SocketService: Available fields: ${messageData.keys.toList()}');
         return;
       }
       
       if (messageData['senderId'] == null) {
         debugPrint('SocketService: Message missing senderId field');
+        debugPrint('SocketService: Available fields: ${messageData.keys.toList()}');
         return;
       }
       
       // Create safe message data with defaults
       final safeMessageData = <String, dynamic>{
         '_id': messageData['_id'] ?? messageData['id'] ?? 'socket_${DateTime.now().millisecondsSinceEpoch}',
-        'roomId': messageData['roomId'] ?? '',
+        'roomId': messageData['roomId'] ?? _currentRoomId ?? '',
         'senderId': messageData['senderId'].toString(),
         'senderType': messageData['senderType'] ?? 'user',
-        'content': messageData['content'].toString(),
+        'content': messageContent.toString(), // Use either content or message field
         'messageType': messageData['messageType'] ?? 'text',
         'readBy': messageData['readBy'] ?? [],
-        // Use current time for socket messages to ensure they appear at bottom
-        'createdAt': DateTime.now().toIso8601String(),
+        // Handle timestamp properly - convert string timestamp to DateTime
+        'createdAt': _parseTimestamp(messageData['timestamp'] ?? messageData['createdAt']),
       };
       
       debugPrint('SocketService: Processed message data: $safeMessageData');
+      debugPrint('SocketService: Current user ID: $_currentUserId');
+      debugPrint('SocketService: Message sender ID: ${safeMessageData['senderId']}');
       
       // Skip own messages to avoid duplicates
       if (safeMessageData['senderId'] == _currentUserId) {
@@ -218,13 +307,34 @@ class SocketService {
         return;
       }
       
-      // Emit to stream for UI updates
-      if (!_messageStreamController.isClosed) {
-        _messageStreamController.add(safeMessageData);
+      debugPrint('SocketService: Message is from other user, processing...');
+      
+      // Create a hash for duplicate detection - use content, sender, and time window
+      final messageTime = safeMessageData['createdAt'] as DateTime;
+      final timeWindow = messageTime.millisecondsSinceEpoch ~/ 1000; // Round to nearest second
+      final messageHash = '${safeMessageData['content']}_${safeMessageData['senderId']}_${safeMessageData['senderType']}_$timeWindow';
+      
+      // Check if we've recently processed this exact message
+      if (_recentMessageHashes.contains(messageHash)) {
+        debugPrint('SocketService: Duplicate message detected, skipping: $messageHash');
+        return;
       }
+      
+      // Add to recent hashes and maintain size limit
+      _recentMessageHashes.add(messageHash);
+      debugPrint('SocketService: Added message hash: $messageHash');
+      if (_recentMessageHashes.length > _maxRecentHashes) {
+        final removed = _recentMessageHashes.first;
+        _recentMessageHashes.remove(removed);
+        debugPrint('SocketService: Removed old message hash: $removed');
+      }
+      
+      debugPrint('SocketService: Emitting message to ChatBloc: ${safeMessageData['content']}');
+      _messageStreamController.add(safeMessageData);
       
       // Auto mark as read for incoming messages
       if (_currentRoomId != null) {
+        debugPrint('SocketService: Auto marking as read for incoming message');
         markAsReadViaSocket(_currentRoomId!);
       }
       
@@ -308,7 +418,12 @@ class SocketService {
     _currentRoomId = roomId;
     debugPrint('SocketService: Setting current room to: $roomId');
     
+    // Clear recent message hashes when joining a new room
+    _recentMessageHashes.clear();
+    debugPrint('SocketService: Cleared recent message hashes for new room');
+    
     if (_socket != null && _isConnected) {
+      debugPrint('SocketService: Socket is connected, joining room: $roomId');
       _socket!.emit('join_room', roomId);
       debugPrint('SocketService: Joined room via socket: $roomId');
       
@@ -316,6 +431,8 @@ class SocketService {
       markAsReadViaSocket(roomId);
     } else {
       debugPrint('SocketService: Socket not connected, will join room when connected');
+      debugPrint('SocketService: Socket null: ${_socket == null}');
+      debugPrint('SocketService: Is connected: $_isConnected');
     }
   }
 
@@ -417,6 +534,7 @@ class SocketService {
     _isConnected = false;
     _currentRoomId = null;
     _reconnectAttempts = 0;
+    _recentMessageHashes.clear(); // Clear recent message hashes
     _connectionStreamController.add(false);
   }
 
@@ -427,5 +545,23 @@ class SocketService {
     _errorStreamController.close();
     _readReceiptStreamController.close();
     _typingStreamController.close();
+  }
+
+  DateTime _parseTimestamp(dynamic timestamp) {
+    try {
+      if (timestamp is DateTime) {
+        return timestamp;
+      } else if (timestamp is String) {
+        return DateTime.parse(timestamp);
+      } else if (timestamp is num) {
+        return DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
+      } else {
+        debugPrint('SocketService: Invalid timestamp format, using current time: $timestamp');
+        return DateTime.now();
+      }
+    } catch (e) {
+      debugPrint('SocketService: Error parsing timestamp: $e, using current time');
+      return DateTime.now();
+    }
   }
 }

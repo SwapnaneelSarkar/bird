@@ -665,7 +665,56 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 ),
               );
             }
-            
+
+            if (state is SettingsError) {
+              // Show a user-friendly error view with retry
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(state.message, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<SettingsBloc>().add(LoadUserSettings());
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (state is SettingsUpdateSuccess) {
+              // Optionally, show a success message
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+                    const SizedBox(height: 16),
+                    Text(state.message, style: const TextStyle(color: Colors.green)),
+                  ],
+                ),
+              );
+            }
+
+            if (state is SettingsUpdating) {
+              // Show a loading indicator while updating
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    const Text('Updating profile...'),
+                  ],
+                ),
+              );
+            }
+
             // Fallback - should not happen
             return const Center(child: Text('Something went wrong!'));
           },

@@ -35,6 +35,9 @@ class _ChatViewState extends State<ChatView> {
   
   // Add this to track message input state
   bool _hasText = false;
+  
+  // Add flag to track if page opened event has been emitted
+  bool _pageOpenedEventEmitted = false;
 
   @override
   void initState() {
@@ -53,6 +56,16 @@ class _ChatViewState extends State<ChatView> {
     _scrollController.dispose();
     _focusNode.dispose();
     _typingTimer?.cancel();
+    
+    // Emit page closed event when disposing
+    if (_chatBloc != null) {
+      debugPrint('ChatView: 🚪 EMITTING ChatPageClosed event from dispose');
+      _chatBloc!.add(const ChatPageClosed());
+      debugPrint('ChatView: ✅ ChatPageClosed event emitted successfully from dispose');
+    } else {
+      debugPrint('ChatView: ⚠️ Cannot emit ChatPageClosed from dispose - chatBloc is null');
+    }
+    
     super.dispose();
   }
 
@@ -64,21 +77,35 @@ class _ChatViewState extends State<ChatView> {
       });
     }
     
-    // Handle typing indicators - check if chatBloc is available
+    // Add debug prints to see if typing events are being triggered
+    debugPrint('ChatView: ⌨️ Text changed - hasText: $hasText, isTyping: $_isTyping');
+    
+    // Note: Typing indicators are now used for blue tick updates via page lifecycle events
+    // Actual typing indicators are handled by the typing event strategy
+    
+    // BUT: Let's also trigger typing events during actual typing for better UX
     if (_chatBloc != null) {
       if (hasText && !_isTyping) {
         _isTyping = true;
+        debugPrint('ChatView: ⌨️ Starting typing indicator for actual typing');
         _chatBloc!.add(const StartTyping());
+      } else if (!hasText && _isTyping) {
+        _isTyping = false;
+        debugPrint('ChatView: ⌨️ Stopping typing indicator for actual typing');
+        _chatBloc!.add(const StopTyping());
       }
       
-      // Reset typing timer
+      // Reset typing timer for actual typing
       _typingTimer?.cancel();
-      _typingTimer = Timer(const Duration(seconds: 2), () {
-        if (_isTyping && _chatBloc != null) {
-          _isTyping = false;
-          _chatBloc!.add(const StopTyping());
-        }
-      });
+      if (hasText) {
+        _typingTimer = Timer(const Duration(seconds: 2), () {
+          if (_isTyping && _chatBloc != null) {
+            _isTyping = false;
+            debugPrint('ChatView: ⌨️ Auto-stopping typing indicator after 2 seconds');
+            _chatBloc!.add(const StopTyping());
+          }
+        });
+      }
     }
   }
 
@@ -176,6 +203,23 @@ class _ChatViewState extends State<ChatView> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _scrollToBottom();
               });
+              
+              // Emit page opened event when chat is loaded (only once)
+              if (_chatBloc != null && !_pageOpenedEventEmitted) {
+                // Use a post frame callback to ensure this runs after the initial build
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    debugPrint('ChatView: 🚀 EMITTING ChatPageOpened event');
+                    _chatBloc!.add(const ChatPageOpened());
+                    _pageOpenedEventEmitted = true;
+                    debugPrint('ChatView: ✅ ChatPageOpened event emitted successfully');
+                  } else {
+                    debugPrint('ChatView: ⚠️ Widget not mounted, skipping ChatPageOpened event');
+                  }
+                });
+              } else {
+                debugPrint('ChatView: ⚠️ Cannot emit ChatPageOpened - chatBloc: ${_chatBloc != null}, already emitted: $_pageOpenedEventEmitted');
+              }
             }
           },
           builder: (context, state) {
@@ -263,9 +307,14 @@ class _ChatViewState extends State<ChatView> {
             onTap: () {
               // Unfocus text field before navigating back
               _focusNode.unfocus();
-              // Stop typing indicator
+              // Stop typing indicator and emit page closed event
               if (_chatBloc != null) {
+                debugPrint('ChatView: 🚪 EMITTING ChatPageClosed event from back button');
                 _chatBloc!.add(const StopTyping());
+                _chatBloc!.add(const ChatPageClosed());
+                debugPrint('ChatView: ✅ ChatPageClosed event emitted successfully from back button');
+              } else {
+                debugPrint('ChatView: ⚠️ Cannot emit ChatPageClosed from back button - chatBloc is null');
               }
               Navigator.of(context).pop();
             },
@@ -345,7 +394,7 @@ class _ChatViewState extends State<ChatView> {
                     children: [
                       Flexible(
                         child: Text(
-                          'Order #${chatRoom.orderId.length > 8 ? chatRoom.orderId.substring(0, 8) + '...' : chatRoom.orderId}',
+                          'Order #${chatRoom.orderId}',
                           style: TextStyle(
                             fontSize: screenWidth * 0.042,
                             fontWeight: FontWeightManager.bold,
@@ -647,8 +696,25 @@ class _ChatViewState extends State<ChatView> {
       debugPrint('ChatView: Partner IDs: $partnerUserIds');
       debugPrint('ChatView: ReadBy entries: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
       
-      // Check if message is read by both current user and at least one partner
-      final shouldShowBlue = message.isReadByBothUsers(currentUserId, partnerUserIds);
+      // Filter out test users from readBy entries
+      final realReadByEntries = message.readBy
+          .where((entry) => !entry.userId.startsWith('test_user_'))
+          .toList();
+      
+      debugPrint('ChatView: Real ReadBy entries (excluding test users): ${realReadByEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      
+      // Check if message is read by both current user and at least one real partner
+      bool shouldShowBlue = false;
+      
+      if (message.senderId == currentUserId) {
+        // For messages sent by current user: check if at least one real partner has read it
+        shouldShowBlue = partnerUserIds.any((partnerId) => 
+            realReadByEntries.any((entry) => entry.userId == partnerId));
+      } else {
+        // For messages from partners: check if current user has read it
+        shouldShowBlue = realReadByEntries.any((entry) => entry.userId == currentUserId);
+      }
+      
       debugPrint('ChatView: Should show blue tick: $shouldShowBlue');
       
       return shouldShowBlue;

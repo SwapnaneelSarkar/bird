@@ -14,7 +14,9 @@
     <key>CFBundleURLSchemes</key>
     <array>
       <!-- Replace with the REVERSED_CLIENT_ID value from GoogleService-Info.plist -->
-      <string>com.googleusercontent.apps.1234567890-abcdef</string>
+      <string>com.googleusercontent.apps.1062805760329-kb1fhhbcfko7ts0s79lpvjfv34vjsmmj</string>
+      <!-- Firebase Phone Auth URL scheme -->
+      <string>app-1-1062805760329-ios-ce0347aa9b9d7c8e5e9298</string>
     </array>
   </dict>
 </array>

@@ -72,3 +72,24 @@ class UpdateMessageReadStatus extends ChatEvent {
   @override
   List<Object?> get props => [readData];
 }
+
+class ChatPageOpened extends ChatEvent {
+  const ChatPageOpened();
+}
+
+class ChatPageClosed extends ChatEvent {
+  const ChatPageClosed();
+}
+
+class MessageReceivedOnActivePage extends ChatEvent {
+  final ChatMessage message;
+  
+  const MessageReceivedOnActivePage(this.message);
+  
+  @override
+  List<Object?> get props => [message];
+}
+
+class UpdateBlueTicksForPreviousMessages extends ChatEvent {
+  const UpdateBlueTicksForPreviousMessages();
+}

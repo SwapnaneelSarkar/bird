@@ -50,6 +50,12 @@ class NotificationService {
     // Configure Firebase Messaging
     await _configureFirebaseMessaging();
     
+    // On iOS, add a small delay to allow APNS token to be set
+    if (Platform.isIOS) {
+      print('⏳ Waiting for APNS token to be set...');
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
     // Get and print the FCM token
     await _printFCMToken();
     
@@ -413,22 +419,45 @@ class NotificationService {
   }
 
   Future<void> _printFCMToken() async {
-    String? token = await _firebaseMessaging.getToken();
-    print('FCM Token: $token');
-    
-    // Listen for token refresh
-    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-      print('FCM Token refreshed: $newToken');
-      // Only send if token has changed
-      if (await _shouldRegisterToken(newToken)) {
-        await _sendTokenToServer(newToken);
+    try {
+      String? token = await _firebaseMessaging.getToken();
+      print('FCM Token: $token');
+      
+      // Listen for token refresh
+      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+        print('FCM Token refreshed: $newToken');
+        // Only send if token has changed
+        if (await _shouldRegisterToken(newToken)) {
+          await _sendTokenToServer(newToken);
+        }
+      });
+      
+      if (token != null) {
+        // Only send if token has changed
+        if (await _shouldRegisterToken(token)) {
+          await _sendTokenToServer(token);
+        }
       }
-    });
-    
-    if (token != null) {
-      // Only send if token has changed
-      if (await _shouldRegisterToken(token)) {
-        await _sendTokenToServer(token);
+    } catch (e) {
+      print('❌ Error getting FCM token: $e');
+      
+      // On iOS, if APNS token is not set, retry after a delay
+      if (Platform.isIOS && e.toString().contains('apns-token-not-set')) {
+        print('🔄 APNS token not set yet, retrying in 3 seconds...');
+        Future.delayed(const Duration(seconds: 3), () async {
+          try {
+            String? token = await _firebaseMessaging.getToken();
+            print('FCM Token (retry): $token');
+            
+            if (token != null) {
+              if (await _shouldRegisterToken(token)) {
+                await _sendTokenToServer(token);
+              }
+            }
+          } catch (retryError) {
+            print('❌ Error getting FCM token on retry: $retryError');
+          }
+        });
       }
     }
   }

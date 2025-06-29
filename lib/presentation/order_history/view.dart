@@ -209,7 +209,7 @@ class OrderHistoryView extends StatelessWidget {
     String emptyMessage;
     switch (selectedFilter) {
       case 'Preparing':
-        emptyMessage = 'No preparing orders';
+        emptyMessage = 'No orders in progress';
         break;
       case 'Completed':
         emptyMessage = 'No completed orders';

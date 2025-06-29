@@ -236,9 +236,20 @@ class OrderItemCard extends StatelessWidget {
       case 'completed':
         return Colors.green;
       case 'cancelled':
+      case 'canceled':
         return Colors.red;
       case 'preparing':
+      case 'pending':
+      case 'ongoing':
+      case 'in_progress':
+      case 'processing':
         return Colors.orange;
+      case 'confirmed':
+      case 'accepted':
+        return Colors.blue;
+      case 'out_for_delivery':
+      case 'on_the_way':
+        return Colors.purple;
       default:
         return const Color(0xFFE17A47);
     }

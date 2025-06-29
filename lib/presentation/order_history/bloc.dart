@@ -78,7 +78,7 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             final ongoingOrders = List<Map<String, dynamic>>.from(data['Ongoing']);
             debugPrint('OrderHistoryBloc: Processing ${ongoingOrders.length} ongoing orders');
             for (var order in ongoingOrders) {
-              order['status'] = 'Preparing';
+              // Preserve original status from API
               debugPrint('OrderHistoryBloc: Ongoing order ID: ${order['order_id']}');
             }
             allOrdersData.addAll(ongoingOrders);
@@ -88,7 +88,7 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             final completedOrders = List<Map<String, dynamic>>.from(data['Completed']);
             debugPrint('OrderHistoryBloc: Processing ${completedOrders.length} completed orders');
             for (var order in completedOrders) {
-              order['status'] = 'Delivered';
+              // Preserve original status from API
               debugPrint('OrderHistoryBloc: Completed order ID: ${order['order_id']}');
             }
             allOrdersData.addAll(completedOrders);
@@ -98,7 +98,7 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             final cancelledOrders = List<Map<String, dynamic>>.from(data['Cancelled']);
             debugPrint('OrderHistoryBloc: Processing ${cancelledOrders.length} cancelled orders');
             for (var order in cancelledOrders) {
-              order['status'] = 'Cancelled';
+              // Preserve original status from API
               debugPrint('OrderHistoryBloc: Cancelled order ID: ${order['order_id']}');
             }
             allOrdersData.addAll(cancelledOrders);
@@ -150,17 +150,26 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             break;
           case 'Preparing':
             filteredOrders = currentState.allOrders
-                .where((order) => order.status == 'Preparing')
+                .where((order) => 
+                    order.status.toLowerCase() == 'preparing' ||
+                    order.status.toLowerCase() == 'pending' ||
+                    order.status.toLowerCase() == 'ongoing' ||
+                    order.status.toLowerCase() == 'in_progress' ||
+                    order.status.toLowerCase() == 'processing')
                 .toList();
             break;
           case 'Completed':
             filteredOrders = currentState.allOrders
-                .where((order) => order.status == 'Delivered' || order.status == 'Completed')
+                .where((order) => 
+                    order.status.toLowerCase() == 'delivered' ||
+                    order.status.toLowerCase() == 'completed')
                 .toList();
             break;
           case 'Cancelled':
             filteredOrders = currentState.allOrders
-                .where((order) => order.status == 'Cancelled')
+                .where((order) => 
+                    order.status.toLowerCase() == 'cancelled' ||
+                    order.status.toLowerCase() == 'canceled')
                 .toList();
             break;
           default:

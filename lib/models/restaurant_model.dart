@@ -99,9 +99,11 @@ class Restaurant {
       
       final rating = _parseDouble(json['rating']);
       
-      final openNow = _determineOpenStatus(json['open_timings']?.toString());
-      
-      final closesAt = _extractClosingTime(json['open_timings']?.toString());
+      // Use open_timings or fallback to operational_hours
+      final timingsRaw = json['open_timings']?.toString() ?? json['operational_hours']?.toString();
+      final openNow = _determineOpenStatus(timingsRaw);
+      final closesAt = _extractClosingTime(timingsRaw);
+      final openTimings = timingsRaw;
       
       final imageUrl = _getImageUrl(json, photos);
       
@@ -110,8 +112,6 @@ class Restaurant {
       final latitude = _parseDouble(json['latitude']);
       
       final longitude = _parseDouble(json['longitude']);
-      
-      final openTimings = json['open_timings']?.toString();
       
       final ownerName = json['owner_name']?.toString();
       
@@ -239,48 +239,111 @@ class Restaurant {
     return null;
   }
 
-  // Helper method to determine if restaurant is currently open
+  // Helper method to determine if restaurant is currently open (IST aware, parses open_timings JSON)
   static bool? _determineOpenStatus(String? openTimings) {
     if (openTimings == null || openTimings.isEmpty) return null;
-    
     try {
-      // Simple check - if it contains "24" or "24/7", assume always open
+      // If 24/7 or 24 in timings, always open
       if (openTimings.toLowerCase().contains('24')) return true;
-      
-      // Get current time in IST
+      // Parse timings JSON
+      final timings = Map<String, dynamic>.from(json.decode(openTimings.replaceAll("\\", "")));
       final now = TimezoneUtils.getCurrentTimeIST();
-      final currentHour = now.hour;
+      final weekday = now.weekday; // 1=Mon, 7=Sun
+      final dayKey = _weekdayToKey(weekday);
+      final todayHours = timings[dayKey]?.toString();
       
-      // Simple heuristic: assume open between 9 AM and 11 PM if no specific format
-      if (currentHour >= 9 && currentHour <= 23) {
-        return true;
+      if (todayHours == null || todayHours.toLowerCase().contains('closed')) return false;
+      // Parse hours, e.g. "9am - 9pm" or "10:30am - 11:15pm" or "10.42am - 9pm"
+      final match = RegExp(r'(\d{1,2}([:.]\d{2})?\s*[ap]m)\s*-\s*(\d{1,2}([:.]\d{2})?\s*[ap]m)', caseSensitive: false).firstMatch(todayHours);
+      if (match != null) {
+        final openStr = match.group(1)!;
+        final closeStr = match.group(3)!;
+        final openTime = _parseTimeIST(openStr, now);
+        final closeTime = _parseTimeIST(closeStr, now);
+        
+        if (openTime != null && closeTime != null) {
+          // If close is past midnight, adjust
+          final closeAdjusted = closeTime.isBefore(openTime) ? closeTime.add(const Duration(days: 1)) : closeTime;
+          
+          // Add a small tolerance (1 minute) to handle edge cases
+          final tolerance = const Duration(minutes: 1);
+          final openTimeWithTolerance = openTime.subtract(tolerance);
+          
+          final isOpen = now.isAfter(openTimeWithTolerance) && now.isBefore(closeAdjusted);
+          
+          // Debug log for troubleshooting
+          debugPrint('Restaurant open status: Current=${now.hour}:${now.minute}, Open=${openTime.hour}:${openTime.minute}, Close=${closeAdjusted.hour}:${closeAdjusted.minute}, IsOpen=$isOpen');
+          
+          return isOpen;
+        }
       }
-      
-      return false;
+      return null;
     } catch (e) {
       debugPrint('Error parsing open status: $e');
       return null;
     }
   }
 
-  // Helper method to extract closing time
+  // Helper method to extract closing time for today (in IST, from open_timings JSON)
   static String? _extractClosingTime(String? openTimings) {
     if (openTimings == null || openTimings.isEmpty) return null;
-    
     try {
-      // Simple extraction - look for time patterns
       if (openTimings.toLowerCase().contains('24')) return '11:59 PM';
-      
-      // Look for PM times which might indicate closing
-      final pmPattern = RegExp(r'(\d{1,2}:\d{2})\s*PM', caseSensitive: false);
-      final match = pmPattern.firstMatch(openTimings);
+      final timings = Map<String, dynamic>.from(json.decode(openTimings.replaceAll("\\", "")));
+      final now = TimezoneUtils.getCurrentTimeIST();
+      final weekday = now.weekday;
+      final dayKey = _weekdayToKey(weekday);
+      final todayHours = timings[dayKey]?.toString();
+      if (todayHours == null || todayHours.toLowerCase().contains('closed')) return null;
+      final match = RegExp(r'(\d{1,2}([:.]\d{2})?\s*[ap]m)\s*-\s*(\d{1,2}([:.]\d{2})?\s*[ap]m)', caseSensitive: false).firstMatch(todayHours);
       if (match != null) {
-        return '${match.group(1)} PM';
+        final closeStr = match.group(3)!;
+        return closeStr.toUpperCase();
       }
-      
-      return '11:00 PM'; // Default
+      return null;
     } catch (e) {
       debugPrint('Error parsing closing time: $e');
+      return null;
+    }
+  }
+
+  // Helper: Convert weekday int to key string used in timings JSON
+  static String _weekdayToKey(int weekday) {
+    switch (weekday) {
+      case 1: return 'mon';
+      case 2: return 'tue';
+      case 3: return 'wed';
+      case 4: return 'thu';
+      case 5: return 'fri';
+      case 6: return 'sat';
+      case 7: return 'sun';
+      default: return 'mon';
+    }
+  }
+
+  // Helper: Parse a time string like "9am" or "10:30pm" to DateTime today in IST
+  static DateTime? _parseTimeIST(String timeStr, DateTime baseDay) {
+    try {
+      final cleaned = timeStr.trim().toLowerCase().replaceAll(' ', '');
+      
+      // Updated regex to handle both colon and dot separators: "10:42am" or "10.42am"
+      final match = RegExp(r'^(\d{1,2})([:.](\d{2}))?(am|pm)').firstMatch(cleaned);
+      if (match != null) {
+        int hour = int.parse(match.group(1)!);
+        int minute = match.group(3) != null ? int.parse(match.group(3)!) : 0;
+        final isPM = match.group(4) == 'pm';
+        
+        if (hour == 12) {
+          hour = isPM ? 12 : 0;
+        } else if (isPM) {
+          hour += 12;
+        }
+        
+        return DateTime(baseDay.year, baseDay.month, baseDay.day, hour, minute);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error parsing time string "$timeStr": $e');
       return null;
     }
   }

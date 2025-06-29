@@ -481,7 +481,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                   debugPrint('HomePage: All filters and category selection reset');
                                 },
                                 child: Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
+                                  padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 5 * scale),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12 * scale),

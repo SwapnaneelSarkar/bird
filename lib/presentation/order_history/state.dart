@@ -105,19 +105,8 @@ class OrderItem extends Equatable {
   }
 
   static String _mapStatus(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'delivered':
-      case 'completed':
-        return 'Delivered';
-      case 'pending':
-      case 'ongoing':
-      case 'preparing':
-        return 'Preparing';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status ?? 'Unknown';
-    }
+    // Return the status as it comes from the API without any mapping
+    return status ?? 'Unknown';
   }
 
   // Helper method to get the full image URL

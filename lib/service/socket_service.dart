@@ -197,13 +197,31 @@ class SocketService {
       _handleMessageReadUpdate(data);
     });
 
-    // 6. messages_marked_read (bulk read status)
+    // 6. message_seen (new event for individual message read receipts)
+    _socket!.on('message_seen', (data) {
+      debugPrint('SocketService: Received "message_seen" event with data: $data');
+      _handleMessageSeenUpdate(data);
+    });
+
+    // 6.1. message_seen_response (server confirmation of message seen)
+    _socket!.on('message_seen_response', (data) {
+      debugPrint('SocketService: Received "message_seen_response" event with data: $data');
+      _handleMessageSeenUpdate(data);
+    });
+
+    // 7. messages_marked_read (bulk read status)
     _socket!.on('messages_marked_read', (data) {
       debugPrint('SocketService: Received "messages_marked_read" event with data: $data');
       _handleMessagesMarkedRead(data);
     });
 
-    // 7. user_joined / user_left
+    // 7.1. mark_as_read (server broadcast when messages are marked as read)
+    _socket!.on('mark_as_read', (data) {
+      debugPrint('SocketService: Received "mark_as_read" event with data: $data');
+      _handleMarkAsReadUpdate(data);
+    });
+
+    // 8. user_joined / user_left
     _socket!.on('user_joined', (data) {
       debugPrint('SocketService: Received "user_joined" event with data: $data');
     });
@@ -212,25 +230,17 @@ class SocketService {
       debugPrint('SocketService: Received "user_left" event with data: $data');
     });
 
-    // 8. user_typing / user_stop_typing
+    // 9. user_typing / user_stop_typing
     _socket!.on('user_typing', (data) {
-      debugPrint('SocketService: Received "user_typing" event with data: $data');
+      debugPrint('SocketService: 📨 RECEIVED "user_typing" event with data: $data');
+      debugPrint('SocketService: Typing event from user: ${data['userId']}, type: ${data['userType']}, room: ${data['roomId']}');
       _handleTypingStatus(data, true);
     });
 
     _socket!.on('user_stop_typing', (data) {
-      debugPrint('SocketService: Received "user_stop_typing" event with data: $data');
+      debugPrint('SocketService: 📨 RECEIVED "user_stop_typing" event with data: $data');
+      debugPrint('SocketService: Stop typing event from user: ${data['userId']}, type: ${data['userType']}, room: ${data['roomId']}');
       _handleTypingStatus(data, false);
-    });
-
-    // 9. Catch-all listener to see what events are actually being received
-    _socket!.onAny((event, data) {
-      debugPrint('SocketService: Received ANY event: "$event" with data: $data');
-      
-      // If it's a message-related event we haven't handled, try to handle it
-      if (event.contains('message') || event.contains('chat') || event.contains('receive')) {
-        _handleReceivedMessage(data);
-      }
     });
   }
 
@@ -332,6 +342,17 @@ class SocketService {
       debugPrint('SocketService: Emitting message to ChatBloc: ${safeMessageData['content']}');
       _messageStreamController.add(safeMessageData);
       
+      // CRITICAL: Emit message_seen immediately when message is received (Same as partner app)
+      if (_currentRoomId != null && _currentUserId != null) {
+        debugPrint('SocketService: Emitting message_seen immediately for received message');
+        emitMessageSeen(
+          roomId: _currentRoomId!,
+          messageId: safeMessageData['_id'] as String,
+          content: safeMessageData['content'],
+          senderId: safeMessageData['senderId'],
+        );
+      }
+      
       // Auto mark as read for incoming messages
       if (_currentRoomId != null) {
         debugPrint('SocketService: Auto marking as read for incoming message');
@@ -361,6 +382,58 @@ class SocketService {
     }
   }
 
+  void _handleMessageSeenUpdate(dynamic data) {
+    try {
+      debugPrint('SocketService: Raw message_seen data: $data');
+      debugPrint('SocketService: Message_seen data type: ${data.runtimeType}');
+      
+      Map<String, dynamic> seenData;
+      
+      if (data is String) {
+        try {
+          seenData = jsonDecode(data);
+          debugPrint('SocketService: Parsed message_seen JSON string successfully');
+        } catch (e) {
+          debugPrint('SocketService: Error parsing message_seen JSON string: $e');
+          return;
+        }
+      } else if (data is Map<String, dynamic>) {
+        seenData = data;
+        debugPrint('SocketService: Message_seen data is already Map<String, dynamic>');
+      } else {
+        debugPrint('SocketService: Invalid message_seen data format: $data');
+        return;
+      }
+      
+      debugPrint('SocketService: Processed message_seen data: $seenData');
+      
+      // Validate required fields
+      if (seenData['messageId'] == null) {
+        debugPrint('SocketService: Message_seen missing messageId field');
+        return;
+      }
+      
+      if (seenData['seenBy'] == null) {
+        debugPrint('SocketService: Message_seen missing seenBy field');
+        return;
+      }
+      
+      // IMPORTANT: Always emit to read receipt stream, even for own messages
+      // This ensures the sender gets notified when their messages are read
+      if (!_readReceiptStreamController.isClosed) {
+        _readReceiptStreamController.add({
+          'type': 'single_message_seen',
+          'data': seenData,
+        });
+        debugPrint('SocketService: Emitted message_seen to read receipt stream');
+        debugPrint('SocketService: Message seen by: ${seenData['seenBy']}, Message ID: ${seenData['messageId']}');
+      }
+    } catch (e) {
+      debugPrint('SocketService: Error handling message seen update: $e');
+      debugPrint('SocketService: Raw data that caused error: $data');
+    }
+  }
+
   void _handleMessagesMarkedRead(dynamic data) {
     try {
       final readData = data is Map<String, dynamic> ? data : jsonDecode(data.toString());
@@ -377,21 +450,89 @@ class SocketService {
     }
   }
 
+  void _handleMarkAsReadUpdate(dynamic data) {
+    try {
+      debugPrint('SocketService: Raw mark_as_read data: $data');
+      debugPrint('SocketService: Mark_as_read data type: ${data.runtimeType}');
+      
+      Map<String, dynamic> readData;
+      
+      if (data is String) {
+        try {
+          readData = jsonDecode(data);
+          debugPrint('SocketService: Parsed mark_as_read JSON string successfully');
+        } catch (e) {
+          debugPrint('SocketService: Error parsing mark_as_read JSON string: $e');
+          return;
+        }
+      } else if (data is Map<String, dynamic>) {
+        readData = data;
+        debugPrint('SocketService: Mark_as_read data is already Map<String, dynamic>');
+      } else {
+        debugPrint('SocketService: Invalid mark_as_read data format: $data');
+        return;
+      }
+      
+      debugPrint('SocketService: Processed mark_as_read data: $readData');
+      
+      if (!_readReceiptStreamController.isClosed) {
+        _readReceiptStreamController.add({
+          'type': 'bulk_messages_read',
+          'data': readData,
+        });
+        debugPrint('SocketService: Emitted mark_as_read to read receipt stream');
+      }
+    } catch (e) {
+      debugPrint('SocketService: Error handling mark as read update: $e');
+      debugPrint('SocketService: Raw data that caused error: $data');
+    }
+  }
+
   void _handleTypingStatus(dynamic data, bool isTyping) {
     try {
       final typingData = data is Map<String, dynamic> ? data : jsonDecode(data.toString());
-      debugPrint('SocketService: Typing status: $isTyping, data: $typingData');
+      debugPrint('SocketService: 🔄 PROCESSING typing status: $isTyping, data: $typingData');
+      debugPrint('SocketService: Current user ID: $_currentUserId, Typing user ID: ${typingData['userId']}');
       
+      // Emit to typing stream for UI updates
       if (!_typingStreamController.isClosed) {
-        _typingStreamController.add({
+        final typingInfo = {
           'isTyping': isTyping,
           'userId': typingData['userId'] ?? '',
           'userType': typingData['userType'] ?? '',
           'roomId': typingData['roomId'] ?? '',
-        });
+        };
+        _typingStreamController.add(typingInfo);
+        debugPrint('SocketService: 📤 Emitted to typing stream: $typingInfo');
+      }
+      
+      // When partner starts typing, mark messages as read
+      if (isTyping && typingData['userId'] != _currentUserId) {
+        debugPrint('SocketService: 👥 Partner started typing, marking messages as read');
+        debugPrint('SocketService: Partner user ID: ${typingData['userId']}, Current user ID: $_currentUserId');
+        
+        // Emit to read receipt stream to trigger mark as read
+        if (!_readReceiptStreamController.isClosed) {
+          final readReceiptData = {
+            'type': 'partner_typing',
+            'data': {
+              'userId': typingData['userId'],
+              'roomId': typingData['roomId'] ?? _currentRoomId,
+              'timestamp': DateTime.now().toIso8601String(),
+            },
+          };
+          _readReceiptStreamController.add(readReceiptData);
+          debugPrint('SocketService: 📤 Emitted partner_typing event for user: ${typingData['userId']}');
+          debugPrint('SocketService: Read receipt data: $readReceiptData');
+        }
+      } else if (isTyping && typingData['userId'] == _currentUserId) {
+        debugPrint('SocketService: 👤 Own typing event received (from self)');
+      } else if (!isTyping) {
+        debugPrint('SocketService: 🛑 Stop typing event processed');
       }
     } catch (e) {
-      debugPrint('SocketService: Error handling typing status: $e');
+      debugPrint('SocketService: ❌ Error handling typing status: $e');
+      debugPrint('SocketService: Raw data that caused error: $data');
     }
   }
 
@@ -480,8 +621,37 @@ class SocketService {
     }
   }
 
+  // 3.1. message_seen (for individual message read receipts)
+  void emitMessageSeen({
+    required String roomId,
+    required String messageId,
+    String? content,
+    String? senderId,
+  }) {
+    if (_socket != null && _isConnected && _currentUserId != null) {
+      final seenData = {
+        'roomId': roomId,
+        'messageId': messageId,
+        'seenBy': _currentUserId,
+        'seenAt': DateTime.now().toIso8601String(),
+        'content': content, // Include content for content-based matching
+        'senderId': senderId, // Include sender ID for content-based matching
+      };
+      
+      _socket!.emit('message_seen', seenData);
+      debugPrint('SocketService: Emitted message_seen for message: $messageId in room: $roomId');
+      debugPrint('SocketService: Message_seen data: $seenData');
+    } else {
+      debugPrint('SocketService: Cannot emit message_seen - socket not connected or missing data');
+      debugPrint('SocketService: Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
+    }
+  }
+
   // 4. typing / stop_typing
   void sendTyping(String roomId) {
+    debugPrint('SocketService: 📤 SEND TYPING called for room: $roomId');
+    debugPrint('SocketService: Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
+    
     if (_socket != null && _isConnected && _currentUserId != null) {
       final typingData = {
         'roomId': roomId,
@@ -490,11 +660,17 @@ class SocketService {
       };
       
       _socket!.emit('typing', typingData);
-      debugPrint('SocketService: Sent typing indicator for room: $roomId');
+      debugPrint('SocketService: 🚀 SENT TYPING EVENT for room: $roomId, user: $_currentUserId');
+      debugPrint('SocketService: Typing data: $typingData');
+    } else {
+      debugPrint('SocketService: ⚠️ Cannot send typing - Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
     }
   }
 
   void sendStopTyping(String roomId) {
+    debugPrint('SocketService: 📤 SEND STOP TYPING called for room: $roomId');
+    debugPrint('SocketService: Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
+    
     if (_socket != null && _isConnected && _currentUserId != null) {
       final typingData = {
         'roomId': roomId,
@@ -503,7 +679,10 @@ class SocketService {
       };
       
       _socket!.emit('stop_typing', typingData);
-      debugPrint('SocketService: Sent stop typing indicator for room: $roomId');
+      debugPrint('SocketService: 🚪 SENT STOP TYPING EVENT for room: $roomId, user: $_currentUserId');
+      debugPrint('SocketService: Stop typing data: $typingData');
+    } else {
+      debugPrint('SocketService: ⚠️ Cannot send stop typing - Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
     }
   }
 

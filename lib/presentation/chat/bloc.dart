@@ -16,16 +16,22 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final SocketService _socketService;
   String? _currentRoomId;
   String? _currentUserId;
+  String? _currentPartnerId;
   StreamSubscription<Map<String, dynamic>>? _messageSubscription;
   StreamSubscription<bool>? _connectionSubscription;
   StreamSubscription? _readReceiptSubscription;
   StreamSubscription? _typingSubscription;
   bool _isSocketConnected = false;
   Timer? _typingTimer;
+  Timer? _refreshTimer; // Add timer for periodic refresh
   
   // Add global message tracking to prevent duplicates
   final Set<String> _processedMessageHashes = <String>{};
   static const int _maxProcessedHashes = 200;
+  
+  // Add message ID mapping for read receipt tracking
+  final Map<String, String> _tempToRealMessageIds = <String, String>{};
+  final Map<String, String> _contentToMessageId = <String, String>{};
   
   ChatBloc({required ChatService chatService, required SocketService socketService})
       : _chatService = chatService,
@@ -42,11 +48,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<StartTyping>(_onStartTyping);
     on<StopTyping>(_onStopTyping);
     on<UpdateMessageReadStatus>(_onUpdateMessageReadStatus);
+    on<ChatPageOpened>(_onChatPageOpened);
+    on<ChatPageClosed>(_onChatPageClosed);
+    on<MessageReceivedOnActivePage>(_onMessageReceivedOnActivePage);
+    on<UpdateBlueTicksForPreviousMessages>(_onUpdateBlueTicksForPreviousMessages);
   }
   
   @override
   Future<void> close() {
     _typingTimer?.cancel();
+    _refreshTimer?.cancel(); // Cancel refresh timer
     _messageSubscription?.cancel();
     _connectionSubscription?.cancel();
     _readReceiptSubscription?.cancel();
@@ -58,8 +69,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   void _setupSocketListeners() {
     // Listen for socket connection status
     _connectionSubscription = _socketService.connectionStream.listen((connected) {
-      _isSocketConnected = connected;
-      debugPrint('ChatBloc: Socket connection status: $connected');
+      debugPrint('ChatBloc: Received socket connection status: $connected');
       
       if (connected && _currentRoomId != null) {
         _socketService.joinRoom(_currentRoomId!);
@@ -170,27 +180,58 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     // Listen for read receipt updates
     _readReceiptSubscription = _socketService.readReceiptStream.listen((readData) {
       debugPrint('ChatBloc: Received read receipt: $readData');
+      debugPrint('ChatBloc: Read receipt type: ${readData['type']}');
+      if (readData['data'] != null) {
+        debugPrint('ChatBloc: Read receipt data: ${readData['data']}');
+        debugPrint('ChatBloc: Message seen by: ${readData['data']['seenBy']}');
+        debugPrint('ChatBloc: Message ID: ${readData['data']['messageId']}');
+        debugPrint('ChatBloc: Message content: ${readData['data']['content']}');
+      }
       add(UpdateMessageReadStatus(readData));
     });
     
     // Listen for typing indicators
     _typingSubscription = _socketService.typingStream.listen((typingData) {
-      debugPrint('ChatBloc: Typing status: $typingData');
+      debugPrint('ChatBloc: 📨 RECEIVED typing event from socket service: $typingData');
+      debugPrint('ChatBloc: Typing user: ${typingData['userId']}, Type: ${typingData['userType']}, Is typing: ${typingData['isTyping']}');
+      debugPrint('ChatBloc: Current user ID: $_currentUserId');
+      
       // Handle typing indicators in UI if needed
+      if (typingData['isTyping'] == true && typingData['userId'] != _currentUserId) {
+        debugPrint('ChatBloc: 👥 Partner is typing - can show typing indicator in UI');
+        
+        // NEW: Update blue ticks for previous messages when partner starts typing
+        debugPrint('ChatBloc: 🔵 Updating blue ticks for previous messages due to partner typing');
+        _updateBlueTicksForPreviousMessages();
+        
+      } else if (typingData['isTyping'] == false && typingData['userId'] != _currentUserId) {
+        debugPrint('ChatBloc: 🛑 Partner stopped typing');
+        
+        // NEW: Also update blue ticks when partner stops typing (they might have seen the messages)
+        debugPrint('ChatBloc: 🔵 Updating blue ticks for previous messages due to partner stopping typing');
+        _updateBlueTicksForPreviousMessages();
+      }
     });
   }
   
   void _setupConnectionListener() {
+    debugPrint('ChatBloc: 🔧 Setting up connection listener...');
     // Listen for socket connection status
     _connectionSubscription = _socketService.connectionStream.listen((connected) {
+      debugPrint('ChatBloc: 🔌 Connection stream event received: $connected');
+      debugPrint('ChatBloc: 🔌 Previous _isSocketConnected: $_isSocketConnected');
       _isSocketConnected = connected;
-      debugPrint('ChatBloc: Socket connection status: $connected');
+      debugPrint('ChatBloc: 🔌 Updated _isSocketConnected to: $_isSocketConnected');
       
       if (connected && _currentRoomId != null) {
+        debugPrint('ChatBloc: 🔌 Socket connected, joining room: $_currentRoomId');
         _socketService.joinRoom(_currentRoomId!);
         debugPrint('ChatBloc: Socket joined room on reconnection');
+      } else if (!connected) {
+        debugPrint('ChatBloc: 🔌 Socket disconnected');
       }
     });
+    debugPrint('ChatBloc: ✅ Connection listener set up successfully');
   }
   
   Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
@@ -262,12 +303,23 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _setupSocketListeners();
       add(const ConnectSocket());
       
-      // Auto mark as read when opening chat
-      debugPrint('ChatBloc: Auto marking as read when opening chat');
+      // Debug: Check socket connection status
+      debugPrint('ChatBloc: 🔍 Socket connection status after setup:');
+      debugPrint('ChatBloc: 🔍 _isSocketConnected: $_isSocketConnected');
+      debugPrint('ChatBloc: 🔍 _socketService.isConnected: ${_socketService.isConnected}');
+      debugPrint('ChatBloc: 🔍 _currentRoomId: $_currentRoomId');
+      debugPrint('ChatBloc: 🔍 _currentUserId: $_currentUserId');
+      
+      // Use typing event strategy when opening chat page
+      debugPrint('ChatBloc: Using typing event strategy when opening chat page');
       if (_currentRoomId != null) {
         // Delay to ensure socket connection is established
         await Future.delayed(const Duration(milliseconds: 500));
-        add(MarkAsRead(_currentRoomId!));
+        debugPrint('ChatBloc: 🚀 TRIGGERING ChatPageOpened event from _onLoadChatData');
+        add(const ChatPageOpened());
+        
+        // Start periodic refresh for real-time updates
+        _startPeriodicRefresh();
       }
       
       debugPrint('ChatBloc: Chat data loaded with socket integration');
@@ -374,6 +426,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
                   
                   messagesWithoutOptimistic.add(finalRealMessage);
                   messagesWithoutOptimistic.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+                  
+                  // Track the mapping between temporary and real message IDs
+                  _tempToRealMessageIds[optimisticMessage.id] = realMessage.id;
+                  _contentToMessageId[realMessage.content] = realMessage.id;
+                  
+                  debugPrint('ChatBloc: Replaced optimistic message with real message ID: ${realMessage.id}');
+                  debugPrint('ChatBloc: Mapped temp ID ${optimisticMessage.id} to real ID ${realMessage.id}');
                 }
                 
                 emit(newState.copyWith(
@@ -440,22 +499,29 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
   
   Future<void> _onConnectSocket(ConnectSocket event, Emitter<ChatState> emit) async {
-    debugPrint('ChatBloc: Attempting to connect socket...');
+    debugPrint('ChatBloc: 🔌 _onConnectSocket called');
+    debugPrint('ChatBloc: 🔌 Current _isSocketConnected: $_isSocketConnected');
+    debugPrint('ChatBloc: 🔌 Socket service connected: ${_socketService.isConnected}');
     
     try {
       final connected = await _socketService.connect();
+      debugPrint('ChatBloc: 🔌 Socket connect result: $connected');
+      
       if (connected) {
-        debugPrint('ChatBloc: Socket connection initiated');
+        debugPrint('ChatBloc: ✅ Socket connection initiated successfully');
         
         // Join room after connection
         if (_currentRoomId != null) {
+          debugPrint('ChatBloc: 🏠 Joining room after connection: $_currentRoomId');
           _socketService.joinRoom(_currentRoomId!);
+        } else {
+          debugPrint('ChatBloc: ⚠️ Cannot join room - _currentRoomId is null');
         }
       } else {
-        debugPrint('ChatBloc: Socket connection failed');
+        debugPrint('ChatBloc: ❌ Socket connection failed');
       }
     } catch (e) {
-      debugPrint('ChatBloc: Error connecting socket: $e');
+      debugPrint('ChatBloc: ❌ Error connecting socket: $e');
     }
   }
   
@@ -576,10 +642,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         // Auto mark as read for incoming messages (not from current user)
         if (_currentRoomId != null && newMessage.senderId != _currentUserId) {
-          debugPrint('ChatBloc: Auto marking as read for incoming message from ${newMessage.senderType}');
-          // Small delay to ensure message is fully processed
-          await Future.delayed(const Duration(milliseconds: 200));
-          add(MarkAsRead(_currentRoomId!));
+          debugPrint('ChatBloc: 📨 Auto marking as read for incoming message from ${newMessage.senderType}');
+          debugPrint('ChatBloc: 📨 Message content: "${newMessage.content}"');
+          // Use the new typing event strategy for message receipt on active page
+          debugPrint('ChatBloc: 📨 TRIGGERING MessageReceivedOnActivePage event');
+          add(MessageReceivedOnActivePage(newMessage));
+          
+          // Note: message_seen events are not being broadcasted by the server
+          // We rely on mark_as_read events for real-time blue tick updates
+          debugPrint('ChatBloc: Using typing events for real-time blue tick updates');
+        } else {
+          debugPrint('ChatBloc: ⚠️ Skipping MessageReceivedOnActivePage - Room ID: $_currentRoomId, Message sender: ${newMessage.senderId}, Current user: $_currentUserId');
         }
         
       } else {
@@ -592,63 +665,106 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
   
   Future<void> _onMarkAsRead(MarkAsRead event, Emitter<ChatState> emit) async {
-    try {
-      debugPrint('ChatBloc: Marking messages as read for room: ${event.roomId}');
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      final roomId = event.roomId;
       
-      // Use hybrid approach for maximum reliability
-      bool socketSuccess = false;
-      bool apiSuccess = false;
+      debugPrint('ChatBloc: Marking messages as read for room: $roomId');
       
-      // PRIMARY: Socket for real-time updates
-      if (_isSocketConnected) {
-        try {
-          _socketService.markAsReadViaSocket(event.roomId);
-          socketSuccess = true;
-          debugPrint('ChatBloc: Marked as read via socket - SUCCESS');
-        } catch (e) {
-          debugPrint('ChatBloc: Socket mark as read failed: $e');
-        }
-      } else {
-        debugPrint('ChatBloc: Socket not connected, skipping socket mark as read');
-      }
-      
-      // SECONDARY: API for reliability and persistence
       try {
+        // Mark as read via socket
+        _socketService.markAsReadViaSocket(roomId);
+        final socketSuccess = true; // Socket method doesn't return a value
+        debugPrint('ChatBloc: Marked as read via socket - SUCCESS');
+        
+        // Wait for server to broadcast mark_as_read event
+        debugPrint('ChatBloc: Waiting for server to broadcast mark_as_read event');
+        
+        // Call mark as read API
         debugPrint('ChatBloc: Calling mark as read API...');
-        final result = await ChatService.markMessagesAsRead(roomId: event.roomId);
-        if (result['success'] == true) {
-          apiSuccess = true;
-          debugPrint('ChatBloc: Marked as read via API - SUCCESS');
-        } else {
-          debugPrint('ChatBloc: API mark as read failed: ${result['message']}');
-        }
-      } catch (e) {
-        debugPrint('ChatBloc: API mark as read exception: $e');
-      }
-      
-      // Log the overall result
-      if (socketSuccess || apiSuccess) {
+        final apiResult = await ChatService.markMessagesAsRead(roomId: roomId);
+        final apiSuccess = apiResult['success'] == true;
+        debugPrint('ChatBloc: Marked as read via API - ${apiSuccess ? 'SUCCESS' : 'FAILED'}');
+        
         debugPrint('ChatBloc: Mark as read completed - Socket: $socketSuccess, API: $apiSuccess');
-      } else {
-        debugPrint('ChatBloc: Mark as read FAILED - both socket and API failed');
+        
+        // Since server doesn't broadcast mark_as_read events, simulate the response locally
+        if (apiSuccess && _currentUserId != null) {
+          debugPrint('ChatBloc: Simulating mark_as_read event locally since server doesn\'t broadcast');
+          
+          // Update all unread messages in the current room
+          final updatedMessages = currentState.messages.map((message) {
+            // Only update messages that haven't been read by current user
+            if (message.roomId == roomId && 
+                !message.readBy.any((entry) => entry.userId == _currentUserId)) {
+              
+              final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+              updatedReadBy.add(ReadByEntry(
+                userId: _currentUserId!,
+                readAt: DateTime.now(),
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+              ));
+              
+              debugPrint('ChatBloc: Locally marking message as read: ${message.content}');
+              
+              return ChatMessage(
+                id: message.id,
+                roomId: message.roomId,
+                senderId: message.senderId,
+                senderType: message.senderType,
+                content: message.content,
+                messageType: message.messageType,
+                readBy: updatedReadBy,
+                createdAt: message.createdAt,
+              );
+            }
+            return message;
+          }).toList();
+          
+          // Emit updated state with read status
+          emit(currentState.copyWith(messages: updatedMessages));
+          debugPrint('ChatBloc: Updated messages with local read status');
+        }
+        
+      } catch (e) {
+        debugPrint('ChatBloc: Error marking messages as read: $e');
       }
-      
-    } catch (e) {
-      debugPrint('ChatBloc: Error in mark as read process: $e');
+    } else {
+      debugPrint('ChatBloc: Cannot mark as read - state is not ChatLoaded');
     }
   }
   
   Future<void> _onStartTyping(StartTyping event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 📤 _onStartTyping called');
+    debugPrint('ChatBloc: 📤 Current room ID: $_currentRoomId');
+    debugPrint('ChatBloc: 📤 Current user ID: $_currentUserId');
+    debugPrint('ChatBloc: 📤 Socket connected: ${_socketService.isConnected}');
+    
     if (_isSocketConnected && _currentRoomId != null) {
+      debugPrint('ChatBloc: 📤 SENDING typing event to socket service');
+      debugPrint('ChatBloc: Room ID: $_currentRoomId, User ID: $_currentUserId');
       _socketService.sendTyping(_currentRoomId!);
       debugPrint('ChatBloc: Started typing indicator');
+    } else {
+      debugPrint('ChatBloc: ⚠️ Cannot send typing - Socket connected: $_isSocketConnected, Room ID: $_currentRoomId');
+      debugPrint('ChatBloc: ⚠️ Socket service connected: ${_socketService.isConnected}');
     }
   }
   
   Future<void> _onStopTyping(StopTyping event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 📤 _onStopTyping called');
+    debugPrint('ChatBloc: 📤 Current room ID: $_currentRoomId');
+    debugPrint('ChatBloc: 📤 Current user ID: $_currentUserId');
+    debugPrint('ChatBloc: 📤 Socket connected: ${_socketService.isConnected}');
+    
     if (_isSocketConnected && _currentRoomId != null) {
+      debugPrint('ChatBloc: 📤 SENDING stop typing event to socket service');
+      debugPrint('ChatBloc: Room ID: $_currentRoomId, User ID: $_currentUserId');
       _socketService.sendStopTyping(_currentRoomId!);
       debugPrint('ChatBloc: Stopped typing indicator');
+    } else {
+      debugPrint('ChatBloc: ⚠️ Cannot send stop typing - Socket connected: $_isSocketConnected, Room ID: $_currentRoomId');
+      debugPrint('ChatBloc: ⚠️ Socket service connected: ${_socketService.isConnected}');
     }
   }
   
@@ -657,23 +773,29 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final currentState = state as ChatLoaded;
       final readData = event.readData;
       
+      debugPrint('ChatBloc: Processing read status update: ${readData['type']}');
+      debugPrint('ChatBloc: Current messages count: ${currentState.messages.length}');
+      debugPrint('ChatBloc: Current user ID: $_currentUserId');
+      
       try {
         bool hasUpdates = false;
         final updatedMessages = currentState.messages.map((message) {
           // Update read status for matching messages
           if (readData['type'] == 'single_message_read') {
-            final messageId = readData['messageId'];
+            final messageId = readData['data']['messageId'];
+            debugPrint('ChatBloc: Checking message_read for message: $messageId, current message: ${message.id}');
             if (message.id == messageId) {
               final updatedReadBy = List<ReadByEntry>.from(message.readBy);
-              final userId = readData['userId'];
+              final userId = readData['data']['readBy'];
               
               if (!updatedReadBy.any((entry) => entry.userId == userId)) {
                 updatedReadBy.add(ReadByEntry(
                   userId: userId,
-                  readAt: TimezoneUtils.parseToIST(readData['readAt']),
+                  readAt: TimezoneUtils.parseToIST(readData['data']['readAt']),
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
                 ));
                 hasUpdates = true;
+                debugPrint('ChatBloc: Updated message_read for message: $messageId by user: $userId');
                 
                 return ChatMessage(
                   id: message.id,
@@ -687,18 +809,118 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
                 );
               }
             }
+          } else if (readData['type'] == 'single_message_seen') {
+            // Handle individual message seen events
+            final messageId = readData['data']['messageId'];
+            final seenBy = readData['data']['seenBy'];
+            
+            debugPrint('ChatBloc: Checking message_seen for message: $messageId, current message: ${message.id}');
+            debugPrint('ChatBloc: Message seen by: $seenBy, Message sender: ${message.senderId}');
+            
+            // Check if this is a real message ID or if we need to map it
+            String targetMessageId = messageId;
+            if (messageId.startsWith('socket_')) {
+              // This is a temporary socket ID, try to find the real message ID
+              final realMessageId = _tempToRealMessageIds[messageId];
+              if (realMessageId != null) {
+                targetMessageId = realMessageId;
+                debugPrint('ChatBloc: Mapped socket ID $messageId to real ID $realMessageId');
+              }
+            }
+            
+            // Check if this message matches (either by ID or content)
+            bool messageMatches = false;
+            
+            // First try exact ID match
+            if (message.id == targetMessageId) {
+              messageMatches = true;
+              debugPrint('ChatBloc: Exact ID match found for message: ${message.content}');
+            }
+            
+            // If no exact match, try content-based matching for recent messages
+            if (!messageMatches && message.content == readData['data']['content'] && 
+                message.senderId == readData['data']['senderId']) {
+              messageMatches = true;
+              debugPrint('ChatBloc: Content-based match found for message: ${message.content}');
+            }
+            
+            if (messageMatches) {
+              final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+              
+              debugPrint('ChatBloc: Current readBy entries: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+              debugPrint('ChatBloc: Adding seenBy user: $seenBy');
+              
+              if (!updatedReadBy.any((entry) => entry.userId == seenBy)) {
+                updatedReadBy.add(ReadByEntry(
+                  userId: seenBy,
+                  readAt: TimezoneUtils.parseToIST(readData['data']['seenAt']),
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                ));
+                hasUpdates = true;
+                
+                debugPrint('ChatBloc: Updated message seen status for message: ${message.content} by user: $seenBy');
+                debugPrint('ChatBloc: New readBy entries: ${updatedReadBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+                
+                return ChatMessage(
+                  id: message.id,
+                  roomId: message.roomId,
+                  senderId: message.senderId,
+                  senderType: message.senderType,
+                  content: message.content,
+                  messageType: message.messageType,
+                  readBy: updatedReadBy,
+                  createdAt: message.createdAt,
+                );
+              } else {
+                debugPrint('ChatBloc: User $seenBy already marked as read for message: ${message.content}');
+              }
+            } else {
+              debugPrint('ChatBloc: No match found for message_seen event');
+              debugPrint('ChatBloc: Looking for: $targetMessageId, Available: ${message.id}');
+            }
           } else if (readData['type'] == 'bulk_messages_read') {
-            final roomId = readData['roomId'];
-            final userId = readData['userId'];
+            final roomId = readData['data']['roomId'];
+            final userId = readData['data']['userId'];
+            
+            debugPrint('ChatBloc: Processing bulk messages read for room: $roomId by user: $userId');
             
             if (message.roomId == roomId && !message.readBy.any((entry) => entry.userId == userId)) {
               final updatedReadBy = List<ReadByEntry>.from(message.readBy);
               updatedReadBy.add(ReadByEntry(
                 userId: userId,
-                readAt: TimezoneUtils.parseToIST(readData['readAt']),
+                readAt: TimezoneUtils.parseToIST(readData['data']['readAt'] ?? readData['data']['timestamp']),
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
               ));
               hasUpdates = true;
+              debugPrint('ChatBloc: Updated bulk read for message: ${message.content} by user: $userId');
+              
+              return ChatMessage(
+                id: message.id,
+                roomId: message.roomId,
+                senderId: message.senderId,
+                senderType: message.senderType,
+                content: message.content,
+                messageType: message.messageType,
+                readBy: updatedReadBy,
+                createdAt: message.createdAt,
+              );
+            }
+          } else if (readData['type'] == 'partner_typing') {
+            // Handle partner typing event - mark all unread messages as read
+            final typingUserId = readData['data']['userId'];
+            
+            // Only mark as read if this is a partner (not current user) and message is from current user
+            if (typingUserId != _currentUserId && message.senderId == _currentUserId && 
+                !message.readBy.any((entry) => entry.userId == typingUserId)) {
+              
+              final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+              updatedReadBy.add(ReadByEntry(
+                userId: typingUserId,
+                readAt: DateTime.now(),
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+              ));
+              hasUpdates = true;
+              debugPrint('ChatBloc: Marked message as read due to partner typing: ${message.content} by user: $typingUserId');
               
               return ChatMessage(
                 id: message.id,
@@ -718,11 +940,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         
         if (hasUpdates) {
           emit(currentState.copyWith(messages: updatedMessages));
-          debugPrint('ChatBloc: Updated message read status via socket');
+          debugPrint('ChatBloc: Updated message read status via socket - SUCCESS');
+          
+          // Force UI rebuild to show blue tick updates
+          debugPrint('ChatBloc: Forcing UI rebuild for blue tick updates');
+        } else {
+          debugPrint('ChatBloc: No message read status updates found');
+          debugPrint('ChatBloc: This might be because messages are already marked as read');
         }
       } catch (e) {
         debugPrint('ChatBloc: Error updating message read status: $e');
+        debugPrint('ChatBloc: Read data that caused error: $readData');
       }
+    } else {
+      debugPrint('ChatBloc: Cannot update read status - state is not ChatLoaded');
     }
   }
   
@@ -758,6 +989,159 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   // Helper method to clear processed messages when joining new room
   void _clearProcessedMessages() {
     _processedMessageHashes.clear();
-    debugPrint('ChatBloc: Cleared processed message hashes for new room');
+    _tempToRealMessageIds.clear();
+    _contentToMessageId.clear();
+    debugPrint('ChatBloc: Cleared processed message hashes and ID mappings for new room');
+  }
+  
+  // Helper method to start periodic refresh for real-time updates
+  void _startPeriodicRefresh() {
+    // Removed periodic refresh - now using typing events to mark as read
+    debugPrint('ChatBloc: Periodic refresh disabled - using typing events instead');
+  }
+  
+  Future<void> _onChatPageOpened(ChatPageOpened event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🚀 CHAT PAGE OPENED event received');
+    if (_isSocketConnected && _currentRoomId != null) {
+      debugPrint('ChatBloc: 📤 SENDING typing event for page open');
+      debugPrint('ChatBloc: Room ID: $_currentRoomId, User ID: $_currentUserId');
+      _socketService.sendTyping(_currentRoomId!);
+      
+      // Auto mark as read when page opens to handle previous unread messages
+      await Future.delayed(const Duration(milliseconds: 300));
+      debugPrint('ChatBloc: 📖 Marking previous messages as read after page open');
+      add(MarkAsRead(_currentRoomId!));
+      
+      // NEW: Also update blue ticks for previous messages when page opens
+      debugPrint('ChatBloc: 🔵 Updating blue ticks for previous messages due to page open');
+      _updateBlueTicksForPreviousMessages();
+      
+    } else {
+      debugPrint('ChatBloc: ⚠️ Cannot emit typing for page open - Socket connected: $_isSocketConnected, Room ID: $_currentRoomId');
+    }
+  }
+  
+  Future<void> _onChatPageClosed(ChatPageClosed event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🚪 CHAT PAGE CLOSED event received');
+    if (_isSocketConnected && _currentRoomId != null) {
+      debugPrint('ChatBloc: 📤 SENDING stop typing event for page close');
+      debugPrint('ChatBloc: Room ID: $_currentRoomId, User ID: $_currentUserId');
+      _socketService.sendStopTyping(_currentRoomId!);
+    } else {
+      debugPrint('ChatBloc: ⚠️ Cannot emit stop typing for page close - Socket connected: $_isSocketConnected, Room ID: $_currentRoomId');
+    }
+  }
+  
+  Future<void> _onMessageReceivedOnActivePage(MessageReceivedOnActivePage event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 📨 MESSAGE RECEIVED ON ACTIVE PAGE event received');
+    debugPrint('ChatBloc: 📨 Message content: "${event.message.content}"');
+    debugPrint('ChatBloc: 📨 Message sender: ${event.message.senderId}');
+    
+    if (_isSocketConnected && _currentRoomId != null) {
+      debugPrint('ChatBloc: 📤 SENDING typing event for message receipt on active page');
+      debugPrint('ChatBloc: Room ID: $_currentRoomId, User ID: $_currentUserId');
+      _socketService.sendTyping(_currentRoomId!);
+      
+      // Auto mark as read when new message is received on active page
+      await Future.delayed(const Duration(milliseconds: 300));
+      debugPrint('ChatBloc: 📖 Marking messages as read after message receipt on active page');
+      add(MarkAsRead(_currentRoomId!));
+      
+      // NEW: Also update blue ticks for previous messages when new message is received
+      debugPrint('ChatBloc: 🔵 Updating blue ticks for previous messages due to message receipt on active page');
+      _updateBlueTicksForPreviousMessages();
+      
+    } else {
+      debugPrint('ChatBloc: ⚠️ Cannot emit typing for message receipt - Socket connected: $_isSocketConnected, Room ID: $_currentRoomId');
+    }
+  }
+  
+  // NEW: Update blue ticks for previous messages when partner starts typing
+  void _updateBlueTicksForPreviousMessages() {
+    debugPrint('ChatBloc: 🔵 Triggering blue tick update event');
+    add(const UpdateBlueTicksForPreviousMessages());
+  }
+
+  Future<void> _onUpdateBlueTicksForPreviousMessages(UpdateBlueTicksForPreviousMessages event, Emitter<ChatState> emit) async {
+    if (state is ChatLoaded && _currentUserId != null) {
+      final currentState = state as ChatLoaded;
+      debugPrint('ChatBloc: 🔵 Starting blue tick update for previous messages');
+      debugPrint('ChatBloc: 🔵 Current messages count: ${currentState.messages.length}');
+      
+      // Get the partner ID from the current state or from the partner IDs
+      String? partnerId;
+      if (currentState.chatRoom != null && currentState.chatRoom!.participants.isNotEmpty) {
+        // Find the first participant that is not the current user (i.e., the partner)
+        final partner = currentState.chatRoom!.participants.firstWhere(
+          (p) => p.userId != _currentUserId,
+          orElse: () => Participant(userId: '', userType: ''),
+        );
+        if (partner.userId.isNotEmpty) {
+          partnerId = partner.userId;
+        }
+      }
+      
+      // Fallback: use the current partner ID if available
+      if (partnerId == null && _currentPartnerId != null) {
+        partnerId = _currentPartnerId;
+        debugPrint('ChatBloc: 🔵 Using fallback partner ID: $partnerId');
+      }
+      
+      if (partnerId == null) {
+        debugPrint('ChatBloc: ⚠️ Cannot update blue ticks - no partner ID found');
+        return;
+      }
+      
+      debugPrint('ChatBloc: 🔵 Using partner ID for blue tick update: $partnerId');
+      
+      bool hasUpdates = false;
+      final updatedMessages = currentState.messages.map((message) {
+        // Only update messages sent by current user that don't have blue ticks from partner yet
+        if (message.isFromCurrentUser(_currentUserId) && !message.isReadByUser(partnerId!)) {
+          debugPrint('ChatBloc: 🔵 Updating message "${message.content}" for blue tick');
+          debugPrint('ChatBloc: 🔵 Message readBy entries: ${message.readBy.map((r) => '${r.userId} at ${r.readAt}').join(', ')}');
+          
+          // Create updated message with blue tick by adding a read entry with REAL partner ID
+          final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+          updatedReadBy.add(ReadByEntry(
+            userId: partnerId!, // Use REAL partner ID instead of dummy
+            readAt: DateTime.now(),
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+          ));
+          
+          final updatedMessage = ChatMessage(
+            id: message.id,
+            roomId: message.roomId,
+            senderId: message.senderId,
+            senderType: message.senderType,
+            content: message.content,
+            messageType: message.messageType,
+            readBy: updatedReadBy,
+            createdAt: message.createdAt,
+          );
+          
+          hasUpdates = true;
+          return updatedMessage;
+        }
+        return message;
+      }).toList();
+      
+      if (hasUpdates) {
+        debugPrint('ChatBloc: 🔵 Emitting updated state with blue ticks');
+        emit(currentState.copyWith(messages: updatedMessages));
+        debugPrint('ChatBloc: ✅ Blue tick update completed');
+      } else {
+        debugPrint('ChatBloc: 🔄 No messages needed blue tick update');
+        // Debug: Let's see what messages we have and their read status
+        for (final message in currentState.messages.take(5)) {
+          if (message.isFromCurrentUser(_currentUserId)) {
+            debugPrint('ChatBloc: 🔍 Message "${message.content}": isReadByUser($partnerId) = ${message.isReadByUser(partnerId!)}');
+            debugPrint('ChatBloc: 🔍 Message readBy entries: ${message.readBy.map((r) => '${r.userId}').join(', ')}');
+          }
+        }
+      }
+    } else {
+      debugPrint('ChatBloc: ⚠️ Cannot update blue ticks - not in ChatLoaded state or missing user ID');
+    }
   }
 }

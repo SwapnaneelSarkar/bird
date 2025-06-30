@@ -568,6 +568,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'open_timings': '',
         'owner_name': '',
         'restaurant_type': '',
+        'isAcceptingOrder': 1, // Default to accepting orders for search results
       };
     }).toList();
 
@@ -601,6 +602,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'open_timings': '',
         'owner_name': '',
         'restaurant_type': '',
+        'isAcceptingOrder': 1, // Default to accepting orders for search results
       };
     }
     final List<Map<String, dynamic>> menuRestaurants = menuRestaurantsMap.values.toList();
@@ -677,6 +679,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             restaurantLongitude: restaurantLng,
             userLatitude: widget.userLatitude,
             userLongitude: widget.userLongitude,
+            restaurantType: restaurant['restaurant_type'],
+            isAcceptingOrder: restaurant['isAcceptingOrder'],
             onTap: () => Navigator.pop(context, restaurant),
           ).animate(controller: _animationController)
             .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)

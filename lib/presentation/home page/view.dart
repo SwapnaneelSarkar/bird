@@ -728,28 +728,28 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: 48 * scale,
-                  height: 48 * scale,
+                  width: 60 * scale,
+                  height: 60 * scale,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.transparent,
                     boxShadow: [
                       BoxShadow(
                         color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2),
-                        blurRadius: isSelected ? 10 * scale : 7 * scale,
-                        offset: Offset(0, 3 * scale),
-                        spreadRadius: isSelected ? 2.5 * scale : 1 * scale,
+                        blurRadius: isSelected ? 12 * scale : 8 * scale,
+                        offset: Offset(0, 4 * scale),
+                        spreadRadius: isSelected ? 3 * scale : 1.5 * scale,
                       )
                     ],
                   ),
                 ),
                 Container(
-                  width: 44 * scale,
-                  height: 44 * scale,
+                  width: 56 * scale,
+                  height: 56 * scale,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(image: AssetImage(imagePath), fit: BoxFit.cover),
-                    border: Border.all(color: Colors.white, width: 1.5 * scale),
+                    border: Border.all(color: Colors.white, width: isSelected ? 3 * scale : 2 * scale),
                   ),
                 ),
                 if (isSelected)
@@ -1038,6 +1038,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         userLatitude: state.userLatitude,
         userLongitude: state.userLongitude,
         restaurantType: restaurant.restaurantType,
+        isAcceptingOrder: restaurant.isAcceptingOrder,
         onTap: () => _navigateToRestaurantDetails(context, restaurant),
       ).animate(controller: _animationController)
         .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
@@ -1230,6 +1231,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       'ownerName': restaurant is Map ? restaurant['ownerName'] : restaurant.ownerName,
       'owner_name': restaurant is Map ? restaurant['owner_name'] : restaurant.ownerName,
       'availableCategories': restaurant is Map ? restaurant['availableCategories'] : restaurant.availableCategories,
+      'isAcceptingOrder': restaurant is Map ? restaurant['isAcceptingOrder'] : restaurant.isAcceptingOrder,
     };
     
     Navigator.of(context).push(

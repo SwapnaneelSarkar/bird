@@ -10,6 +10,7 @@ import '../../../service/address_service.dart';
 import '../../../service/update_user_service.dart';
 import '../../../service/currency_service.dart';
 import '../../../service/category_recommendation_service.dart';
+import '../../../service/food_type_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../models/restaurant_model.dart';
 import 'event.dart';
@@ -24,13 +25,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<ToggleVegOnly>(_onToggleVegOnly);
     on<UpdateUserAddress>(_onUpdateUserAddress);
     on<FilterByCategory>(_onFilterByCategory);
+    on<FilterByFoodType>(_onFilterByFoodType);
     on<LoadSavedAddresses>(_onLoadSavedAddresses);
     on<SaveNewAddress>(_onSaveNewAddress);
     on<SelectSavedAddress>(_onSelectSavedAddress);
     on<ResetFilters>((event, emit) {
       final currentState = state;
       if (currentState is HomeLoaded) {
-        emit(currentState.copyWith(vegOnly: false, selectedCategory: null));
+        emit(currentState.copyWith(vegOnly: false, selectedCategory: null, selectedFoodTypeId: null));
       }
     });
   }
@@ -93,21 +95,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         }
       }
       
-      // Fetch restaurants and categories in parallel
+      // Fetch restaurants, categories, and food types in parallel
       final restaurantsFuture = (latitude != null && longitude != null) 
           ? _fetchRestaurants(latitude, longitude)
           : _fetchRestaurantsWithoutLocation();
       final categoriesFuture = _fetchCategories();
+      final foodTypesFuture = FoodTypeService.fetchFoodTypes();
       
-      final results = await Future.wait([restaurantsFuture, categoriesFuture]);
+      final results = await Future.wait([restaurantsFuture, categoriesFuture, foodTypesFuture]);
       final restaurants = results[0] as List<Restaurant>;
       final categories = results[1] as List<Map<String, dynamic>>;
+      final foodTypes = results[2] as List<Map<String, dynamic>>;
       
-      debugPrint('HomeBloc: Fetched ${restaurants.length} restaurants and ${categories.length} categories');
+      debugPrint('HomeBloc: Fetched ${restaurants.length} restaurants, ${categories.length} categories, and ${foodTypes.length} food types');
       
       emit(HomeLoaded(
         restaurants: restaurants,
         categories: categories,
+        foodTypes: foodTypes,
         userAddress: userAddress,
         userLatitude: latitude,
         userLongitude: longitude,
@@ -287,6 +292,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       debugPrint('HomeBloc: State updated with new selectedCategory');
     } else {
       debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update category');
+    }
+  }
+
+  Future<void> _onFilterByFoodType(FilterByFoodType event, Emitter<HomeState> emit) async {
+    debugPrint('HomeBloc: FilterByFoodType event received with foodTypeId: ${event.foodTypeId}');
+    final currentState = state;
+    if (currentState is HomeLoaded) {
+      debugPrint('HomeBloc: Current selectedFoodTypeId: ${currentState.selectedFoodTypeId}');
+      debugPrint('HomeBloc: Setting new selectedFoodTypeId to: ${event.foodTypeId}');
+      emit(currentState.copyWith(selectedFoodTypeId: event.foodTypeId));
+      debugPrint('HomeBloc: State updated with new selectedFoodTypeId');
+    } else {
+      debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update food type');
     }
   }
 

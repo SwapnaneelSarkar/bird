@@ -16,21 +16,25 @@ class HomeLoading extends HomeState {}
 class HomeLoaded extends HomeState {
   final List<Restaurant> restaurants;
   final List<Map<String, dynamic>> categories;
+  final List<Map<String, dynamic>> foodTypes;
   final String userAddress;
   final double? userLatitude;
   final double? userLongitude;
   final bool vegOnly;
   final String? selectedCategory;
+  final String? selectedFoodTypeId;
   final List<Map<String, dynamic>> savedAddresses;
   
   const HomeLoaded({
     required this.restaurants,
     required this.categories,
+    required this.foodTypes,
     required this.userAddress,
     this.userLatitude,
     this.userLongitude,
     this.vegOnly = false,
     this.selectedCategory,
+    this.selectedFoodTypeId,
     this.savedAddresses = const [],
   });
   
@@ -59,6 +63,18 @@ class HomeLoaded extends HomeState {
       }).toList();
     }
     
+    // Filter by food type if selected
+    if (selectedFoodTypeId != null) {
+      filtered = filtered.where((restaurant) {
+        // Check if restaurant has the selected food type
+        if (restaurant.restaurantFoodType != null) {
+          final foodTypeId = restaurant.restaurantFoodType!['restaurant_food_type_id']?.toString();
+          return foodTypeId == selectedFoodTypeId;
+        }
+        return false;
+      }).toList();
+    }
+    
     return filtered;
   }
   
@@ -66,34 +82,40 @@ class HomeLoaded extends HomeState {
   HomeLoaded copyWith({
     List<Restaurant>? restaurants,
     List<Map<String, dynamic>>? categories,
+    List<Map<String, dynamic>>? foodTypes,
     String? userAddress,
     double? userLatitude,
     double? userLongitude,
     bool? vegOnly,
     String? selectedCategory,
+    String? selectedFoodTypeId,
     List<Map<String, dynamic>>? savedAddresses,
   }) {
     return HomeLoaded(
       restaurants: restaurants ?? this.restaurants,
       categories: categories ?? this.categories,
+      foodTypes: foodTypes ?? this.foodTypes,
       userAddress: userAddress ?? this.userAddress,
       userLatitude: userLatitude ?? this.userLatitude,
       userLongitude: userLongitude ?? this.userLongitude,
       vegOnly: vegOnly ?? this.vegOnly,
       selectedCategory: selectedCategory,
+      selectedFoodTypeId: selectedFoodTypeId,
       savedAddresses: savedAddresses ?? this.savedAddresses,
     );
   }
   
-  @override
+    @override
   List<Object?> get props => [
-    restaurants, 
-    categories, 
-    userAddress, 
-    userLatitude, 
-    userLongitude, 
-    vegOnly, 
+    restaurants,
+    categories,
+    foodTypes,
+    userAddress,
+    userLatitude,
+    userLongitude,
+    vegOnly,
     selectedCategory,
+    selectedFoodTypeId,
     savedAddresses,
   ];
 }

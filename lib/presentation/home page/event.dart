@@ -45,6 +45,15 @@ class FilterByCategory extends HomeEvent {
   List<Object?> get props => [categoryName];
 }
 
+class FilterByFoodType extends HomeEvent {
+  final String? foodTypeId; // null means show all food types
+  
+  const FilterByFoodType(this.foodTypeId);
+  
+  @override
+  List<Object?> get props => [foodTypeId];
+}
+
 // Address management events
 class LoadSavedAddresses extends HomeEvent {
   const LoadSavedAddresses();

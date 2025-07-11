@@ -22,6 +22,7 @@ class Restaurant {
   final List<String> photos;
   final List<String> availableCategories;
   final int? isAcceptingOrder;
+  final Map<String, dynamic>? restaurantFoodType;
 
   Restaurant({
     required this.id,
@@ -42,6 +43,7 @@ class Restaurant {
     this.photos = const [],
     this.availableCategories = const [],
     this.isAcceptingOrder,
+    this.restaurantFoodType,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -153,6 +155,18 @@ class Restaurant {
       // Parse isAcceptingOrder field
       final isAcceptingOrder = json['isAcceptingOrder']?.toInt();
 
+      // Parse restaurantFoodType field
+      Map<String, dynamic>? restaurantFoodType;
+      try {
+        final foodTypeField = json['restaurantFoodType'];
+        if (foodTypeField != null && foodTypeField is Map<String, dynamic>) {
+          restaurantFoodType = foodTypeField;
+        }
+      } catch (e) {
+        debugPrint('Restaurant: Error parsing restaurantFoodType: $e');
+        restaurantFoodType = null;
+      }
+
       debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name (ID: $id)');
       
       return Restaurant(
@@ -174,6 +188,7 @@ class Restaurant {
         photos: photos,
         availableCategories: availableCategories,
         isAcceptingOrder: isAcceptingOrder,
+        restaurantFoodType: restaurantFoodType,
       );
     } catch (e) {
       debugPrint('Restaurant.fromJson: Error parsing restaurant: $e');
@@ -188,6 +203,7 @@ class Restaurant {
         isVeg: _parseVegStatus(json),
         availableCategories: [],
         isAcceptingOrder: null,
+        restaurantFoodType: null,
       );
     }
   }

@@ -118,11 +118,26 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             }
           },
           child: BlocBuilder<HomeBloc, HomeState>(
+            buildWhen: (previous, current) {
+              // Always rebuild when state type changes
+              if (previous.runtimeType != current.runtimeType) return true;
+              
+              // For HomeLoaded states, rebuild when important fields change
+              if (previous is HomeLoaded && current is HomeLoaded) {
+                return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
+                       previous.selectedCategory != current.selectedCategory ||
+                       previous.vegOnly != current.vegOnly ||
+                       previous.restaurants.length != current.restaurants.length;
+              }
+              
+              return true;
+            },
             builder: (context, state) {
               debugPrint('HomePage: BlocBuilder received state: ${state.runtimeType}');
               if (state is HomeLoaded) {
                 debugPrint('HomePage: BlocBuilder - selectedCategory: ${state.selectedCategory}');
                 debugPrint('HomePage: BlocBuilder - vegOnly: ${state.vegOnly}');
+                debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: ${state.selectedFoodTypeId}');
                 debugPrint('HomePage: BlocBuilder - restaurants count: ${state.restaurants.length}');
                 debugPrint('HomePage: BlocBuilder - filtered restaurants count: ${state.filteredRestaurants.length}');
               }
@@ -239,6 +254,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                         .animate(controller: _animationController)
                         .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
                         .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
+                      
+                      // Food Type Filters
+                      if (state.foodTypes.isNotEmpty)
+                        _buildFoodTypeFiltersSection(context, state)
+                          .animate(controller: _animationController)
+                          .fadeIn(duration: 400.ms, delay: 250.ms, curve: Curves.easeOut)
+                          .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
                       // All Restaurants or Outside Service Area Message
                       if (isOutsideServiceArea)
@@ -488,6 +510,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                     filterOptions = FilterOptions();
                                   });
                                   context.read<HomeBloc>().add(const FilterByCategory(null));
+                                  context.read<HomeBloc>().add(const FilterByFoodType(null));
                                   context.read<HomeBloc>().add(const ToggleVegOnly(false));
                                   debugPrint('HomePage: All filters and category selection reset');
                                 },
@@ -581,9 +604,71 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           ),
         ],
       ),
-    );
+        );
   }
 
+    Widget _buildFoodTypeFiltersSection(BuildContext context, HomeLoaded state) {
+    debugPrint('HomePage: _buildFoodTypeFiltersSection called with selectedFoodTypeId: ${state.selectedFoodTypeId}');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxWidth = constraints.maxWidth;
+            final double scale = (maxWidth / 400).clamp(0.8, 1.2);
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 12 * scale),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(6 * scale),
+                    decoration: BoxDecoration(
+                      color: ColorManager.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6 * scale),
+                    ),
+                    child: Icon(
+                      Icons.restaurant_menu,
+                      color: ColorManager.primary,
+                      size: 14 * scale,
+                    ),
+                  ),
+                  SizedBox(width: 10 * scale),
+                  Text(
+                    'Food Types',
+                    style: GoogleFonts.poppins(
+                      fontSize: getResponsiveFontSize(context, 14 * scale), 
+                      fontWeight: FontWeight.w600, 
+                      color: Colors.grey[800], 
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxWidth = constraints.maxWidth;
+            final double scale = (maxWidth / 400).clamp(0.8, 1.2);
+            final double itemHeight = 90.0 * scale;
+            final foodTypeItems = _getFoodTypeItems(state.foodTypes, state.selectedFoodTypeId, scale: scale, itemHeight: itemHeight);
+            
+            return SizedBox(
+              height: itemHeight,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 16 * scale),
+                children: foodTypeItems,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+  
   List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategory, {double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
     debugPrint('HomePage: Building category items. Selected category: $selectedCategory');
     final Map<String, String> imageMap = {
@@ -624,6 +709,115 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
         }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       }
     }).toList();
+  }
+
+  List<Widget> _getFoodTypeItems(List<Map<String, dynamic>> foodTypes, String? selectedFoodTypeId, {double scale = 1.0, double itemHeight = 50.0}) {
+    debugPrint('HomePage: Building food type items. Selected food type ID: $selectedFoodTypeId');
+    debugPrint('HomePage: _getFoodTypeItems called with selectedFoodTypeId: $selectedFoodTypeId');
+    return foodTypes.map((foodType) {
+      final foodTypeId = foodType['restaurant_food_type_id']?.toString() ?? '';
+      final foodTypeName = foodType['name']?.toString() ?? 'Unknown';
+      final isSelected = selectedFoodTypeId == foodTypeId;
+      
+      debugPrint('HomePage: Food type $foodTypeName (ID: $foodTypeId) - isSelected: $isSelected');
+      
+      return _buildFoodTypeItem(
+        foodTypeName,
+        foodTypeId,
+        isSelected: isSelected,
+        onTap: () {
+          debugPrint('HomePage: Food type tapped: $foodTypeName, currently selected: $isSelected');
+          // Toggle behavior: if selected, turn off; if not selected, turn on
+          final newFoodTypeId = isSelected ? null : foodTypeId;
+          debugPrint('HomePage: Setting new food type ID to: $newFoodTypeId');
+          context.read<HomeBloc>().add(FilterByFoodType(newFoodTypeId));
+        },
+        scale: scale,
+        itemHeight: itemHeight,
+      );
+    }).toList();
+  }
+
+  Widget _buildFoodTypeItem(String title, String foodTypeId, {bool isSelected = false, VoidCallback? onTap, double scale = 1.0, double itemHeight = 50.0}) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 6 * scale),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Toggle Switch - Compact and clean
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              width: 48 * scale,
+              height: 28 * scale,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14 * scale),
+                color: isSelected ? ColorManager.primary : Colors.grey[400],
+                boxShadow: isSelected ? [
+                  BoxShadow(
+                    color: ColorManager.primary.withOpacity(0.3),
+                    blurRadius: 4 * scale,
+                    offset: Offset(0, 2 * scale),
+                  ),
+                ] : [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 3 * scale,
+                    offset: Offset(0, 1 * scale),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // Toggle Circle
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    left: isSelected ? (22 * scale) : (2 * scale),
+                    top: 2 * scale,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      width: 24 * scale,
+                      height: 24 * scale,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 3 * scale,
+                            offset: Offset(0, 1 * scale),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 12 * scale),
+            // Food Type Name
+            Flexible(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: GoogleFonts.poppins(
+                  fontSize: getResponsiveFontSize(context, 13 * scale),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? ColorManager.primary : Colors.grey[800],
+                ),
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCategoryItemWithIcon(String title, IconData icon, Color accentColor, {bool isSelected = false, VoidCallback? onTap, double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
@@ -1656,7 +1850,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildVegFilterTab(FilterOptions tempFilters, StateSetter setStateDialog, BuildContext blocContext) {
+    Widget _buildVegFilterTab(FilterOptions tempFilters, StateSetter setStateDialog, BuildContext blocContext) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1875,6 +2069,106 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     fontSize: getResponsiveFontSize(context, 16),
                     fontWeight: FontWeight.w600,
                     color: value ? color : Colors.grey[800],
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: getResponsiveFontSize(context, 13),
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadioOption({
+    required String title,
+    required String subtitle,
+    required String value,
+    required String? groupValue,
+    required Color color,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final isSelected = groupValue == value;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isSelected ? color.withOpacity(0.1) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Custom Toggle Switch
+          GestureDetector(
+            onTap: () => onChanged(value),
+            child: Container(
+              width: 56,
+              height: 32,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: isSelected ? color : Colors.grey[400],
+                boxShadow: isSelected ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ] : [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // Toggle Circle
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    left: isSelected ? 26 : 2,
+                    top: 2,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: getResponsiveFontSize(context, 16),
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? color : Colors.grey[800],
                   ),
                 ),
                 Text(

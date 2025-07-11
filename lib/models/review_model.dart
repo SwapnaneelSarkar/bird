@@ -43,9 +43,18 @@ class ReviewResponse {
   });
 
   factory ReviewResponse.fromJson(Map<String, dynamic> json) {
+    // Handle different response formats
+    String status = json['status'] ?? '';
+    String message = json['message'] ?? '';
+    
+    // If status is empty but message indicates success, set status to SUCCESS
+    if (status.isEmpty && message.toLowerCase().contains('successfully')) {
+      status = 'SUCCESS';
+    }
+    
     return ReviewResponse(
-      status: json['status'] ?? '',
-      message: json['message'] ?? '',
+      status: status,
+      message: message,
       data: json['data'] != null ? ReviewData.fromJson(json['data']) : null,
     );
   }

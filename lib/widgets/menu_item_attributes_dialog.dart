@@ -36,7 +36,7 @@ class MenuItemAttributesDialog extends StatefulWidget {
 
 class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
   List<AttributeGroup> _attributeGroups = [];
-  Map<String, String> _selectedValues = {};
+  Map<String, dynamic> _selectedValues = {};
   bool _isLoading = true;
   String? _errorMessage;
   double _totalPrice = 0.0;
@@ -81,27 +81,48 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
         _totalPrice = _calculateTotalPrice();
       });
 
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('MenuItemAttributesDialog: Error loading attributes: $e');
+      debugPrint('Stack trace: $stack');
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load attributes';
+        _errorMessage = 'Failed to load attributes: '
+            '${e is Exception ? e.toString() : 'Unknown error'}';
       });
     }
   }
 
   double _calculateTotalPrice() {
-    double basePrice = (widget.item['price'] as num?)?.toDouble() ?? 0.0;
+    double basePrice = 0.0;
+    final priceRaw = widget.item['price'];
+    if (priceRaw is num) {
+      basePrice = priceRaw.toDouble();
+    } else if (priceRaw is String) {
+      basePrice = double.tryParse(priceRaw) ?? 0.0;
+    }
     double attributesPrice = 0.0;
 
     for (var group in _attributeGroups) {
-      final selectedValueId = _selectedValues[group.attributeId];
-      if (selectedValueId != null) {
-        final selectedValue = group.values.firstWhere(
-          (value) => value.valueId == selectedValueId,
-          orElse: () => AttributeValue(),
-        );
-        if (selectedValue.priceAdjustment != null) {
-          attributesPrice += selectedValue.priceAdjustment!;
+      final selectedValue = _selectedValues[group.attributeId];
+      if (selectedValue != null) {
+        if (group.type == 'checkbox' && selectedValue is List) {
+          // Handle multiple selections for checkbox
+          for (String valueId in selectedValue) {
+            final selectedValueObj = group.values.firstWhere(
+              (value) => value.valueId == valueId,
+              orElse: () => AttributeValue(),
+            );
+            final adj = selectedValueObj.priceAdjustment ?? 0.0;
+            attributesPrice += adj;
+          }
+        } else if (group.type == 'radio' && selectedValue is String) {
+          // Handle single selection for radio
+          final selectedValueObj = group.values.firstWhere(
+            (value) => value.valueId == selectedValue,
+            orElse: () => AttributeValue(),
+          );
+          final adj = selectedValueObj.priceAdjustment ?? 0.0;
+          attributesPrice += adj;
         }
       }
     }
@@ -113,21 +134,42 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
     List<SelectedAttribute> selectedAttributes = [];
 
     for (var group in _attributeGroups) {
-      final selectedValueId = _selectedValues[group.attributeId];
-      if (selectedValueId != null) {
-        final selectedValue = group.values.firstWhere(
-          (value) => value.valueId == selectedValueId,
-          orElse: () => AttributeValue(),
-        );
-        
-        if (selectedValue.name != null && selectedValue.valueId != null) {
-          selectedAttributes.add(SelectedAttribute(
-            attributeId: group.attributeId,
-            attributeName: group.name,
-            valueId: selectedValue.valueId!,
-            valueName: selectedValue.name!,
-            priceAdjustment: selectedValue.priceAdjustment ?? 0.0,
-          ));
+      final selectedValue = _selectedValues[group.attributeId];
+      if (selectedValue != null) {
+        if (group.type == 'checkbox' && selectedValue is List) {
+          // Handle multiple selections for checkbox
+          for (String valueId in selectedValue) {
+            final selectedValueObj = group.values.firstWhere(
+              (value) => value.valueId == valueId,
+              orElse: () => AttributeValue(),
+            );
+            
+            if (selectedValueObj.name != null && selectedValueObj.valueId != null) {
+              selectedAttributes.add(SelectedAttribute(
+                attributeId: group.attributeId,
+                attributeName: group.name,
+                valueId: selectedValueObj.valueId!,
+                valueName: selectedValueObj.name!,
+                priceAdjustment: selectedValueObj.priceAdjustment ?? 0.0,
+              ));
+            }
+          }
+        } else if (group.type == 'radio' && selectedValue is String) {
+          // Handle single selection for radio
+          final selectedValueObj = group.values.firstWhere(
+            (value) => value.valueId == selectedValue,
+            orElse: () => AttributeValue(),
+          );
+          
+          if (selectedValueObj.name != null && selectedValueObj.valueId != null) {
+            selectedAttributes.add(SelectedAttribute(
+              attributeId: group.attributeId,
+              attributeName: group.name,
+              valueId: selectedValueObj.valueId!,
+              valueName: selectedValueObj.name!,
+              priceAdjustment: selectedValueObj.priceAdjustment ?? 0.0,
+            ));
+          }
         }
       }
     }
@@ -253,6 +295,25 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
                               ),
                               textAlign: TextAlign.center,
                             ),
+                            SizedBox(height: screenHeight * 0.02),
+                            ElevatedButton(
+                              onPressed: _loadAttributes,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ColorManager.primary,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Retry',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       )
@@ -355,7 +416,9 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
         SizedBox(height: screenHeight * 0.01),
         
         if (group.type == 'radio')
-          ...group.values.map((value) => _buildRadioOption(group, value, screenWidth, screenHeight)),
+          ...group.values.map((value) => _buildRadioOption(group, value, screenWidth, screenHeight))
+        else if (group.type == 'checkbox')
+          ...group.values.map((value) => _buildCheckboxOption(group, value, screenWidth, screenHeight)),
         
         SizedBox(height: screenHeight * 0.02),
       ],
@@ -419,6 +482,102 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
                     width: 2,
                   ),
                   color: isSelected ? ColorManager.primary : Colors.transparent,
+                ),
+                child: isSelected
+                    ? Icon(
+                        Icons.check,
+                        size: screenWidth * 0.03,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+              SizedBox(width: screenWidth * 0.03),
+              Expanded(
+                child: Text(
+                  '${value.name!}$priceText',
+                  style: GoogleFonts.poppins(
+                    fontSize: screenWidth * 0.035,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? ColorManager.primary : Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCheckboxOption(AttributeGroup group, AttributeValue value, double screenWidth, double screenHeight) {
+    if (value.name == null || value.valueId == null) return SizedBox.shrink();
+    
+    // Get the list of selected values for this attribute group
+    List<String> selectedValues = [];
+    if (_selectedValues[group.attributeId] is List) {
+      selectedValues = List<String>.from(_selectedValues[group.attributeId]);
+    }
+    
+    final isSelected = selectedValues.contains(value.valueId);
+    final priceText = value.priceAdjustment != null && value.priceAdjustment! > 0 
+        ? ' (+₹${value.priceAdjustment!.toStringAsFixed(2)})' 
+        : '';
+
+    return Container(
+      margin: EdgeInsets.only(bottom: screenHeight * 0.01),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected ? ColorManager.primary : Colors.grey[300]!,
+          width: isSelected ? 2 : 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        color: isSelected ? ColorManager.primary.withOpacity(0.05) : Colors.transparent,
+      ),
+      child: InkWell(
+        onTap: () {
+          debugPrint('Custom checkbox tapped for value: ${value.valueId}');
+          debugPrint('Current selected values for ${group.attributeId}: $selectedValues');
+          debugPrint('Is this option currently selected? $isSelected');
+          
+          setState(() {
+            if (isSelected) {
+              // If already selected, remove it from the list
+              debugPrint('Deselecting attribute ${group.attributeId} value: ${value.valueId}');
+              selectedValues.remove(value.valueId);
+              if (selectedValues.isEmpty) {
+                _selectedValues.remove(group.attributeId);
+              } else {
+                _selectedValues[group.attributeId] = selectedValues;
+              }
+            } else {
+              // If not selected, add it to the list
+              debugPrint('Selecting attribute ${group.attributeId} with value: ${value.valueId}');
+              selectedValues.add(value.valueId!);
+              _selectedValues[group.attributeId] = selectedValues;
+            }
+            _totalPrice = _calculateTotalPrice();
+            debugPrint('Updated selected values: $_selectedValues');
+          });
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.03,
+            vertical: screenHeight * 0.015,
+          ),
+          child: Row(
+            children: [
+              // Custom checkbox
+              Container(
+                width: screenWidth * 0.05,
+                height: screenWidth * 0.05,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isSelected ? ColorManager.primary : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                  color: isSelected ? ColorManager.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: isSelected
                     ? Icon(

@@ -17,6 +17,7 @@ class OrderService {
     required double subtotal,
     double? latitude,
     double? longitude,
+    String? paymentMode, // Add payment mode parameter
   }) async {
     try {
       debugPrint('OrderService: Placing order...');
@@ -46,6 +47,7 @@ class OrderService {
         'address': address,
         'delivery_fees': deliveryFees,
         'subtotal': subtotal,
+        'payment_mode': paymentMode ?? 'cash', // Add payment mode to request body
       };
       
       // Add coordinates if available

@@ -7,6 +7,14 @@ import '../constants/color/colorConstant.dart';
 import '../constants/api_constant.dart';
 import '../service/token_service.dart';
 import 'cached_image.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../presentation/restaurant_menu/bloc.dart';
+import '../presentation/restaurant_menu/state.dart';
+import '../presentation/restaurant_menu/event.dart';
+import '../service/attribute_service.dart';
+import 'menu_item_attributes_dialog.dart';
+import '../models/attribute_model.dart';
+import '../widgets/item_added_popup.dart';
 
 class MenuItemDetailsBottomSheet extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -23,13 +31,17 @@ class MenuItemDetailsBottomSheet extends StatefulWidget {
     required Map<String, dynamic> item,
     VoidCallback? onClose,
   }) async {
+    final bloc = BlocProvider.of<RestaurantDetailsBloc>(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => MenuItemDetailsBottomSheet(
-        item: item,
-        onClose: onClose,
+      builder: (context) => BlocProvider.value(
+        value: bloc,
+        child: MenuItemDetailsBottomSheet(
+          item: item,
+          onClose: onClose,
+        ),
       ),
     );
   }
@@ -42,6 +54,9 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
   bool _isLoading = true;
   Map<String, dynamic>? _itemDetails;
   String? _errorMessage;
+
+  int _previousQuantity = 0;
+  List<SelectedAttribute>? _selectedAttributes;
 
   @override
   void initState() {
@@ -288,6 +303,16 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
       ...originalItem, // Start with original item data (includes image)
       ...?apiItem, // Override with API data if available
     };
+    // Ensure correct fields for cart logic
+    item['id'] = item['id'] ?? item['menu_id'] ?? '';
+    item['name'] = item['name'] ?? '';
+    // Parse price as double
+    if (item['price'] is String) {
+      item['price'] = double.tryParse(item['price']) ?? 0.0;
+    } else if (item['price'] is! double) {
+      item['price'] = (item['price'] as num?)?.toDouble() ?? 0.0;
+    }
+    item['imageUrl'] = item['imageUrl'] ?? item['image_url'] ?? '';
     
     final isVeg = item['isVeg'] ?? false;
     final imageUrl = item['imageUrl'] ?? item['image_url'];
@@ -641,50 +666,6 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
             const SizedBox(height: 24),
           ],
           
-          // Tags section with enhanced styling
-          if (tags.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: ColorManager.otpField,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.tag,
-                        color: ColorManager.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Tags',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: ColorManager.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    tags.join(', '),
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: ColorManager.black.withOpacity(0.8),
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-          
           // Availability status with enhanced styling
           if (!isAvailable)
             Container(
@@ -730,6 +711,254 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
                 ],
               ),
             ),
+          // Add-to-cart section (always show, but disable if not available)
+          BlocListener<RestaurantDetailsBloc, RestaurantDetailsState>(
+            listenWhen: (previous, current) {
+              if (current is RestaurantDetailsLoaded) {
+                final itemId = item['id'];
+                final prevQ = _previousQuantity;
+                final newQ = current.cartQuantities[itemId] ?? 0;
+                // Only listen if quantity changes
+                return prevQ != newQ;
+              }
+              return false;
+            },
+            listener: (context, state) {
+              if (state is RestaurantDetailsLoaded) {
+                final itemId = item['id'];
+                final prevQ = _previousQuantity;
+                final newQ = state.cartQuantities[itemId] ?? 0;
+                if (prevQ == 0 && newQ == 1) {
+                  ItemAddedPopup.show(
+                    context: context,
+                    item: item,
+                    onViewCart: () {
+                      Navigator.pop(context); // Close bottom sheet
+                      Navigator.pushReplacementNamed(context, '/orderConfirmation');
+                    },
+                    onContinueShopping: () {},
+                  );
+                }
+                _previousQuantity = newQ;
+              }
+            },
+            child: BlocBuilder<RestaurantDetailsBloc, RestaurantDetailsState>(
+              builder: (context, state) {
+                int quantity = 0;
+                if (state is RestaurantDetailsLoaded) {
+                  quantity = state.cartQuantities[item['id']] ?? 0;
+                }
+                final isDisabled = !isAvailable;
+                final screenWidth = MediaQuery.of(context).size.width;
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12.0, bottom: 8.0),
+                  child: Center(
+                    child: isDisabled
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Not Available',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          )
+                        : quantity == 0
+                            ? GestureDetector(
+                                onTap: () async {
+                                  final menuId = item['id'];
+                                  final attributes = await AttributeService.fetchMenuItemAttributes(menuId);
+                                  if (attributes.isNotEmpty) {
+                                    MenuItemAttributesDialog.show(
+                                      context: context,
+                                      item: item,
+                                      onAttributesSelected: (selectedAttributes) {
+                                        setState(() {
+                                          _selectedAttributes = selectedAttributes;
+                                        });
+                                        context.read<RestaurantDetailsBloc>().add(
+                                          AddItemToCart(item: item, quantity: 1, attributes: selectedAttributes),
+                                        );
+                                      },
+                                    );
+                                  } else {
+                                    setState(() {
+                                      _selectedAttributes = null;
+                                    });
+                                    context.read<RestaurantDetailsBloc>().add(
+                                      AddItemToCart(item: item, quantity: 1),
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  height: 48,
+                                  width: screenWidth * 0.5,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        ColorManager.primary,
+                                        ColorManager.primary.withOpacity(0.8),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: ColorManager.primary.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Add',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          Icons.add_shopping_cart_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(50),
+                                  border: Border.all(
+                                    color: Colors.grey[300]!,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Minus button
+                                    InkWell(
+                                      onTap: () {
+                                        if (quantity > 0) {
+                                          // If removing to 0, clear stored attributes
+                                          if (quantity - 1 == 0) {
+                                            setState(() {
+                                              _selectedAttributes = null;
+                                            });
+                                          }
+                                          context.read<RestaurantDetailsBloc>().add(
+                                            AddItemToCart(item: item, quantity: quantity - 1, attributes: _selectedAttributes),
+                                          );
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(50),
+                                      child: Container(
+                                        width: 40,
+                                        height: 40,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '-',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 22,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Quantity text
+                                    SizedBox(
+                                      width: 40,
+                                      child: Text(
+                                        quantity.toString(),
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    // Plus button
+                                    InkWell(
+                                      onTap: () async {
+                                        final menuId = item['id'];
+                                        if (quantity == 0) {
+                                          final attributes = await AttributeService.fetchMenuItemAttributes(menuId);
+                                          if (attributes.isNotEmpty) {
+                                            MenuItemAttributesDialog.show(
+                                              context: context,
+                                              item: item,
+                                              onAttributesSelected: (selectedAttributes) {
+                                                setState(() {
+                                                  _selectedAttributes = selectedAttributes;
+                                                });
+                                                context.read<RestaurantDetailsBloc>().add(
+                                                  AddItemToCart(item: item, quantity: quantity + 1, attributes: selectedAttributes),
+                                                );
+                                              },
+                                            );
+                                            return;
+                                          } else {
+                                            setState(() {
+                                              _selectedAttributes = null;
+                                            });
+                                          }
+                                        } else {
+                                          // Use stored attributes for subsequent additions
+                                          context.read<RestaurantDetailsBloc>().add(
+                                            AddItemToCart(item: item, quantity: quantity + 1, attributes: _selectedAttributes),
+                                          );
+                                          return;
+                                        }
+                                        context.read<RestaurantDetailsBloc>().add(
+                                          AddItemToCart(item: item, quantity: quantity + 1),
+                                        );
+                                      },
+                                      borderRadius: BorderRadius.circular(50),
+                                      child: Container(
+                                        width: 40,
+                                        height: 40,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '+',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 22,
+                                            color: ColorManager.primary,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                  ),
+                );
+              },
+            ),
+          ),
           
           const SizedBox(height: 20),
         ],

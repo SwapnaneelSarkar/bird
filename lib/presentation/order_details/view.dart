@@ -444,6 +444,47 @@ class _OrderDetailsContent extends StatelessWidget {
                 ),
             ],
           ),
+          
+          // Add payment mode information if available
+          if (orderDetails.paymentMode != null && orderDetails.paymentMode!.isNotEmpty) ...[
+            SizedBox(height: screenHeight * 0.015),
+            Divider(color: Colors.grey[200]),
+            SizedBox(height: screenHeight * 0.015),
+            Row(
+              children: [
+                Icon(
+                  Icons.payment,
+                  size: screenWidth * 0.045,
+                  color: Colors.grey[600],
+                ),
+                SizedBox(width: screenWidth * 0.02),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Payment Method',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.03,
+                          fontFamily: FontFamily.Montserrat,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        _getPaymentModeDisplayText(orderDetails.paymentMode!),
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.035,
+                          fontWeight: FontWeightManager.medium,
+                          fontFamily: FontFamily.Montserrat,
+                          color: ColorManager.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -526,9 +567,17 @@ class _OrderDetailsContent extends StatelessWidget {
             future: CurrencyUtils.getCurrencySymbol(null, null),
             builder: (context, snapshot) {
               final currencySymbol = snapshot.data ?? '₹';
-              return _buildSummaryRow('Total Amount', CurrencyUtils.formatPrice(orderDetails.totalAmount, currencySymbol), screenWidth, true);
+              return _buildSummaryRow('Total Amount', CurrencyUtils.formatPrice(orderDetails.grandTotal, currencySymbol), screenWidth, true);
             },
           ),
+          
+          // Add payment mode display
+          if (orderDetails.paymentMode != null && orderDetails.paymentMode!.isNotEmpty) ...[
+            SizedBox(height: screenHeight * 0.015),
+            Divider(color: Colors.grey[200]),
+            SizedBox(height: screenHeight * 0.015),
+            _buildPaymentModeRow(orderDetails.paymentMode!, screenWidth),
+          ],
         ],
       ),
     );
@@ -560,7 +609,97 @@ class _OrderDetailsContent extends StatelessWidget {
     );
   }
 
+  Widget _buildPaymentModeRow(String paymentMode, double screenWidth) {
+    // Map payment mode to display text and icon
+    String displayText;
+    IconData icon;
+    Color iconColor;
+    
+    switch (paymentMode.toLowerCase()) {
+      case 'cash':
+        displayText = 'Cash on Delivery';
+        icon = Icons.money;
+        iconColor = const Color(0xFF4CAF50);
+        break;
+      case 'upi':
+        displayText = 'UPI Payment';
+        icon = Icons.account_balance_wallet;
+        iconColor = const Color(0xFF2196F3);
+        break;
+      case 'card':
+        displayText = 'Card Payment';
+        icon = Icons.credit_card;
+        iconColor = const Color(0xFF9C27B0);
+        break;
+      default:
+        displayText = paymentMode;
+        icon = Icons.payment;
+        iconColor = Colors.grey[600]!;
+    }
+    
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: screenWidth * 0.045,
+          color: iconColor,
+        ),
+        SizedBox(width: screenWidth * 0.02),
+        Expanded(
+          child: Text(
+            'Payment Method',
+            style: TextStyle(
+              fontSize: screenWidth * 0.038,
+              fontWeight: FontWeightManager.medium,
+              fontFamily: FontFamily.Montserrat,
+              color: ColorManager.black,
+            ),
+          ),
+        ),
+        Text(
+          displayText,
+          style: TextStyle(
+            fontSize: screenWidth * 0.038,
+            fontWeight: FontWeightManager.medium,
+            fontFamily: FontFamily.Montserrat,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getPaymentModeDisplayText(String paymentMode) {
+    switch (paymentMode.toLowerCase()) {
+      case 'cash':
+        return 'Cash on Delivery';
+      case 'upi':
+        return 'UPI Payment';
+      case 'card':
+        return 'Card Payment';
+      default:
+        return paymentMode;
+    }
+  }
+
   Widget _buildOrderItemsCard(OrderDetails orderDetails, Map<String, MenuItem> menuItems, double screenWidth, double screenHeight) {
+    // Validate that order prices are being displayed correctly
+    debugPrint('OrderDetailsView: Order items validation:');
+    debugPrint('  - Total items: ${orderDetails.items.length}');
+    debugPrint('  - Order subtotal (items only): ₹${orderDetails.subtotal}');
+    debugPrint('  - Delivery fees: ₹${orderDetails.deliveryFees}');
+    debugPrint('  - Grand total (subtotal + delivery): ₹${orderDetails.grandTotal}');
+    
+    double calculatedSubtotal = 0.0;
+    for (var item in orderDetails.items) {
+      calculatedSubtotal += item.totalPrice;
+      debugPrint('    - Item ${item.menuId}: ₹${item.itemPrice} × ${item.quantity} = ₹${item.totalPrice}');
+    }
+    debugPrint('  - Calculated subtotal: ₹$calculatedSubtotal');
+    debugPrint('  - Subtotal match: ${calculatedSubtotal == orderDetails.subtotal ? '✓' : '✗'}');
+    debugPrint('  - Expected grand total: ₹${calculatedSubtotal + orderDetails.deliveryFees}');
+    debugPrint('  - Grand total match: ${(calculatedSubtotal + orderDetails.deliveryFees) == orderDetails.grandTotal ? '✓' : '✗'}');
+    
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(screenWidth * 0.04),
@@ -612,6 +751,12 @@ class _OrderDetailsContent extends StatelessWidget {
     final menuItem = item.menuId != null ? menuItems[item.menuId!] : null;
     final itemName = menuItem?.name ?? item.itemName ?? 'Menu Item';
     final isLoadingMenuItem = item.menuId != null && item.menuId!.isNotEmpty && menuItem == null;
+    
+    // Debug logging for price comparison
+    debugPrint('OrderDetailsView: Price comparison for item ${item.menuId}:');
+    debugPrint('  - Order item price (at time of ordering): ₹${item.itemPrice}');
+    debugPrint('  - Current menu item price: ₹${menuItem?.price ?? 'N/A'}');
+    debugPrint('  - Total price for quantity ${item.quantity}: ₹${item.totalPrice}');
     
     return Row(
       children: [
@@ -678,7 +823,7 @@ class _OrderDetailsContent extends StatelessWidget {
               ),
               SizedBox(height: screenHeight * 0.005),
               
-              // Quantity and Price
+              // Quantity and Price - Using order price (not current menu price)
               Row(
                 children: [
                   Text(
@@ -726,7 +871,7 @@ class _OrderDetailsContent extends StatelessWidget {
           ),
         ),
         
-        // Total Price
+        // Total Price - Using order price calculation
         FutureBuilder<String>(
           future: CurrencyUtils.getCurrencySymbol(null, null),
           builder: (context, snapshot) {
@@ -1186,7 +1331,7 @@ class _OrderDetailsContent extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      '25-35 minutes',
+                                      '20-30 minutes',
                                       style: TextStyle(
                                         fontSize: screenWidth * 0.04,
                                         fontWeight: FontWeightManager.bold,

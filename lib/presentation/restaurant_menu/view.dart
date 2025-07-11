@@ -609,18 +609,36 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
               ),
             ),
             const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  Routes.restaurantProfile,
-                  arguments: restaurant['id'],
-                );
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.black),
+              onSelected: (value) {
+                if (value == 'restaurant_profile') {
+                  Navigator.pushNamed(
+                    context,
+                    Routes.restaurantProfile,
+                    arguments: restaurant['id'],
+                  );
+                }
               },
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.more_vert, color: Colors.black),
-              ),
+              itemBuilder: (BuildContext context) => [
+                PopupMenuItem<String>(
+                  value: 'restaurant_profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: ColorManager.primary, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Restaurant Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),

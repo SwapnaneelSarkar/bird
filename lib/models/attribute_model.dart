@@ -55,12 +55,36 @@ class AttributeValue {
   });
 
   factory AttributeValue.fromJson(Map<String, dynamic> json) {
-    return AttributeValue(
-      name: json['name'],
-      valueId: json['value_id'],
-      isDefault: json['is_default'] == 1,
-      priceAdjustment: json['price_adjustment']?.toDouble(),
-    );
+    try {
+      final raw = json['price_adjustment'];
+      double? priceAdj;
+      if (raw is num) {
+        priceAdj = raw.toDouble();
+      } else if (raw is String) {
+        priceAdj = double.tryParse(raw);
+      }
+      // Defensive: handle is_default as int, bool, or String
+      bool? isDefault;
+      final rawDefault = json['is_default'];
+      if (rawDefault is bool) {
+        isDefault = rawDefault;
+      } else if (rawDefault is int) {
+        isDefault = rawDefault == 1;
+      } else if (rawDefault is String) {
+        isDefault = rawDefault == '1' || rawDefault.toLowerCase() == 'true';
+      }
+      return AttributeValue(
+        name: json['name'],
+        valueId: json['value_id'],
+        isDefault: isDefault,
+        priceAdjustment: priceAdj,
+      );
+    } catch (e, stack) {
+      print('Error parsing AttributeValue: $e');
+      print('Raw JSON: $json');
+      print('Stack: $stack');
+      return AttributeValue();
+    }
   }
 
   Map<String, dynamic> toJson() {

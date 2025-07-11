@@ -84,15 +84,7 @@ class OrderItemCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.005),
-                    Text(
-                      '${order.items.length} item${order.items.length > 1 ? 's' : ''}',
-                      style: TextStyle(
-                        fontSize: screenWidth * 0.035,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF666666),
-                        fontFamily: 'Roboto',
-                      ),
-                    ),
+                    _buildItemsDisplay(order.items, screenWidth),
                     SizedBox(height: screenHeight * 0.005),
                     Row(
                       children: [
@@ -152,7 +144,7 @@ class OrderItemCard extends StatelessWidget {
           
           SizedBox(height: screenHeight * 0.015),
           
-          // Action Buttons Row - ADDED CHAT SUPPORT BUTTON
+          // Action Buttons Row - REPLACED CHAT SUPPORT BUTTON WITH ICON
           Row(
             children: [
               // View Details Button
@@ -183,14 +175,20 @@ class OrderItemCard extends StatelessWidget {
                   ),
                 ),
               ),
-              
               SizedBox(width: screenWidth * 0.03),
-              
-              // Chat Support Button - ADDED THIS
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    debugPrint('OrderItemCard: Opening chat for order: ${order.id}');
+              // Chat Icon Button - REPLACEMENT
+              Container(
+                height: screenHeight * 0.045,
+                width: screenHeight * 0.045,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE17A47),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.chat, color: Colors.white, size: screenWidth * 0.06),
+                  tooltip: 'Chat',
+                  onPressed: () {
+                    debugPrint('OrderItemCard: Opening chat for order:  order.id');
                     if (order.id.isNotEmpty) {
                       Navigator.of(context).pushNamed('/chat', arguments: order.id);
                     } else {
@@ -203,24 +201,6 @@ class OrderItemCard extends StatelessWidget {
                       );
                     }
                   },
-                  child: Container(
-                    height: screenHeight * 0.045,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE17A47),
-                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Chat Support',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.035,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                          fontFamily: 'Roboto',
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -228,6 +208,88 @@ class OrderItemCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Helper method to build items display
+  Widget _buildItemsDisplay(List<Map<String, dynamic>> items, double screenWidth) {
+    if (items.isEmpty) {
+      return Text(
+        'No items',
+        style: TextStyle(
+          fontSize: screenWidth * 0.035,
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFF666666),
+          fontFamily: 'Roboto',
+        ),
+      );
+    }
+
+    // Create a map to group items by name and sum their quantities
+    Map<String, int> itemCounts = {};
+    for (var item in items) {
+      String itemName = item['name']?.toString() ?? 'Unknown Item';
+      int quantity = int.tryParse(item['quantity']?.toString() ?? '1') ?? 1;
+      itemCounts[itemName] = (itemCounts[itemName] ?? 0) + quantity;
+    }
+
+    // Convert to list and sort by quantity (descending)
+    List<MapEntry<String, int>> sortedItems = itemCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Show first 2 items, then "more" if there are more
+    if (sortedItems.length <= 2) {
+      // Show all items
+      String displayText = sortedItems.map((entry) => '${entry.value}x${entry.key}').join(', ');
+      return Text(
+        displayText,
+        style: TextStyle(
+          fontSize: screenWidth * 0.035,
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFF666666),
+          fontFamily: 'Roboto',
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    } else {
+      // Show first 2 items + "more"
+      String firstTwoItems = sortedItems.take(2).map((entry) => '${entry.value}x${entry.key}').join(', ');
+      return Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onViewDetails,
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$firstTwoItems, ',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF666666),
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'more',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFFE17A47),
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
   }
 
   Color _getStatusColor(String status) {

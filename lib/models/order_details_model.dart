@@ -13,6 +13,7 @@ class OrderDetails {
   final String? restaurantName;
   final String? deliveryAddress;
   final String? partnerId; // Add this field
+  final String? paymentMode; // Add payment mode field
 
   OrderDetails({
     required this.orderId,
@@ -26,6 +27,7 @@ class OrderDetails {
     this.restaurantName,
     this.deliveryAddress,
     this.partnerId, // Add this parameter
+    this.paymentMode, // Add payment mode parameter
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -52,10 +54,13 @@ class OrderDetails {
       restaurantName: json['restaurant_name']?.toString(),
       deliveryAddress: json['delivery_address']?.toString(),
       partnerId: json['partner_id']?.toString() ?? json['restaurant_id']?.toString(), // Add this line
+      paymentMode: json['payment_mode']?.toString(), // Add payment mode parsing
     );
   }
 
-  double get subtotal => totalAmount - deliveryFees;
+  double get subtotal => totalAmount;
+
+  double get grandTotal => totalAmount + deliveryFees;
 
   bool get canBeCancelled {
     return orderStatus.toLowerCase() == 'pending' ||

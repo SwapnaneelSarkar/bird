@@ -601,7 +601,25 @@ class _OrderConfirmationContent extends StatelessWidget {
           onTap: () {
             Navigator.of(context).pop(); // Close dialog
             debugPrint('Payment mode selected: $title');
-            // Proceed to chat after payment mode selection using the passed bloc
+            
+            // Map payment option titles to API values
+            String paymentMode;
+            switch (title) {
+              case 'Cash on Delivery':
+                paymentMode = 'cash';
+                break;
+              case 'UPI Payment':
+                paymentMode = 'upi';
+                break;
+              case 'Card Payment':
+                paymentMode = 'card';
+                break;
+              default:
+                paymentMode = 'cash';
+            }
+            
+            // Select payment mode and proceed to chat
+            orderBloc.add(SelectPaymentMode(paymentMode: paymentMode));
             orderBloc.add(const ProceedToChat());
           },
           child: Padding(

@@ -455,11 +455,22 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Popular Categories',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recommended for You',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
+                          ),
+                        ),
+                        Text(
+                          'Based on your order history',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11 * scale, color: Colors.grey[600], letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
                     ),
                     Row(
                       children: [

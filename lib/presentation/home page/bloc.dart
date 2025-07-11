@@ -9,6 +9,7 @@ import '../../../service/profile_get_service.dart';
 import '../../../service/address_service.dart';
 import '../../../service/update_user_service.dart';
 import '../../../service/currency_service.dart';
+import '../../../service/category_recommendation_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../models/restaurant_model.dart';
 import 'event.dart';
@@ -464,148 +465,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<List<Map<String, dynamic>>> _fetchCategories() async {
     try {
-      debugPrint('HomeBloc: Fetching categories from API');
+      debugPrint('HomeBloc: Fetching recommended categories...');
       
-      final token = await TokenService.getToken();
-      if (token == null) {
-        debugPrint('HomeBloc: No token available for categories fetch');
-        return _getStaticCategories();
-      }
-
-      // Try multiple possible category endpoints
-      final endpoints = [
-        '/api/categories',
-        '/api/partner/categories',
-        '/api/restaurant/categories',
-        '/api/food/categories',
-      ];
+      // Use the new recommendation service
+      final categories = await CategoryRecommendationService.fetchRecommendedCategories();
       
-      for (String endpoint in endpoints) {
-        final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-        debugPrint('HomeBloc: Trying categories endpoint: $url');
-        
-        try {
-          final response = await http.get(
-            url,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          );
-
-          debugPrint('HomeBloc: Categories API response status: ${response.statusCode}');
-          
-          if (response.statusCode == 200) {
-            debugPrint('HomeBloc: Categories API response body: ${response.body}');
-            final data = json.decode(response.body);
-            
-            if (data['status'] == true || data['status'] == 'SUCCESS') {
-              final dynamic categoriesData = data['data'];
-              
-              if (categoriesData != null) {
-                List<dynamic> categoriesList = [];
-                if (categoriesData is List) {
-                  categoriesList = categoriesData;
-                } else if (categoriesData is Map && categoriesData['categories'] != null) {
-                  categoriesList = categoriesData['categories'] as List;
-                }
-                
-                if (categoriesList.isNotEmpty) {
-                  debugPrint('HomeBloc: Successfully fetched ${categoriesList.length} categories from API');
-                  
-                  // Convert API categories to the format expected by UI
-                  final List<Map<String, dynamic>> formattedCategories = [];
-                  for (var categoryJson in categoriesList) {
-                    try {
-                      final category = _formatCategoryFromApi(categoryJson);
-                      if (category != null) {
-                        formattedCategories.add(category);
-                      }
-                    } catch (e) {
-                      debugPrint('HomeBloc: Error formatting category: $e');
-                    }
-                  }
-                  
-                  if (formattedCategories.isNotEmpty) {
-                    return formattedCategories;
-                  }
-                }
-              }
-            } else {
-              debugPrint('HomeBloc: Categories API returned error status: ${data['status']}');
-            }
-          } else {
-            debugPrint('HomeBloc: Categories HTTP error ${response.statusCode} for endpoint $endpoint');
-          }
-        } catch (e) {
-          debugPrint('HomeBloc: Error with categories endpoint $endpoint: $e');
-          continue;
-        }
-      }
+      debugPrint('HomeBloc: Fetched ${categories.length} recommended categories');
+      return categories;
       
-      debugPrint('HomeBloc: All categories endpoints failed, using static categories');
-      return _getStaticCategories();
     } catch (e) {
-      debugPrint('HomeBloc: Error fetching categories: $e');
+      debugPrint('HomeBloc: Error fetching recommended categories: $e');
       return _getStaticCategories();
-    }
-  }
-
-  // Helper method to format category data from API
-  Map<String, dynamic>? _formatCategoryFromApi(dynamic categoryJson) {
-    try {
-      if (categoryJson is! Map<String, dynamic>) return null;
-      
-      final Map<String, dynamic> category = categoryJson;
-      
-      // Extract category name from different possible field names
-      final String? name = category['name']?.toString() ?? 
-                          category['category_name']?.toString() ?? 
-                          category['title']?.toString();
-      
-      if (name == null || name.isEmpty) return null;
-      
-      // Map category names to appropriate icons and colors
-      final iconData = _getCategoryIconAndColor(name.toLowerCase());
-      
-      return {
-        'name': name,
-        'icon': iconData['icon'],
-        'color': iconData['color'],
-        'id': category['id']?.toString() ?? category['category_id']?.toString(),
-        'image': category['image']?.toString() ?? category['image_url']?.toString(),
-        'description': category['description']?.toString(),
-      };
-    } catch (e) {
-      debugPrint('HomeBloc: Error formatting category: $e');
-      return null;
-    }
-  }
-
-  // Helper method to get icon and color based on category name
-  Map<String, String> _getCategoryIconAndColor(String categoryName) {
-    if (categoryName.contains('pizza')) {
-      return {'icon': 'local_pizza', 'color': 'red'};
-    } else if (categoryName.contains('burger') || categoryName.contains('sandwich')) {
-      return {'icon': 'lunch_dining', 'color': 'amber'};
-    } else if (categoryName.contains('sushi') || categoryName.contains('japanese')) {
-      return {'icon': 'set_meal', 'color': 'blue'};
-    } else if (categoryName.contains('dessert') || categoryName.contains('sweet') || categoryName.contains('ice')) {
-      return {'icon': 'icecream', 'color': 'pink'};
-    } else if (categoryName.contains('drink') || categoryName.contains('beverage') || categoryName.contains('juice')) {
-      return {'icon': 'local_drink', 'color': 'teal'};
-    } else if (categoryName.contains('chinese') || categoryName.contains('noodle') || categoryName.contains('ramen')) {
-      return {'icon': 'ramen_dining', 'color': 'orange'};
-    } else if (categoryName.contains('breakfast') || categoryName.contains('bread')) {
-      return {'icon': 'free_breakfast', 'color': 'brown'};
-    } else if (categoryName.contains('veg') || categoryName.contains('salad')) {
-      return {'icon': 'spa', 'color': 'green'};
-    } else if (categoryName.contains('biryani') || categoryName.contains('rice')) {
-      return {'icon': 'restaurant', 'color': 'deepOrange'};
-    } else if (categoryName.contains('chicken') || categoryName.contains('meat')) {
-      return {'icon': 'restaurant_menu', 'color': 'red'};
-    } else {
-      return {'icon': 'restaurant', 'color': 'orange'};
     }
   }
 

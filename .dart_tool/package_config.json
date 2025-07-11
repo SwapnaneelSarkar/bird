@@ -854,8 +854,32 @@
       "languageVersion": "3.5"
     },
     {
+      "name": "url_launcher",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/url_launcher-6.3.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "url_launcher_android",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.16",
+      "packageUri": "lib/",
+      "languageVersion": "3.6"
+    },
+    {
+      "name": "url_launcher_ios",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "url_launcher_linux",
       "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "url_launcher_macos",
+      "rootUri": "file:///Users/swapnaneelsarkar/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },
@@ -950,7 +974,7 @@
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2025-06-30T03:13:28.279805Z",
+  "generated": "2025-07-11T21:55:58.684804Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.29.3/flutter",

@@ -22,6 +22,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
     on<LoadOrderConfirmationData>(_onLoadOrderConfirmationData);
     on<ProceedToChat>(_onProceedToChat);
     on<PlaceOrder>(_onPlaceOrder);
+    on<SelectPaymentMode>(_onSelectPaymentMode);
     on<UpdateOrderQuantity>(_onUpdateOrderQuantity);
     on<RemoveOrderItem>(_onRemoveOrderItem);
     debugPrint('OrderConfirmationBloc: Event handlers registered');
@@ -269,6 +270,15 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         debugPrint('  Longitude: $longitude');
         
         // Place order
+        debugPrint('OrderConfirmationBloc: Order placement values:');
+        debugPrint('  - Items total: ₹$calculatedTotal');
+        debugPrint('  - Delivery fees: ₹${currentState.orderSummary.deliveryFee}');
+        debugPrint('  - Subtotal (total + delivery): ₹${calculatedTotal + currentState.orderSummary.deliveryFee}');
+        
+        // Get selected payment mode, default to 'cash' if not selected
+        final paymentMode = currentState.selectedPaymentMode ?? 'cash';
+        debugPrint('OrderConfirmationBloc: Using payment mode: $paymentMode');
+        
         final orderResult = await OrderService.placeOrder(
           partnerId: partnerId,
           userId: userId,
@@ -276,9 +286,10 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           totalPrice: calculatedTotal,
           address: address,
           deliveryFees: currentState.orderSummary.deliveryFee,
-          subtotal: calculatedTotal,
+          subtotal: calculatedTotal + currentState.orderSummary.deliveryFee, // Total including delivery fees
           latitude: latitude,
           longitude: longitude,
+          paymentMode: paymentMode, // Add payment mode to API request
         );
         
         if (orderResult['success'] == true) {
@@ -329,6 +340,19 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           emit(state as OrderConfirmationLoaded);
         }
       }
+    }
+  }
+
+  Future<void> _onSelectPaymentMode(
+    SelectPaymentMode event,
+    Emitter<OrderConfirmationState> emit,
+  ) async {
+    if (state is OrderConfirmationLoaded) {
+      final currentState = state as OrderConfirmationLoaded;
+      debugPrint('OrderConfirmationBloc: Payment mode selected: ${event.paymentMode}');
+      
+      // Update state with selected payment mode
+      emit(currentState.copyWith(selectedPaymentMode: event.paymentMode));
     }
   }
 

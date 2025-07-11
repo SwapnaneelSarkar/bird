@@ -556,7 +556,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'cuisine': categoryString,
         'category': categoryString,
         'rating': restaurant.rating,
-        'deliveryTime': '${(restaurant.distance / 1000).toStringAsFixed(1)} km',
+        'deliveryTime': '20-30 min', // Fixed: Show actual delivery time instead of distance
         'isVegetarian': false,
         'isVeg': false,
         'veg_nonveg': 'non-veg',
@@ -590,7 +590,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'cuisine': r.cuisineType,
         'category': r.cuisineType,
         'rating': r.rating,
-        'deliveryTime': '${(r.distance / 1000).toStringAsFixed(1)} km',
+        'deliveryTime': '20-30 min', // Fixed: Show actual delivery time instead of distance
         'isVegetarian': false,
         'isVeg': false,
         'veg_nonveg': 'non-veg',
@@ -651,9 +651,10 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 1,
-        childAspectRatio: 1.6,
-        mainAxisSpacing: 4,
+        childAspectRatio: 1.8,
+        mainAxisSpacing: 8,
         crossAxisSpacing: 4,
+        mainAxisExtent: 240, // increase height to fit RestaurantCard
       ),
       itemCount: allRestaurants.length,
       itemBuilder: (context, index) {

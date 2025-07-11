@@ -233,14 +233,15 @@ class RestaurantCard extends StatelessWidget {
               
               // Content section with reduced vertical space and improved alignment
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), // reduce vertical padding
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, // ensure it doesn't try to fill extra space
                   children: [
                     // Name and rating row with proper alignment
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Restaurant name (flex to handle long names)
                         Expanded(
@@ -252,9 +253,13 @@ class RestaurantCard extends StatelessWidget {
                               color: isNotAcceptingOrders ? Colors.grey[500] : Colors.black87,
                             ),
                             overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            softWrap: true,
                           ),
                         ),
+                        // Delivery time with minimum width to prevent squishing
                         Container(
+                          constraints: BoxConstraints(minWidth: 60),
                           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: isNotAcceptingOrders ? Colors.grey[200] : Colors.transparent,
@@ -267,6 +272,7 @@ class RestaurantCard extends StatelessWidget {
                               color: isNotAcceptingOrders ? Colors.grey[500] : Colors.grey[500],
                               fontWeight: FontWeight.w500,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ],
@@ -276,7 +282,7 @@ class RestaurantCard extends StatelessWidget {
                     SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Cuisine description (flex to handle variable length)
                         Expanded(
@@ -288,6 +294,8 @@ class RestaurantCard extends StatelessWidget {
                               fontWeight: FontWeight.w400,
                             ),
                             overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            softWrap: true,
                           ),
                         ),
                         // Small spacing between cuisine and distance

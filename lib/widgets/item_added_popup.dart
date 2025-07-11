@@ -40,7 +40,13 @@ class ItemAddedPopup extends StatelessWidget {
     final screenHeight = MediaQuery.of(context).size.height;
     
     final itemName = item['name'] ?? 'Item';
-    final itemPrice = (item['price'] as num?)?.toDouble() ?? 0.0;
+    double itemPrice = 0.0;
+    final priceRaw = item['price'];
+    if (priceRaw is num) {
+      itemPrice = priceRaw.toDouble();
+    } else if (priceRaw is String) {
+      itemPrice = double.tryParse(priceRaw) ?? 0.0;
+    }
     final imageUrl = item['imageUrl'];
     final isVeg = item['isVeg'] ?? false;
 

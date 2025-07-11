@@ -24,6 +24,15 @@ class PlaceOrder extends OrderConfirmationEvent {
   const PlaceOrder();
 }
 
+class SelectPaymentMode extends OrderConfirmationEvent {
+  final String paymentMode;
+  
+  const SelectPaymentMode({required this.paymentMode});
+  
+  @override
+  List<Object?> get props => [paymentMode];
+}
+
 class UpdateOrderQuantity extends OrderConfirmationEvent {
   final String itemId;
   final int newQuantity;

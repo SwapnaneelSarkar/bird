@@ -103,6 +103,8 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
           });
           
           debugPrint('OrderDetailsBloc: Menu item loaded successfully: ${menuItem.name}');
+          debugPrint('OrderDetailsBloc: Current menu item price: ₹${menuItem.price}');
+          debugPrint('OrderDetailsBloc: Note: This is the current price, which may differ from the order price');
           
           // Update state with new menu item
           if (state is OrderDetailsLoaded) {
@@ -237,7 +239,18 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
             responseData['data'] != null) {
           debugPrint('OrderDetailsBloc: Order details fetched successfully');
           
-          return OrderDetails.fromJson(responseData['data']);
+          // Note: Order details contain the price at the time of ordering
+          // This may differ from the current menu item price if prices have changed
+          final orderDetails = OrderDetails.fromJson(responseData['data']);
+          debugPrint('OrderDetailsBloc: Order price details:');
+          debugPrint('  - API total_amount: ₹${orderDetails.totalAmount} (this is actually subtotal)');
+          debugPrint('  - Delivery fees: ₹${orderDetails.deliveryFees}');
+          debugPrint('  - Calculated grand total: ₹${orderDetails.grandTotal}');
+          for (var item in orderDetails.items) {
+            debugPrint('    - Item ${item.menuId}: ₹${item.itemPrice} (ordered price)');
+          }
+          
+          return orderDetails;
         } else {
           debugPrint('OrderDetailsBloc: Invalid order details response format');
           debugPrint('OrderDetailsBloc: Response status: ${responseData['status']}');

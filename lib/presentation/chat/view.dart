@@ -12,6 +12,11 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import 'dart:async';
+import 'package:bird/service/restaurant_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
 
 class ChatView extends StatefulWidget {
   final String? orderId;
@@ -38,6 +43,8 @@ class _ChatViewState extends State<ChatView> {
   
   // Add flag to track if page opened event has been emitted
   bool _pageOpenedEventEmitted = false;
+  String? _partnerPhoneNumber;
+  bool _isFetchingPhone = false;
 
   @override
   void initState() {
@@ -47,6 +54,7 @@ class _ChatViewState extends State<ChatView> {
     
     // Listen to focus changes to handle keyboard
     _focusNode.addListener(_onFocusChanged);
+    // Optionally, prefetch partner phone number if orderId is available
   }
 
   @override
@@ -167,6 +175,267 @@ class _ChatViewState extends State<ChatView> {
         SnackBarUtils.showError(
           context: context,
           message: 'Something went wrong. Please try again.',
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchPartnerPhone(ChatRoom chatRoom) async {
+    debugPrint('ChatView: 📞 Starting to fetch partner phone for chat room: ${chatRoom.id}');
+    
+    setState(() {
+      _isFetchingPhone = true;
+    });
+    
+    try {
+      debugPrint('ChatView: 📞 Looking for partner in participants: ${chatRoom.participants.length} participants');
+      
+      final partner = chatRoom.participants.firstWhereOrNull((p) => p.userType == 'partner');
+      
+      if (partner != null) {
+        debugPrint('ChatView: 📞 Found partner with ID: ${partner.userId}');
+        
+        final data = await RestaurantService.fetchRestaurantByPartnerId(partner.userId);
+        debugPrint('ChatView: 📞 Restaurant service response: $data');
+        
+        if (data != null) {
+          debugPrint('ChatView: 📞 Available data keys: ${data.keys.toList()}');
+          
+          // Try different possible phone number fields
+          String? phoneNumber;
+          if (data['mobile'] != null) {
+            phoneNumber = data['mobile'].toString();
+            debugPrint('ChatView: 📞 Found phone in "mobile" field: $phoneNumber');
+          } else if (data['phone'] != null) {
+            phoneNumber = data['phone'].toString();
+            debugPrint('ChatView: 📞 Found phone in "phone" field: $phoneNumber');
+          } else if (data['contact'] != null) {
+            phoneNumber = data['contact'].toString();
+            debugPrint('ChatView: 📞 Found phone in "contact" field: $phoneNumber');
+          } else if (data['phoneNumber'] != null) {
+            phoneNumber = data['phoneNumber'].toString();
+            debugPrint('ChatView: 📞 Found phone in "phoneNumber" field: $phoneNumber');
+          }
+          
+          if (phoneNumber != null && phoneNumber.isNotEmpty) {
+            debugPrint('ChatView: 📞 Retrieved phone number: $phoneNumber');
+            
+            setState(() {
+              _partnerPhoneNumber = phoneNumber;
+            });
+            
+            debugPrint('ChatView: 📞 Phone number stored in state: $_partnerPhoneNumber');
+          } else {
+            debugPrint('ChatView: 📞 No valid phone number found in restaurant data');
+          }
+        } else {
+          debugPrint('ChatView: 📞 No restaurant data received');
+        }
+      } else {
+        debugPrint('ChatView: 📞 No partner found in participants');
+        debugPrint('ChatView: 📞 Available participants: ${chatRoom.participants.map((p) => '${p.userId} (${p.userType})').toList()}');
+      }
+    } catch (e) {
+      debugPrint('ChatView: 📞 Error fetching partner phone: $e');
+      debugPrint('ChatView: 📞 Error stack trace: ${StackTrace.current}');
+    } finally {
+      setState(() {
+        _isFetchingPhone = false;
+      });
+      debugPrint('ChatView: 📞 Finished fetching phone number. Result: $_partnerPhoneNumber');
+    }
+  }
+
+  Future<void> _callPartner(ChatRoom chatRoom) async {
+    debugPrint('ChatView: 📞 Call button pressed for chat room: ${chatRoom.id}');
+    
+    try {
+      // For debugging purposes, you can uncomment the next line to test with a hardcoded number
+      // await _testCallWithHardcodedNumber();
+      
+      // Check if we already have the phone number
+      if (_partnerPhoneNumber == null) {
+        debugPrint('ChatView: 📞 Phone number not cached, fetching from API...');
+        await _fetchPartnerPhone(chatRoom);
+      } else {
+        debugPrint('ChatView: 📞 Using cached phone number: $_partnerPhoneNumber');
+      }
+      
+      if (_partnerPhoneNumber != null && _partnerPhoneNumber!.isNotEmpty) {
+        // Sanitize and ensure country code
+        String phone = _partnerPhoneNumber!.replaceAll(RegExp(r'[^0-9+]'), '');
+        debugPrint('ChatView: 📞 Sanitized phone number: $phone');
+        
+        if (!phone.startsWith('+')) {
+          phone = '+91$phone'; // Default to India, change as needed
+          debugPrint('ChatView: 📞 Added country code: $phone');
+        }
+        
+        debugPrint('ChatView: 📞 Attempting to launch dialer with number: $phone');
+        
+        // Try multiple approaches to launch the dialer
+        debugPrint('ChatView: 📞 Trying to launch dialer...');
+        
+        bool launched = false;
+        
+        // Method 1: Try with tel: scheme
+        final telUri = Uri(scheme: 'tel', path: phone);
+        debugPrint('ChatView: 📞 Trying tel URI: $telUri');
+        
+        final canLaunchTel = await canLaunchUrl(telUri);
+        debugPrint('ChatView: 📞 Can launch tel URL: $canLaunchTel');
+        
+        if (canLaunchTel) {
+          launched = await launchUrl(
+            telUri,
+            mode: LaunchMode.externalApplication,
+          );
+          debugPrint('ChatView: 📞 Tel URL launch result: $launched');
+        }
+        
+        // Method 2: If tel: fails, try with tel:// scheme
+        if (!launched) {
+          debugPrint('ChatView: 📞 Trying tel:// URI...');
+          final telSlashUri = Uri.parse('tel://$phone');
+          debugPrint('ChatView: 📞 Tel slash URI: $telSlashUri');
+          
+          final canLaunchTelSlash = await canLaunchUrl(telSlashUri);
+          debugPrint('ChatView: 📞 Can launch tel:// URL: $canLaunchTelSlash');
+          
+          if (canLaunchTelSlash) {
+            launched = await launchUrl(
+              telSlashUri,
+              mode: LaunchMode.externalApplication,
+            );
+            debugPrint('ChatView: 📞 Tel slash URL launch result: $launched');
+          }
+        }
+        
+        // Method 3: Try with intent URL for Android
+        if (!launched) {
+          debugPrint('ChatView: 📞 Trying Android intent...');
+          final intentUri = Uri.parse('intent://dial/$phone#Intent;scheme=tel;package=com.android.dialer;end');
+          debugPrint('ChatView: 📞 Intent URI: $intentUri');
+          
+          final canLaunchIntent = await canLaunchUrl(intentUri);
+          debugPrint('ChatView: 📞 Can launch intent URL: $canLaunchIntent');
+          
+          if (canLaunchIntent) {
+            launched = await launchUrl(
+              intentUri,
+              mode: LaunchMode.externalApplication,
+            );
+            debugPrint('ChatView: 📞 Intent URL launch result: $launched');
+          }
+        }
+        
+        // Method 4: Try with just the phone number (some devices handle this)
+        if (!launched) {
+          debugPrint('ChatView: 📞 Trying direct phone number...');
+          final directUri = Uri.parse('tel:$phone');
+          debugPrint('ChatView: 📞 Direct URI: $directUri');
+          
+          final canLaunchDirect = await canLaunchUrl(directUri);
+          debugPrint('ChatView: 📞 Can launch direct URL: $canLaunchDirect');
+          
+          if (canLaunchDirect) {
+            launched = await launchUrl(
+              directUri,
+              mode: LaunchMode.externalApplication,
+            );
+            debugPrint('ChatView: 📞 Direct URL launch result: $launched');
+          }
+        }
+        
+        // Method 5: Try with different launch modes
+        if (!launched) {
+          debugPrint('ChatView: 📞 Trying with different launch modes...');
+          
+          // Try with platformDefault mode
+          try {
+            launched = await launchUrl(
+              telUri,
+              mode: LaunchMode.platformDefault,
+            );
+            debugPrint('ChatView: 📞 Platform default mode result: $launched');
+          } catch (e) {
+            debugPrint('ChatView: 📞 Platform default mode error: $e');
+          }
+          
+          // Try with inAppWebView mode if platform default fails
+          if (!launched) {
+            try {
+              launched = await launchUrl(
+                telUri,
+                mode: LaunchMode.inAppWebView,
+              );
+              debugPrint('ChatView: 📞 InAppWebView mode result: $launched');
+            } catch (e) {
+              debugPrint('ChatView: 📞 InAppWebView mode error: $e');
+            }
+          }
+        }
+        
+        if (launched) {
+          debugPrint('ChatView: 📞 Dialer launched successfully!');
+        } else {
+          debugPrint('ChatView: 📞 All methods failed to launch dialer');
+          
+          // Check if we're on an emulator
+          final isEmulator = await _isEmulator();
+          debugPrint('ChatView: 📞 Is emulator: $isEmulator');
+          
+          if (mounted) {
+            String errorMessage;
+            if (isEmulator) {
+              errorMessage = 'Phone calls are not supported on emulators. Please test on a real device.';
+            } else {
+              errorMessage = 'No phone app found. Please install a dialer app or use a device with phone capabilities.';
+            }
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Copy Number',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // Copy phone number to clipboard
+                    Clipboard.setData(ClipboardData(text: phone));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Phone number copied to clipboard: $phone'),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        debugPrint('ChatView: 📞 Phone number is null or empty');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Phone number not available for this restaurant'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatView: 📞 Error in _callPartner: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error making call: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -340,20 +609,32 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
-          // Connection status and refresh button
           Row(
             children: [
-              // Connection indicator
               Container(
                 width: screenWidth * 0.025,
                 height: screenWidth * 0.025,
                 decoration: BoxDecoration(
-                  color: Colors.green, // You can make this dynamic based on socket connection
+                  color: Colors.green,
                   shape: BoxShape.circle,
                 ),
               ),
               SizedBox(width: screenWidth * 0.02),
-              // Refresh button - removed to avoid manual refresh in socket mode
+              // Call icon
+              _isFetchingPhone
+                  ? SizedBox(
+                      width: screenWidth * 0.06,
+                      height: screenWidth * 0.06,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      icon: Icon(Icons.call, color: ColorManager.primary, size: screenWidth * 0.06),
+                      tooltip: 'Call Restaurant',
+                      onPressed: () {
+                        debugPrint('ChatView: 📞 Call button pressed!');
+                        _callPartner(chatRoom);
+                      },
+                    ),
             ],
           ),
         ],
@@ -915,6 +1196,50 @@ class _ChatViewState extends State<ChatView> {
         _isTyping = false;
         _chatBloc!.add(const StopTyping());
       }
+    }
+  }
+
+  // Test method for debugging call functionality
+  Future<void> _testCallWithHardcodedNumber() async {
+    debugPrint('ChatView: 📞 Testing call with hardcoded number');
+    
+    try {
+      const testPhoneNumber = '+1234567890'; // Replace with a test number
+      debugPrint('ChatView: 📞 Test phone number: $testPhoneNumber');
+      
+      final uri = Uri(scheme: 'tel', path: testPhoneNumber);
+      debugPrint('ChatView: 📞 Test URI: $uri');
+      
+      final canLaunchResult = await canLaunchUrl(uri);
+      debugPrint('ChatView: 📞 Can launch test URL: $canLaunchResult');
+      
+      if (canLaunchResult) {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        debugPrint('ChatView: 📞 Test call launched: $launched');
+      } else {
+        debugPrint('ChatView: 📞 Cannot launch test URL');
+      }
+    } catch (e) {
+      debugPrint('ChatView: 📞 Error in test call: $e');
+    }
+  }
+
+  // Check if running on emulator (simplified version)
+  Future<bool> _isEmulator() async {
+    try {
+      // Simple check based on the fact that emulators often can't handle tel: URLs
+      final testUri = Uri(scheme: 'tel', path: '1234567890');
+      final canLaunch = await canLaunchUrl(testUri);
+      debugPrint('ChatView: 📞 Emulator check - can launch test tel URL: $canLaunch');
+      
+      // If we can't launch a simple tel URL, we're likely on an emulator
+      return !canLaunch;
+    } catch (e) {
+      debugPrint('ChatView: 📞 Error checking if emulator: $e');
+      return false;
     }
   }
 }

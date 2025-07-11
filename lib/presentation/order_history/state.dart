@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 import '../../constants/api_constant.dart';
 import '../../utils/timezone_utils.dart';
+import 'package:flutter/foundation.dart';
 
 abstract class OrderHistoryState extends Equatable {
   const OrderHistoryState();
@@ -80,12 +81,23 @@ class OrderItem extends Equatable {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    // Debug logging for price fields
+    debugPrint('OrderItem.fromJson: Price fields from API:');
+    debugPrint('  - total_price: ${json['total_price']} (items only)');
+    debugPrint('  - delivery_fees: ${json['delivery_fees']}');
+    debugPrint('  - subtotal: ${json['subtotal']} (total including delivery)');
+    
+    // Use subtotal as the price since it includes delivery fees
+    final price = double.tryParse(json['subtotal']?.toString() ?? '0') ?? 0.0;
+    
+    debugPrint('  - Final price used: $price');
+    
     return OrderItem(
       id: json['order_id'] ?? json['_id'] ?? json['id'] ?? '', // FIXED: Use order_id
       name: json['restaurant_name'] ?? 'Order',
       restaurantName: json['restaurant_name'] ?? 'Unknown Restaurant',
       date: _formatDate(json['datetime']),
-      price: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
+      price: price,
       status: _mapStatus(json['order_status'] ?? json['status']), // FIXED: Use order_status
       imageUrl: _getFullImageUrl(json['restaurant_picture'] ?? ''),
       dateTime: TimezoneUtils.parseToIST(json['datetime'] ?? ''),

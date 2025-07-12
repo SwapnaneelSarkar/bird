@@ -599,7 +599,7 @@ class _ChatViewState extends State<ChatView> {
           Expanded(
             child: Center(
               child: Text(
-                'Chat Support',
+                'Chat',
                 style: TextStyle(
                   fontSize: screenWidth * 0.047,
                   fontWeight: FontWeightManager.semiBold,
@@ -739,7 +739,7 @@ class _ChatViewState extends State<ChatView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Chat with restaurant support',
+                  'Chat with Restaurant',
                   style: TextStyle(
                     fontSize: screenWidth * 0.033,
                     fontWeight: FontWeightManager.regular,

@@ -486,12 +486,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                             fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
                           ),
                         ),
-                        Text(
-                          'Based on your order history',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11 * scale, color: Colors.grey[600], letterSpacing: 0.1,
-                          ),
-                        ),
+                        // Text(
+                        //   'Based on your order history',
+                        //   style: GoogleFonts.poppins(
+                        //     fontSize: 11 * scale, color: Colors.grey[600], letterSpacing: 0.1,
+                        //   ),
+                        // ),
                       ],
                     ),
                     Row(

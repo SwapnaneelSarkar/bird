@@ -227,7 +227,8 @@ class OrderItemCard extends StatelessWidget {
     // Create a map to group items by name and sum their quantities
     Map<String, int> itemCounts = {};
     for (var item in items) {
-      String itemName = item['name']?.toString() ?? 'Unknown Item';
+      // Use item_name from API response, fallback to name if not available
+      String itemName = item['item_name']?.toString() ?? item['name']?.toString() ?? 'Unknown Item';
       int quantity = int.tryParse(item['quantity']?.toString() ?? '1') ?? 1;
       itemCounts[itemName] = (itemCounts[itemName] ?? 0) + quantity;
     }

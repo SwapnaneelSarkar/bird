@@ -62,3 +62,7 @@ class DismissCartConflict extends RestaurantDetailsEvent {
 class ToggleFavorite extends RestaurantDetailsEvent {
   const ToggleFavorite();
 }
+
+class ClearCart extends RestaurantDetailsEvent {
+  const ClearCart();
+}

@@ -772,73 +772,233 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
 
   Widget _buildCartFloatingButton(BuildContext context, RestaurantDetailsLoaded state) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
-    // Get coordinates from the widget's context
     final restaurantDetailsPage = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
     final userLatitude = restaurantDetailsPage?.userLatitude;
     final userLongitude = restaurantDetailsPage?.userLongitude;
-    
     return FutureBuilder<String>(
       future: CurrencyUtils.getCurrencySymbol(userLatitude, userLongitude),
       builder: (context, snapshot) {
         final currencySymbol = snapshot.data ?? '\$';
-        
         return Container(
-          width: screenWidth * 0.9,
-          height: 56,
-          margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, Routes.orderConfirmation);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ColorManager.primary,
-              foregroundColor: Colors.white,
-              elevation: 8,
-              shadowColor: ColorManager.primary.withOpacity(0.3),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+          width: screenWidth * 0.96,
+          height: 70,
+          margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.02, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 18,
+                offset: Offset(0, 6),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${state.cartItemCount}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+            ],
+            border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
+          ),
+          child: Row(
+            children: [
+              // View Cart button (expanded)
+              Expanded(
+                flex: 3,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, Routes.orderConfirmation);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ColorManager.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${state.cartItemCount}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'View Cart',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 14),
+                      Text(
+                        'View Cart',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  CurrencyUtils.formatPrice(state.cartTotal, currencySymbol),
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                      const SizedBox(width: 18),
+                      Text(
+                        CurrencyUtils.formatPrice(state.cartTotal, currencySymbol),
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 14),
+              // Clear Cart button (icon)
+              Container(
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      barrierDismissible: true,
+                      builder: (context) {
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        return Dialog(
+                          backgroundColor: Colors.transparent,
+                          insetPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
+                          child: Container(
+                            padding: EdgeInsets.all(screenWidth * 0.07),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.10),
+                                  blurRadius: 24,
+                                  offset: Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: screenWidth * 0.15,
+                                  height: screenWidth * 0.15,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.08),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.delete_forever_rounded, color: Colors.red, size: screenWidth * 0.09),
+                                ),
+                                SizedBox(height: screenHeight * 0.025),
+                                Text(
+                                  'Clear All Items?',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: screenWidth * 0.052,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[800],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: screenHeight * 0.012),
+                                Text(
+                                  'Are you sure you want to remove all items from your cart? This action cannot be undone.',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: screenWidth * 0.037,
+                                    color: Colors.grey[600],
+                                    height: 1.5,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: screenHeight * 0.04),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: EdgeInsets.symmetric(vertical: screenHeight * 0.018),
+                                          side: BorderSide(color: Colors.grey[300]!, width: 1),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Cancel',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: screenWidth * 0.038,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: screenWidth * 0.04),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                          foregroundColor: Colors.white,
+                                          padding: EdgeInsets.symmetric(vertical: screenHeight * 0.018),
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Clear All',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: screenWidth * 0.038,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                    if (confirmed == true) {
+                      context.read<RestaurantDetailsBloc>().add(const ClearCart());
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.delete_forever_rounded, color: Colors.white),
+                              SizedBox(width: 12),
+                              Expanded(child: Text('Cart cleared successfully!')),
+                            ],
+                          ),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          margin: const EdgeInsets.all(16),
+                          elevation: 6,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  label: Text('Clear', style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    foregroundColor: Colors.red,
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
           ),
         );
       },

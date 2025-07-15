@@ -19,6 +19,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
     on<ToggleFavorite>(_onToggleFavorite);
     on<LoadCartData>(_onLoadCartData);
     on<DismissCartConflict>(_onDismissCartConflict);
+    on<ClearCart>(_onClearCart);
   }
   
   Future<void> _onLoadRestaurantDetails(
@@ -439,6 +440,25 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
     } catch (e) {
       debugPrint('RestaurantDetailsBloc: Error dismissing cart conflict: $e');
       add(const LoadCartData());
+    }
+  }
+  
+  Future<void> _onClearCart(
+    ClearCart event,
+    Emitter<RestaurantDetailsState> emit,
+  ) async {
+    try {
+      if (state is RestaurantDetailsLoaded) {
+        final currentState = state as RestaurantDetailsLoaded;
+        await CartService.clearCart();
+        emit(currentState.copyWith(
+          cartQuantities: {},
+          cartItemCount: 0,
+          cartTotal: 0.0,
+        ));
+      }
+    } catch (e) {
+      debugPrint('RestaurantDetailsBloc: Error clearing cart: $e');
     }
   }
   

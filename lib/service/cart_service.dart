@@ -157,7 +157,7 @@ class CartService {
         'items': <Map<String, dynamic>>[],
         'total_price': 0.0,
         'subtotal': 0.0,
-        'delivery_fees': 50.0, // Default delivery fee
+        'delivery_fees': 0.0, // Default delivery fee
         'address': '', // Will be updated when placing order
       };
       

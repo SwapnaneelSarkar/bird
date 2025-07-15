@@ -61,7 +61,7 @@ class _OrderDetailsContent extends StatelessWidget {
             color: ColorManager.black,
             size: screenWidth * 0.06,
           ),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(true),
         ),
         title: Text(
           'Order Details',

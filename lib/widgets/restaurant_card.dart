@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import '../constants/color/colorConstant.dart';
 import '../utils/distance_util.dart';
+import 'responsive_text.dart';
 
 class RestaurantCard extends StatelessWidget {
   final String name;
@@ -39,8 +40,9 @@ class RestaurantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     double ratingValue = _parseRating(rating);
-    return _buildVerticalCard(context, ratingValue, screenWidth);
+    return _buildVerticalCard(context, ratingValue, screenWidth, screenHeight);
   }
 
   double _parseRating(dynamic rating) {
@@ -51,17 +53,17 @@ class RestaurantCard extends StatelessWidget {
     return 0.0;
   }
 
-  Widget _buildVerticalCard(BuildContext context, double ratingValue, double screenWidth) {
+  Widget _buildVerticalCard(BuildContext context, double ratingValue, double screenWidth, double screenHeight) {
     final bool isNotAcceptingOrders = isAcceptingOrder == 0;
     
     return GestureDetector(
       onTap: isNotAcceptingOrders ? null : onTap,
       child: AnimatedContainer(
         duration: Duration(milliseconds: 200),
-        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 8),
+        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.01),
         decoration: BoxDecoration(
           color: isNotAcceptingOrders ? Colors.grey[100] : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(screenWidth * 0.05),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(isNotAcceptingOrders ? 0.03 : 0.1),
@@ -82,7 +84,7 @@ class RestaurantCard extends StatelessWidget {
           ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(screenWidth * 0.05),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -93,7 +95,7 @@ class RestaurantCard extends StatelessWidget {
                   // Restaurant Image
                   SizedBox(
                     width: double.infinity,
-                    height: 150,
+                    height: screenHeight * 0.176, // Reduced image height by 20%
                     child: _buildImage(imageUrl),
                   ),
                   
@@ -140,11 +142,11 @@ class RestaurantCard extends StatelessWidget {
                         ),
                         child: Center(
                           child: Container(
-                            margin: EdgeInsets.all(16),
-                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            margin: EdgeInsets.all(screenWidth * 0.04),
+                            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05, vertical: screenHeight * 0.015),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.95),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(screenWidth * 0.03),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.2),
@@ -159,27 +161,29 @@ class RestaurantCard extends StatelessWidget {
                                 Icon(
                                   Icons.pause_circle_outline,
                                   color: Colors.grey[600],
-                                  size: 32,
+                                  size: screenWidth * 0.08,
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Currently not accepting order',
+                                SizedBox(height: screenHeight * 0.01),
+                                ResponsiveText(
+                                  text: 'Currently not accepting order',
                                   style: GoogleFonts.poppins(
                                     color: Colors.grey[800],
-                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
                                   textAlign: TextAlign.center,
+                                  maxFontSize: screenWidth * 0.035,
+                                  minFontSize: screenWidth * 0.03,
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Check back later',
+                                SizedBox(height: screenHeight * 0.005),
+                                ResponsiveText(
+                                  text: 'Check back later',
                                   style: GoogleFonts.poppins(
                                     color: Colors.grey[600],
-                                    fontSize: 12,
                                     fontWeight: FontWeight.w400,
                                   ),
                                   textAlign: TextAlign.center,
+                                  maxFontSize: screenWidth * 0.03,
+                                  minFontSize: screenWidth * 0.025,
                                 ),
                               ],
                             ),
@@ -190,12 +194,12 @@ class RestaurantCard extends StatelessWidget {
                   
                   // Rating badge (elevated look)
                   Positioned(
-                    top: 12,
-                    right: 12,
+                    top: screenHeight * 0.015,
+                    right: screenWidth * 0.03,
                     child: Container(
                       padding: EdgeInsets.zero,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(screenWidth * 0.02),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.2),
@@ -204,19 +208,19 @@ class RestaurantCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: _buildYellowRatingBadge(ratingValue),
+                      child: _buildYellowRatingBadge(ratingValue, screenWidth),
                     ),
                   ),
                   
                   // Restaurant Type badge - moved to bottom left of image
                   if (restaurantType != null && restaurantType!.isNotEmpty)
                     Positioned(
-                      bottom: 12,
-                      left: 12,
+                      bottom: screenHeight * 0.015,
+                      left: screenWidth * 0.03,
                       child: Container(
                         padding: EdgeInsets.zero,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(screenWidth * 0.02),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.3),
@@ -225,7 +229,7 @@ class RestaurantCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: _buildTypeTagBadge(restaurantType!),
+                        child: _buildTypeTagBadge(restaurantType!, screenWidth),
                       ),
                     ),
                 ],
@@ -233,10 +237,10 @@ class RestaurantCard extends StatelessWidget {
               
               // Content section with reduced vertical space and improved alignment
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), // reduce vertical padding
+                padding: EdgeInsets.fromLTRB(screenWidth * 0.04, screenHeight * 0.012, screenWidth * 0.04, screenHeight * 0.012), // Reduced vertical padding
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min, // ensure it doesn't try to fill extra space
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Name and rating row with proper alignment
                     Row(
@@ -245,74 +249,75 @@ class RestaurantCard extends StatelessWidget {
                       children: [
                         // Restaurant name (flex to handle long names)
                         Expanded(
-                          child: Text(
-                            name,
+                          child: ResponsiveText(
+                            text: name,
                             style: GoogleFonts.poppins(
-                              fontSize: 16, 
                               fontWeight: FontWeight.bold,
                               color: isNotAcceptingOrders ? Colors.grey[500] : Colors.black87,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,
-                            softWrap: true,
+                            maxFontSize: screenWidth * 0.037,
+                            minFontSize: screenWidth * 0.032,
                           ),
                         ),
                         // Delivery time with minimum width to prevent squishing
                         Container(
-                          constraints: BoxConstraints(minWidth: 60),
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          constraints: BoxConstraints(minWidth: screenWidth * 0.13),
+                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.015, vertical: screenHeight * 0.004),
                           decoration: BoxDecoration(
                             color: isNotAcceptingOrders ? Colors.grey[200] : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(screenWidth * 0.018),
                           ),
-                          child: Text(
-                            deliveryTime,
+                          child: ResponsiveText(
+                            text: deliveryTime,
                             style: GoogleFonts.poppins(
-                              fontSize: 14,
                               color: isNotAcceptingOrders ? Colors.grey[500] : Colors.grey[500],
                               fontWeight: FontWeight.w500,
                             ),
                             textAlign: TextAlign.center,
+                            maxFontSize: screenWidth * 0.032,
+                            minFontSize: screenWidth * 0.027,
                           ),
                         ),
                       ],
                     ),
                     
                     // Cuisine and location row with proper alignment
-                    SizedBox(height: 6),
+                    SizedBox(height: screenHeight * 0.008),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Cuisine description (flex to handle variable length)
                         Expanded(
-                          child: Text(
-                            cuisine,
+                          child: ResponsiveText(
+                            text: cuisine,
                             style: GoogleFonts.poppins(
-                              fontSize: 12, 
                               color: isNotAcceptingOrders ? Colors.grey[400] : Colors.grey[600],
                               fontWeight: FontWeight.w400,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,
-                            softWrap: true,
+                            maxFontSize: screenWidth * 0.027,
+                            minFontSize: screenWidth * 0.022,
                           ),
                         ),
                         // Small spacing between cuisine and distance
-                        SizedBox(width: 8),
+                        SizedBox(width: screenWidth * 0.02),
                         // Display calculated distance instead of "Nearby"
-                        _buildInfoItem(Icons.place_outlined, _getDistanceText(), isNotAcceptingOrders),
+                        _buildInfoItem(Icons.place_outlined, _getDistanceText(), isNotAcceptingOrders, screenWidth),
                       ],
                     ),
                     
                     // Additional status indicator for not accepting orders
                     if (isNotAcceptingOrders) ...[
-                      SizedBox(height: 8),
+                      SizedBox(height: screenHeight * 0.01),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.025, vertical: screenHeight * 0.008),
                         decoration: BoxDecoration(
                           color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(screenWidth * 0.015),
                           border: Border.all(
                             color: Colors.orange.withOpacity(0.3),
                             width: 1,
@@ -324,16 +329,17 @@ class RestaurantCard extends StatelessWidget {
                             Icon(
                               Icons.access_time,
                               color: Colors.orange[600],
-                              size: 14,
+                              size: screenWidth * 0.035,
                             ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Temporarily unavailable',
+                            SizedBox(width: screenWidth * 0.015),
+                            ResponsiveText(
+                              text: 'Temporarily unavailable',
                               style: GoogleFonts.poppins(
                                 color: Colors.orange[700],
-                                fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
+                              maxFontSize: screenWidth * 0.028,
+                              minFontSize: screenWidth * 0.025,
                             ),
                           ],
                         ),
@@ -350,40 +356,40 @@ class RestaurantCard extends StatelessWidget {
   }
 
   // Updated method to create the restaurant type badge with the app theme color
-  Widget _buildTypeTagBadge(String type) {
+  Widget _buildTypeTagBadge(String type, double screenWidth) {
     final bool isNotAcceptingOrders = isAcceptingOrder == 0;
     
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(screenWidth * 0.02),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02, vertical: screenWidth * 0.01),
           decoration: BoxDecoration(
-            // Using ColorManager.primary with a darker opacity (0.95)
             color: isNotAcceptingOrders 
                 ? Colors.grey.withOpacity(0.8)
                 : ColorManager.primary,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(screenWidth * 0.02),
             border: Border.all(
               color: Colors.white.withOpacity(0.2),
               width: 0.5,
             ),
           ),
-          child: Text(
-            type,
+          child: ResponsiveText(
+            text: type,
             style: GoogleFonts.poppins(
               color: Colors.white,
-              fontSize: 12,
               fontWeight: FontWeight.bold,
               shadows: [
                 Shadow(
-                  color: Colors.black.withOpacity(0.4), // Darker shadow for better contrast
+                  color: Colors.black.withOpacity(0.4),
                   blurRadius: 2,
                   offset: Offset(0, 1),
                 ),
               ],
             ),
+            maxFontSize: screenWidth * 0.03,
+            minFontSize: screenWidth * 0.025,
           ),
         ),
       ),
@@ -419,20 +425,20 @@ class RestaurantCard extends StatelessWidget {
     return "Nearby";
   }
 
-  Widget _buildYellowRatingBadge(double ratingValue) {
+  Widget _buildYellowRatingBadge(double ratingValue, double screenWidth) {
     final bool isNotAcceptingOrders = isAcceptingOrder == 0;
     
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(screenWidth * 0.02),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02, vertical: screenWidth * 0.01),
           decoration: BoxDecoration(
             color: isNotAcceptingOrders 
                 ? Colors.grey.withOpacity(0.7)
                 : ColorManager.primary.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(screenWidth * 0.02),
             border: Border.all(
               color: Colors.white.withOpacity(0.2),
               width: 0.5,
@@ -441,11 +447,10 @@ class RestaurantCard extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                ratingValue > 0 ? ratingValue.toStringAsFixed(1) : "New",
+              ResponsiveText(
+                text: ratingValue > 0 ? ratingValue.toStringAsFixed(1) : "New",
                 style: GoogleFonts.poppins(
                   color: Colors.white,
-                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   shadows: [
                     Shadow(
@@ -455,13 +460,15 @@ class RestaurantCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                maxFontSize: screenWidth * 0.035,
+                minFontSize: screenWidth * 0.03,
               ),
               if (ratingValue > 0) ...[
-                const SizedBox(width: 2),
+                SizedBox(width: screenWidth * 0.005),
                 Icon(
                   Icons.star, 
                   color: Colors.white, 
-                  size: 12,
+                  size: screenWidth * 0.03,
                 ),
               ],
             ],
@@ -471,18 +478,20 @@ class RestaurantCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String value, bool isNotAcceptingOrders) {
+  Widget _buildInfoItem(IconData icon, String value, bool isNotAcceptingOrders, double screenWidth) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: isNotAcceptingOrders ? Colors.grey[500] : Colors.grey[600]),
-        const SizedBox(width: 2),
-        Text(
-          value,
+        Icon(icon, size: screenWidth * 0.035, color: isNotAcceptingOrders ? Colors.grey[500] : Colors.grey[600]),
+        SizedBox(width: screenWidth * 0.005),
+        ResponsiveText(
+          text: value,
           style: GoogleFonts.poppins(
-            fontSize: 12,
             fontWeight: FontWeight.w400,
             color: isNotAcceptingOrders ? Colors.grey[500] : Colors.grey[600],
           ),
+          maxFontSize: screenWidth * 0.03,
+          minFontSize: screenWidth * 0.025,
         ),
       ],
     );

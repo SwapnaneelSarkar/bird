@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import '../../../constants/color/colorConstant.dart';
 import '../../../widgets/restaurant_card.dart';
+import '../../../widgets/responsive_text.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -135,24 +136,30 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(
-            'Microphone Permission',
+          title: ResponsiveText(
+            text: 'Microphone Permission',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
             ),
+            maxFontSize: 18,
+            minFontSize: 16,
           ),
-          content: Text(
-            'This app needs microphone access to use voice search. Please enable it in your device settings.',
+          content: ResponsiveText(
+            text: 'This app needs microphone access to use voice search. Please enable it in your device settings.',
             style: GoogleFonts.poppins(),
+            maxFontSize: 16,
+            minFontSize: 14,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
+              child: ResponsiveText(
+                text: 'Cancel',
                 style: GoogleFonts.poppins(
                   color: Colors.grey[600],
                 ),
+                maxFontSize: 16,
+                minFontSize: 14,
               ),
             ),
             TextButton(
@@ -160,12 +167,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 Navigator.of(context).pop();
                 openAppSettings();
               },
-              child: Text(
-                'Settings',
+              child: ResponsiveText(
+                text: 'Settings',
                 style: GoogleFonts.poppins(
                   color: ColorManager.primary,
                   fontWeight: FontWeight.w600,
                 ),
+                maxFontSize: 16,
+                minFontSize: 14,
               ),
             ),
           ],
@@ -193,6 +202,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FF),
       appBar: PreferredSize(
@@ -208,27 +220,30 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
-          _buildResultsHeader(),
+          _buildSearchBar(screenWidth, screenHeight),
+          _buildResultsHeader(screenWidth, screenHeight),
           Expanded(
-            child: _buildSearchResults(),
+            child: _buildSearchResults(screenWidth, screenHeight),
           ),
         ],
       ),
     );
   }
   
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(double screenWidth, double screenHeight) {
+    final searchBarHeight = screenHeight * 0.065; // Responsive height
+    final horizontalPadding = screenWidth * 0.05; // Responsive padding
+    
     return Hero(
       tag: 'search_bar',
       child: Material(
         color: Colors.transparent,
         child: Container(
-          margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          height: 52,
+          margin: EdgeInsets.fromLTRB(horizontalPadding, screenHeight * 0.02, horizontalPadding, screenHeight * 0.01),
+          height: searchBarHeight,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(screenWidth * 0.04),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(0.1),
@@ -248,11 +263,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   borderRadius: BorderRadius.circular(50),
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(screenWidth * 0.03),
                     child: Icon(
                       Icons.arrow_back,
                       color: Colors.grey[800],
-                      size: 22,
+                      size: screenWidth * 0.055,
                     ),
                   ),
                 ),
@@ -264,17 +279,17 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   controller: _searchController,
                   focusNode: _searchFocusNode,
                   style: GoogleFonts.poppins(
-                    fontSize: 15,
+                    fontSize: screenWidth * 0.04,
                     color: Colors.black87,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Search restaurants or dishes',
                     hintStyle: GoogleFonts.poppins(
-                      fontSize: 15,
+                      fontSize: screenWidth * 0.04,
                       color: Colors.grey[400],
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
                   ),
                   onChanged: _filterRestaurants,
                 ),
@@ -292,11 +307,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       setState(() {});
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(screenWidth * 0.02),
                       child: Icon(
                         Icons.close,
                         color: Colors.grey[500],
-                        size: 18,
+                        size: screenWidth * 0.045,
                       ),
                     ),
                   ),
@@ -304,7 +319,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               
               // Voice search button
               Container(
-                margin: const EdgeInsets.only(right: 8),
+                margin: EdgeInsets.only(right: screenWidth * 0.02),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -314,7 +329,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                         : null,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(screenWidth * 0.02),
                       decoration: BoxDecoration(
                         color: _isListening 
                             ? ColorManager.primary.withOpacity(0.1)
@@ -328,7 +343,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                                 Icons.mic,
                                 key: const ValueKey('mic_on'),
                                 color: ColorManager.primary,
-                                size: 22,
+                                size: screenWidth * 0.055,
                               )
                             : Icon(
                                 Icons.mic_none,
@@ -336,7 +351,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                                 color: _speechEnabled 
                                     ? ColorManager.primary 
                                     : Colors.grey[400],
-                                size: 22,
+                                size: screenWidth * 0.055,
                               ),
                       ),
                     ),
@@ -350,7 +365,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
   
-  Widget _buildResultsHeader() {
+  Widget _buildResultsHeader(double screenWidth, double screenHeight) {
     return BlocBuilder<SearchBloc, SearchState>(
       builder: (context, state) {
         String headerText = 'Search Results';
@@ -375,51 +390,55 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         }
         
         return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          padding: EdgeInsets.fromLTRB(screenWidth * 0.05, screenHeight * 0.02, screenWidth * 0.05, screenHeight * 0.01),
           child: Row(
             children: [
-              Text(
-                headerText,
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                  letterSpacing: 0.2,
+              Expanded(
+                child: ResponsiveText(
+                  text: headerText,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                    letterSpacing: 0.2,
+                  ),
+                  maxFontSize: screenWidth * 0.055,
+                  minFontSize: screenWidth * 0.045,
                 ),
               ),
               if (resultCount != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: screenWidth * 0.02),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.025, vertical: screenHeight * 0.005),
                   decoration: BoxDecoration(
                     color: ColorManager.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.04),
                   ),
-                  child: Text(
-                    '$resultCount',
+                  child: ResponsiveText(
+                    text: '$resultCount',
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: ColorManager.primary,
                     ),
+                    maxFontSize: screenWidth * 0.035,
+                    minFontSize: screenWidth * 0.03,
                   ),
                 ),
               ],
               // Show listening indicator
               if (_isListening) ...[
-                const SizedBox(width: 12),
+                SizedBox(width: screenWidth * 0.03),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02, vertical: screenHeight * 0.005),
                   decoration: BoxDecoration(
                     color: ColorManager.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.03),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
-                        width: 12,
-                        height: 12,
+                        width: screenWidth * 0.03,
+                        height: screenWidth * 0.03,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
@@ -427,14 +446,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Listening...',
+                      SizedBox(width: screenWidth * 0.015),
+                      ResponsiveText(
+                        text: 'Listening...',
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: ColorManager.primary,
                         ),
+                        maxFontSize: screenWidth * 0.03,
+                        minFontSize: screenWidth * 0.025,
                       ),
                     ],
                   ),
@@ -449,7 +469,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
   
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(double screenWidth, double screenHeight) {
     return BlocBuilder<SearchBloc, SearchState>(
       builder: (context, state) {
         if (state is SearchLoadingState) {
@@ -462,78 +482,88 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         
         if (state is SearchErrorState) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Something went wrong',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[700],
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.05),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: screenWidth * 0.15,
+                    color: Colors.grey[400],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  state.error,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.grey[500],
+                  SizedBox(height: screenHeight * 0.02),
+                  ResponsiveText(
+                    text: 'Something went wrong',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                    ),
+                    maxFontSize: screenWidth * 0.05,
+                    minFontSize: screenWidth * 0.04,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ).animate(controller: _animationController)
-             .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
+                  SizedBox(height: screenHeight * 0.01),
+                  ResponsiveText(
+                    text: state.error,
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                    maxFontSize: screenWidth * 0.035,
+                    minFontSize: screenWidth * 0.03,
+                  ),
+                ],
+              ).animate(controller: _animationController)
+               .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
+            ),
           );
         }
         
         if (state is SearchEmptyState) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  state.query.isEmpty ? Icons.search : Icons.search_off,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  state.query.isEmpty 
-                    ? 'Start typing or speak to search'
-                    : 'No restaurants found',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[700],
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.05),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    state.query.isEmpty ? Icons.search : Icons.search_off,
+                    size: screenWidth * 0.15,
+                    color: Colors.grey[400],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  state.query.isEmpty
-                    ? 'Search for restaurants, dishes, or cuisines\nTap the mic icon to use voice search'
-                    : 'Try searching with different keywords',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.grey[500],
+                  SizedBox(height: screenHeight * 0.02),
+                  ResponsiveText(
+                    text: state.query.isEmpty 
+                      ? 'Start typing or speak to search'
+                      : 'No restaurants found',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                    ),
+                    maxFontSize: screenWidth * 0.05,
+                    minFontSize: screenWidth * 0.04,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ).animate(controller: _animationController)
-             .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
+                  SizedBox(height: screenHeight * 0.01),
+                  ResponsiveText(
+                    text: state.query.isEmpty
+                      ? 'Search for restaurants, dishes, or cuisines\nTap the mic icon to use voice search'
+                      : 'Try searching with different keywords',
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                    maxFontSize: screenWidth * 0.035,
+                    minFontSize: screenWidth * 0.03,
+                  ),
+                ],
+              ).animate(controller: _animationController)
+               .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
+            ),
           );
         }
         
         if (state is SearchLoadedState) {
-          return _buildResultsList(state);
+          return _buildResultsList(state, screenWidth, screenHeight);
         }
         
         return const SizedBox.shrink();
@@ -541,7 +571,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
   
-  Widget _buildResultsList(SearchLoadedState state) {
+  Widget _buildResultsList(SearchLoadedState state, double screenWidth, double screenHeight) {
     // 1. Collect direct restaurants
     final List<Map<String, dynamic>> directRestaurants = state.restaurants.map((restaurant) {
       final categoryString = restaurant.categories.join(', ');
@@ -615,46 +645,52 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
     if (allRestaurants.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No restaurants found',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
+        child: Padding(
+          padding: EdgeInsets.all(screenWidth * 0.05),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: screenWidth * 0.15,
+                color: Colors.grey[400],
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try searching with different keywords',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[500],
+              SizedBox(height: screenHeight * 0.02),
+              ResponsiveText(
+                text: 'No restaurants found',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[700],
+                ),
+                maxFontSize: screenWidth * 0.05,
+                minFontSize: screenWidth * 0.04,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ).animate(controller: _animationController)
-         .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
+              SizedBox(height: screenHeight * 0.01),
+              ResponsiveText(
+                text: 'Try searching with different keywords',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+                maxFontSize: screenWidth * 0.035,
+                minFontSize: screenWidth * 0.03,
+              ),
+            ],
+          ).animate(controller: _animationController)
+           .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut),
+        ),
       );
     }
-    // 4. Render all restaurants
+    
+    // 4. Render all restaurants with responsive grid
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.03, vertical: screenHeight * 0.015),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 1,
         childAspectRatio: 1.8,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 4,
-        mainAxisExtent: 240, // increase height to fit RestaurantCard
+        mainAxisSpacing: screenHeight * 0.01,
+        crossAxisSpacing: screenWidth * 0.01,
+        mainAxisExtent: screenHeight * 0.32, // Increased height for better fit
       ),
       itemCount: allRestaurants.length,
       itemBuilder: (context, index) {

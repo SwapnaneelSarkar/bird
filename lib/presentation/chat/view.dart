@@ -830,7 +830,9 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildMessageBubble(ChatMessage message, bool isFromCurrentUser, bool isOptimistic, String currentUserId, double screenWidth, double screenHeight) {
-    return Padding(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
       padding: EdgeInsets.only(bottom: screenHeight * 0.012),
       child: Row(
         mainAxisAlignment: isFromCurrentUser 
@@ -870,9 +872,7 @@ class _ChatViewState extends State<ChatView> {
                   ),
                   decoration: BoxDecoration(
                     color: isFromCurrentUser 
-                        ? (isOptimistic 
-                            ? ColorManager.primary.withOpacity(0.7)
-                            : ColorManager.primary)
+                        ? ColorManager.primary
                         : Colors.grey.shade100,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(screenWidth * 0.035),
@@ -892,35 +892,17 @@ class _ChatViewState extends State<ChatView> {
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isOptimistic && isFromCurrentUser) ...[
-                        SizedBox(
-                          width: screenWidth * 0.03,
-                          height: screenWidth * 0.03,
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        SizedBox(width: screenWidth * 0.02),
-                      ],
-                      Flexible(
-                        child: Text(
-                          message.content,
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            fontWeight: FontWeightManager.regular,
-                            color: isFromCurrentUser 
-                                ? Colors.white 
-                                : ColorManager.black,
-                            fontFamily: FontFamily.Montserrat,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    message.content,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontWeight: FontWeightManager.regular,
+                      color: isFromCurrentUser 
+                          ? Colors.white 
+                          : ColorManager.black,
+                      fontFamily: FontFamily.Montserrat,
+                      height: 1.35,
+                    ),
                   ),
                 ),
                 
@@ -930,11 +912,11 @@ class _ChatViewState extends State<ChatView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isOptimistic ? 'Sending...' : message.formattedTime,
+                      message.formattedTime,
                       style: TextStyle(
                         fontSize: screenWidth * 0.028,
                         fontWeight: FontWeightManager.regular,
-                        color: Colors.grey.shade500,
+                        color: isOptimistic ? Colors.grey.shade400 : Colors.grey.shade500,
                         fontFamily: FontFamily.Montserrat,
                       ),
                     ),
@@ -948,6 +930,15 @@ class _ChatViewState extends State<ChatView> {
                         color: _shouldShowBlueTick(message, currentUserId)
                             ? Colors.blue               // BLUE = Read by both users
                             : Colors.grey.shade500,    // GREY = Not read by both yet
+                      ),
+                    ],
+                    // Show subtle indicator for optimistic messages
+                    if (isOptimistic && isFromCurrentUser) ...[
+                      SizedBox(width: screenWidth * 0.01),
+                      Icon(
+                        Icons.schedule,
+                        size: screenWidth * 0.025,
+                        color: Colors.grey.shade400,
                       ),
                     ],
                   ],
@@ -1008,7 +999,8 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildMessageInput(BuildContext context, bool isSending, double screenWidth, double screenHeight) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.all(screenWidth * 0.035),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1029,15 +1021,16 @@ class _ChatViewState extends State<ChatView> {
       child: Row(
         children: [
           Expanded(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
               padding: EdgeInsets.symmetric(
                 horizontal: screenWidth * 0.038,
               ),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: _focusNode.hasFocus ? Colors.grey.shade50 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(screenWidth * 0.055),
                 border: Border.all(
-                  color: Colors.grey.shade200,
+                  color: _focusNode.hasFocus ? ColorManager.primary.withOpacity(0.3) : Colors.grey.shade200,
                   width: 1,
                 ),
               ),
@@ -1067,37 +1060,57 @@ class _ChatViewState extends State<ChatView> {
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _sendMessage(context),
                 enabled: !isSending,
+                onTap: () {
+                  // Scroll to bottom when user taps the text field
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _scrollToBottom();
+                  });
+                },
               ),
             ),
           ),
           SizedBox(width: screenWidth * 0.028),
-          // FIXED: Use _hasText instead of checking controller directly
-          GestureDetector(
-            onTap: (isSending || !_hasText) 
-                ? null 
-                : () => _sendMessage(context),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: screenWidth * 0.11,
-              height: screenWidth * 0.11,
-              decoration: BoxDecoration(
-                color: (isSending || !_hasText)
-                    ? Colors.grey.shade400 
-                    : ColorManager.primary,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: ColorManager.primary.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+          // Send button with improved responsiveness
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: screenWidth * 0.11,
+            height: screenWidth * 0.11,
+            decoration: BoxDecoration(
+              color: (isSending || !_hasText)
+                  ? Colors.grey.shade300 
+                  : ColorManager.primary,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: (isSending || !_hasText) 
+                      ? Colors.transparent
+                      : ColorManager.primary.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(screenWidth * 0.055),
+                onTap: (isSending || !_hasText) 
+                    ? null 
+                    : () {
+                        _sendMessage(context);
+                        // Add haptic feedback for better UX
+                        HapticFeedback.lightImpact();
+                      },
+                child: Center(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: (isSending || !_hasText) ? 0.6 : 1.0,
+                    child: Icon(
+                      Icons.send,
+                      color: Colors.white,
+                      size: screenWidth * 0.045,
+                    ),
                   ),
-                ],
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.send,
-                  color: Colors.white,
-                  size: screenWidth * 0.045,
                 ),
               ),
             ),
@@ -1188,14 +1201,23 @@ class _ChatViewState extends State<ChatView> {
   void _sendMessage(BuildContext context) {
     final message = _messageController.text.trim();
     if (message.isNotEmpty && _chatBloc != null) {
-      _chatBloc!.add(SendMessage(message));
+      // Clear the text field immediately for better responsiveness
       _messageController.clear();
+      
+      // Send the message
+      _chatBloc!.add(SendMessage(message));
+      
       // Stop typing indicator when message is sent
       _typingTimer?.cancel();
       if (_isTyping) {
         _isTyping = false;
         _chatBloc!.add(const StopTyping());
       }
+      
+      // Scroll to bottom after sending
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
     }
   }
 

@@ -335,20 +335,7 @@ class _OrderConfirmationContent extends StatelessWidget {
           
           SizedBox(height: screenHeight * 0.01),
           
-          // Delivery Fee
-          FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbol(null, null),
-            builder: (context, snapshot) {
-              final currencySymbol = snapshot.data ?? '₹';
-              return _buildSummaryRow(
-                'Delivery Fee',
-                CurrencyUtils.formatPrice(state.orderSummary.deliveryFee, currencySymbol),
-                screenWidth,
-                isTotal: false,
-              );
-            },
-          ),
-          
+          // (Delivery Fee row removed)
           SizedBox(height: screenHeight * 0.015),
           
           // Divider
@@ -527,18 +514,19 @@ class _OrderConfirmationContent extends StatelessWidget {
                 
                 SizedBox(height: screenHeight * 0.015),
                 
-                _buildPaymentOption(
-                  context: dialogContext,
-                  orderBloc: orderBloc,
-                  icon: Icons.account_balance_wallet,
-                  title: 'UPI Payment',
-                  subtitle: 'Pay using UPI apps',
-                  color: const Color(0xFF2196F3),
-                  screenWidth: screenWidth,
-                  screenHeight: screenHeight,
-                ),
-                
-                SizedBox(height: screenHeight * 0.015),
+                // UPI Payment option removed
+                // _buildPaymentOption(
+                //   context: dialogContext,
+                //   orderBloc: orderBloc,
+                //   icon: Icons.account_balance_wallet,
+                //   title: 'UPI Payment',
+                //   subtitle: 'Pay using UPI apps',
+                //   color: const Color(0xFF2196F3),
+                //   screenWidth: screenWidth,
+                //   screenHeight: screenHeight,
+                // ),
+                // 
+                // SizedBox(height: screenHeight * 0.015),
                 
                 _buildPaymentOption(
                   context: dialogContext,

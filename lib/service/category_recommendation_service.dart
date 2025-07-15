@@ -30,7 +30,7 @@ class CategoryRecommendationService {
       }
 
       // Fetch categories from API with user_id parameter
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/categories?user_id=$userId');
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/categories?user_id=$userId');
       
       debugPrint('CategoryRecommendationService: Fetching categories from: $url');
       
@@ -43,6 +43,7 @@ class CategoryRecommendationService {
       );
 
       debugPrint('CategoryRecommendationService: Response status: ${response.statusCode}');
+      debugPrint('CategoryRecommendationService: Response body: ${response.body}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

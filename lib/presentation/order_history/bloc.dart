@@ -11,6 +11,7 @@ import 'state.dart';
 class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
   OrderHistoryBloc() : super(OrderHistoryInitial()) {
     on<LoadOrderHistory>(_onLoadOrderHistory);
+    on<RefreshOrderHistory>(_onRefreshOrderHistory);
     on<FilterOrdersByStatus>(_onFilterOrdersByStatus);
     on<ViewOrderDetails>(_onViewOrderDetails);
     on<OpenChatForOrder>(_onOpenChatForOrder);
@@ -48,6 +49,39 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
     } catch (e) {
       debugPrint('OrderHistoryBloc: Error loading order history: $e');
       emit(const OrderHistoryError('Failed to load order history. Please try again.'));
+    }
+  }
+  
+  Future<void> _onRefreshOrderHistory(RefreshOrderHistory event, Emitter<OrderHistoryState> emit) async {
+    try {
+      debugPrint('OrderHistoryBloc: Refreshing order history...');
+      
+      // Get token and user ID
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        emit(const OrderHistoryError('Please login again to view order history.'));
+        return;
+      }
+      
+      // Fetch fresh order history from API
+      final orders = await _fetchOrderHistory(token, userId);
+      
+      const filterTabs = ['All Orders', 'Preparing', 'Completed', 'Cancelled'];
+      const selectedFilter = 'All Orders';
+      
+      emit(OrderHistoryLoaded(
+        allOrders: orders,
+        filteredOrders: orders, // Initially show all orders
+        selectedFilter: selectedFilter,
+        filterTabs: filterTabs,
+      ));
+      
+      debugPrint('OrderHistoryBloc: Order history refreshed successfully with ${orders.length} orders');
+    } catch (e) {
+      debugPrint('OrderHistoryBloc: Error refreshing order history: $e');
+      emit(const OrderHistoryError('Failed to refresh order history. Please try again.'));
     }
   }
   

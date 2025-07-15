@@ -118,9 +118,10 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         debugPrint('ORDER CONFIRMATION BLOC: Final item: ${item.name}, Base: ₹${item.price}, Qty: ${item.quantity}, Total: ₹${item.totalPrice}');
       }
       
+      // Set delivery fee to 0 INR always
       final orderSummary = OrderSummary(
         items: orderItems,
-        deliveryFee: (cart['delivery_fees'] as num?)?.toDouble() ?? 50.0,
+        deliveryFee: 0.0, // <-- Set delivery fee to 0 INR
         taxAmount: 0.0,
         discountAmount: 0.0,
       );

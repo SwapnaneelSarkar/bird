@@ -511,6 +511,8 @@ class _TermsConditionsPageState extends State<TermsConditionsPage>
           const SizedBox(height: 16),
           _buildContactItem(Icons.email, 'Email', 'env.bird@gmail.com'),
           const SizedBox(height: 12),
+          _buildContactItem(Icons.phone, 'Phone', '1111111111'),
+          const SizedBox(height: 12),
           _buildContactItem(Icons.web, 'Website', 'www.bird.delivery'),
           const SizedBox(height: 20),
           Container(

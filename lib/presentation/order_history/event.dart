@@ -12,6 +12,10 @@ class LoadOrderHistory extends OrderHistoryEvent {
   const LoadOrderHistory();
 }
 
+class RefreshOrderHistory extends OrderHistoryEvent {
+  const RefreshOrderHistory();
+}
+
 class FilterOrdersByStatus extends OrderHistoryEvent {
   final String status;
   

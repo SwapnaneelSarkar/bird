@@ -462,6 +462,36 @@ class NotificationService {
     }
   }
 
+  /// Public method to register device token after login/registration
+  Future<void> registerDeviceTokenIfNeeded() async {
+    print('[DeviceToken] Checking if device token needs to be registered...');
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+    if (userId == null) {
+      print('[DeviceToken] No userId found in SharedPreferences. Skipping registration.');
+      return;
+    }
+    String? token;
+    try {
+      token = await _firebaseMessaging.getToken();
+      print('[DeviceToken] FCM token: $token');
+    } catch (e) {
+      print('[DeviceToken] Error getting FCM token: $e');
+      return;
+    }
+    if (token == null) {
+      print('[DeviceToken] No FCM token available. Skipping registration.');
+      return;
+    }
+    final registeredToken = prefs.getString('registered_fcm_token');
+    if (registeredToken == token) {
+      print('[DeviceToken] Token already registered. Skipping.');
+      return;
+    }
+    print('[DeviceToken] Registering device token with API...');
+    await _sendTokenToServer(token);
+  }
+
   // Subscribe to a topic
   Future<void> subscribeToTopic(String topic) async {
     await _firebaseMessaging.subscribeToTopic(topic);

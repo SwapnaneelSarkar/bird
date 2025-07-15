@@ -1,21 +1,38 @@
 // lib/presentation/order_history/view.dart - Updated with navigation to order details
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../constants/color/colorConstant.dart';
-import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_history_card.dart';
 import '../order_details/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 
-class OrderHistoryView extends StatelessWidget {
+class OrderHistoryView extends StatefulWidget {
   const OrderHistoryView({Key? key}) : super(key: key);
 
   @override
+  State<OrderHistoryView> createState() => _OrderHistoryViewState();
+}
+
+class _OrderHistoryViewState extends State<OrderHistoryView> {
+  late OrderHistoryBloc _bloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _bloc = OrderHistoryBloc()..add(const LoadOrderHistory());
+  }
+
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => OrderHistoryBloc()..add(const LoadOrderHistory()),
+    return BlocProvider.value(
+      value: _bloc,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F8F8),
         body: SafeArea(
@@ -178,30 +195,47 @@ class OrderHistoryView extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     
     if (state.filteredOrders.isEmpty) {
-      return _buildEmptyState(context, state.selectedFilter);
+      return RefreshIndicator(
+        onRefresh: () async {
+          context.read<OrderHistoryBloc>().add(const RefreshOrderHistory());
+        },
+        color: const Color(0xFFE17A47),
+        child: _buildEmptyState(context, state.selectedFilter),
+      );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(screenWidth * 0.05),
-      itemCount: state.filteredOrders.length,
-      itemBuilder: (context, index) {
-        final order = state.filteredOrders[index];
-        return OrderItemCard(
-          order: order,
-          onViewDetails: () {
-            context.read<OrderHistoryBloc>().add(
-              ViewOrderDetails(order.id),
-            );
-            // Navigate to order details page
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OrderDetailsView(orderId: order.id),
-              ),
-            );
-          },
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<OrderHistoryBloc>().add(const RefreshOrderHistory());
       },
+      color: const Color(0xFFE17A47),
+      child: ListView.builder(
+        padding: EdgeInsets.all(screenWidth * 0.05),
+        itemCount: state.filteredOrders.length,
+        itemBuilder: (context, index) {
+          final order = state.filteredOrders[index];
+          return OrderItemCard(
+            order: order,
+            onViewDetails: () async {
+              context.read<OrderHistoryBloc>().add(
+                ViewOrderDetails(order.id),
+              );
+              // Navigate to order details page and wait for result
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderDetailsView(orderId: order.id),
+                ),
+              );
+              
+              // Reload order history when returning from order details
+              if (mounted && (result == true || result == null)) {
+                context.read<OrderHistoryBloc>().add(const RefreshOrderHistory());
+              }
+            },
+          );
+        },
+      ),
     );
   }
 

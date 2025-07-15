@@ -488,7 +488,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                   // Menu items list - SEAMLESS CART OPERATIONS
                   Expanded(
                     child: ListView.builder(
-                      padding: EdgeInsets.zero,
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom + 80, // Account for navigation bar + floating button
+                      ),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: filteredAndSortedMenu.length,
                       itemBuilder: (context, index) {

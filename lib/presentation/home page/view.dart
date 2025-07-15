@@ -16,6 +16,7 @@ import '../../utils/currency_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../service/firebase_services.dart';
 
 // Responsive text utility function
 double getResponsiveFontSize(BuildContext context, double baseSize) {
@@ -85,6 +86,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
+    // Register device token after login/registration
+    if (widget.userData != null && widget.token != null) {
+      debugPrint('[DeviceToken] Attempting to register device token after login/registration...');
+      NotificationService().registerDeviceTokenIfNeeded();
+    } else {
+      debugPrint('[DeviceToken] Not calling registerDeviceTokenIfNeeded: userData or token is null');
+    }
   }
   
   @override
@@ -460,8 +468,11 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
-    debugPrint('HomePage: _buildCategoriesSection called with selectedCategory: ${state.selectedCategory}');
-    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: ${state.selectedCategory != null}');
+    debugPrint('HomePage: _buildCategoriesSection called with selectedCategory: \\${state.selectedCategory}');
+    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: \\${state.selectedCategory != null}');
+    // Sort categories by display_order before displaying
+    final sortedCategories = List<Map<String, dynamic>>.from(state.categories)
+      ..sort((a, b) => (a['display_order'] ?? 999).compareTo(b['display_order'] ?? 999));
     return Container(
       margin: const EdgeInsets.only(top: 8),
       child: Column(
@@ -476,92 +487,44 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 8 * scale),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recommended for You',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
-                          ),
+                    Flexible(
+                      child: Text(
+                        'Recommended for You',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
                         ),
-                        // Text(
-                        //   'Based on your order history',
-                        //   style: GoogleFonts.poppins(
-                        //     fontSize: 11 * scale, color: Colors.grey[600], letterSpacing: 0.1,
-                        //   ),
-                        // ),
-                      ],
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         if (state.selectedCategory != null)
                           Container(
-                            margin: EdgeInsets.only(right: 8 * scale),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12 * scale),
-                                onTap: () {
-                                  debugPrint('HomePage: Show All button clicked. Current selected category: ${state.selectedCategory}');
-                                  debugPrint('HomePage: Resetting all filters and category selection');
-                                  setState(() {
-                                    filterOptions = FilterOptions();
-                                  });
-                                  context.read<HomeBloc>().add(const FilterByCategory(null));
-                                  context.read<HomeBloc>().add(const FilterByFoodType(null));
-                                  context.read<HomeBloc>().add(const ToggleVegOnly(false));
-                                  debugPrint('HomePage: All filters and category selection reset');
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 5 * scale),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12 * scale),
-                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.clear, color: Colors.grey[600], size: 14 * scale),
-                                      SizedBox(width: 3 * scale),
-                                      Text(
-                                        'Show All',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11 * scale, fontWeight: FontWeight.w500, color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                            margin: EdgeInsets.only(right: 4 * scale),
+                            child: IconButton(
+                              icon: Icon(Icons.close, color: Colors.grey[600], size: 20 * scale),
+                              tooltip: 'Clear category filter',
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                              onPressed: () {
+                                setState(() {
+                                  filterOptions = FilterOptions();
+                                });
+                                context.read<HomeBloc>().add(const FilterByCategory(null));
+                                context.read<HomeBloc>().add(const FilterByFoodType(null));
+                                context.read<HomeBloc>().add(const ToggleVegOnly(false));
+                              },
                             ),
                           ),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12 * scale),
-                            onTap: () => _showFuturisticFilterDialog(context),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
-                              decoration: BoxDecoration(
-                                color: ColorManager.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12 * scale),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.tune, color: ColorManager.primary, size: 16 * scale),
-                                  SizedBox(width: 3 * scale),
-                                  Text(
-                                    'Filter',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12 * scale, fontWeight: FontWeight.w500, color: ColorManager.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        IconButton(
+                          icon: Icon(Icons.tune, color: ColorManager.primary, size: 22 * scale),
+                          tooltip: 'Filter',
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints(),
+                          onPressed: () => _showFuturisticFilterDialog(context),
                         ),
                       ],
                     ),
@@ -578,8 +541,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               final double itemHeight = 120.0 * scale;
               final double screenWidth = constraints.maxWidth;
               final int maxVisibleItems = (screenWidth / itemWidth).floor();
-              final bool shouldScroll = state.categories.length > maxVisibleItems;
-              final categoryItems = _getCategoryItems(state.categories, state.selectedCategory, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
+              final bool shouldScroll = sortedCategories.length > maxVisibleItems;
+              final categoryItems = _getCategoryItems(sortedCategories, state.selectedCategory, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
               if (shouldScroll) {
                 return SizedBox(
                   height: itemHeight,

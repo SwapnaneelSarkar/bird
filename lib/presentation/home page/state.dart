@@ -21,7 +21,7 @@ class HomeLoaded extends HomeState {
   final double? userLatitude;
   final double? userLongitude;
   final bool vegOnly;
-  final String? selectedCategory;
+  final String? selectedCategoryId;
   final String? selectedFoodTypeId;
   final List<Map<String, dynamic>> savedAddresses;
   
@@ -33,7 +33,7 @@ class HomeLoaded extends HomeState {
     this.userLatitude,
     this.userLongitude,
     this.vegOnly = false,
-    this.selectedCategory,
+    this.selectedCategoryId,
     this.selectedFoodTypeId,
     this.savedAddresses = const [],
   });
@@ -48,18 +48,10 @@ class HomeLoaded extends HomeState {
     }
     
     // Filter by category if selected
-    if (selectedCategory != null) {
+    if (selectedCategoryId != null) {
       filtered = filtered.where((restaurant) {
-        // First check if the selected category is in the restaurant's availableCategories
-        if (restaurant.availableCategories.isNotEmpty) {
-          return restaurant.availableCategories.any((category) => 
-            category.toLowerCase().contains(selectedCategory!.toLowerCase())
-          );
-        }
-        
-        // Fallback to the old logic using cuisine and name if availableCategories is empty
-        return restaurant.cuisine.toLowerCase().contains(selectedCategory!.toLowerCase()) ||
-               restaurant.name.toLowerCase().contains(selectedCategory!.toLowerCase());
+        // Match category id in availableCategories
+        return restaurant.availableCategories.contains(selectedCategoryId);
       }).toList();
     }
     
@@ -87,7 +79,7 @@ class HomeLoaded extends HomeState {
     double? userLatitude,
     double? userLongitude,
     bool? vegOnly,
-    String? selectedCategory,
+    String? selectedCategoryId,
     String? selectedFoodTypeId,
     List<Map<String, dynamic>>? savedAddresses,
   }) {
@@ -99,8 +91,8 @@ class HomeLoaded extends HomeState {
       userLatitude: userLatitude ?? this.userLatitude,
       userLongitude: userLongitude ?? this.userLongitude,
       vegOnly: vegOnly ?? this.vegOnly,
-      selectedCategory: selectedCategory,
-      selectedFoodTypeId: selectedFoodTypeId,
+      selectedCategoryId: selectedCategoryId, // <-- fix: do not use ??
+      selectedFoodTypeId: selectedFoodTypeId ?? this.selectedFoodTypeId,
       savedAddresses: savedAddresses ?? this.savedAddresses,
     );
   }
@@ -114,7 +106,7 @@ class HomeLoaded extends HomeState {
     userLatitude,
     userLongitude,
     vegOnly,
-    selectedCategory,
+    selectedCategoryId,
     selectedFoodTypeId,
     savedAddresses,
   ];

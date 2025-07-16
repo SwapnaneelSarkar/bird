@@ -37,12 +37,12 @@ class UpdateUserAddress extends HomeEvent {
 }
 
 class FilterByCategory extends HomeEvent {
-  final String? categoryName; // null means show all categories
+  final String? categoryId; // null means show all categories
   
-  const FilterByCategory(this.categoryName);
+  const FilterByCategory(this.categoryId);
   
   @override
-  List<Object?> get props => [categoryName];
+  List<Object?> get props => [categoryId];
 }
 
 class FilterByFoodType extends HomeEvent {

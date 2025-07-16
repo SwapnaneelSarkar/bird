@@ -32,7 +32,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<ResetFilters>((event, emit) {
       final currentState = state;
       if (currentState is HomeLoaded) {
-        emit(currentState.copyWith(vegOnly: false, selectedCategory: null, selectedFoodTypeId: null));
+        emit(currentState.copyWith(vegOnly: false, selectedCategoryId: null, selectedFoodTypeId: null));
       }
     });
   }
@@ -283,13 +283,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   Future<void> _onFilterByCategory(FilterByCategory event, Emitter<HomeState> emit) async {
-    debugPrint('HomeBloc: FilterByCategory event received with categoryName: ${event.categoryName}');
+    debugPrint('HomeBloc: FilterByCategory event received with categoryId: ${event.categoryId}');
     final currentState = state;
     if (currentState is HomeLoaded) {
-      debugPrint('HomeBloc: Current selectedCategory: ${currentState.selectedCategory}');
-      debugPrint('HomeBloc: Setting new selectedCategory to: ${event.categoryName}');
-      emit(currentState.copyWith(selectedCategory: event.categoryName));
-      debugPrint('HomeBloc: State updated with new selectedCategory');
+      debugPrint('HomeBloc: Previous selectedCategoryId: ${currentState.selectedCategoryId}');
+      debugPrint('HomeBloc: New selectedCategoryId to set: ${event.categoryId}');
+      // Always emit a new state, even if the value is the same, to force UI update
+      emit(currentState.copyWith(selectedCategoryId: event.categoryId));
+      debugPrint('HomeBloc: State updated with new selectedCategoryId');
     } else {
       debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update category');
     }

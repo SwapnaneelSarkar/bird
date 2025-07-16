@@ -133,7 +133,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               // For HomeLoaded states, rebuild when important fields change
               if (previous is HomeLoaded && current is HomeLoaded) {
                 return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
-                       previous.selectedCategory != current.selectedCategory ||
+                       previous.selectedCategoryId != current.selectedCategoryId ||
                        previous.vegOnly != current.vegOnly ||
                        previous.restaurants.length != current.restaurants.length;
               }
@@ -141,13 +141,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               return true;
             },
             builder: (context, state) {
-              debugPrint('HomePage: BlocBuilder received state: ${state.runtimeType}');
+              debugPrint('HomePage: BlocBuilder received state: \\${state.runtimeType}');
               if (state is HomeLoaded) {
-                debugPrint('HomePage: BlocBuilder - selectedCategory: ${state.selectedCategory}');
-                debugPrint('HomePage: BlocBuilder - vegOnly: ${state.vegOnly}');
-                debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: ${state.selectedFoodTypeId}');
-                debugPrint('HomePage: BlocBuilder - restaurants count: ${state.restaurants.length}');
-                debugPrint('HomePage: BlocBuilder - filtered restaurants count: ${state.filteredRestaurants.length}');
+                debugPrint('HomePage: BlocBuilder - selectedCategoryId: \\${state.selectedCategoryId}');
+                debugPrint('HomePage: BlocBuilder - vegOnly: \\${state.vegOnly}');
+                debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: \\${state.selectedFoodTypeId}');
+                debugPrint('HomePage: BlocBuilder - restaurants count: \\${state.restaurants.length}');
+                debugPrint('HomePage: BlocBuilder - filtered restaurants count: \\${state.filteredRestaurants.length}');
               }
               
               if (state is HomeLoading) {
@@ -468,9 +468,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
   Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
-    debugPrint('HomePage: _buildCategoriesSection called with selectedCategory: \\${state.selectedCategory}');
-    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: \\${state.selectedCategory != null}');
-    // Sort categories by display_order before displaying
+    debugPrint('HomePage: _buildCategoriesSection called with selectedCategoryId: ${state.selectedCategoryId}');
+    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: ${state.selectedCategoryId != null}');
     final sortedCategories = List<Map<String, dynamic>>.from(state.categories)
       ..sort((a, b) => (a['display_order'] ?? 999).compareTo(b['display_order'] ?? 999));
     return Container(
@@ -501,7 +500,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (state.selectedCategory != null)
+                        if (state.selectedCategoryId != null)
                           Container(
                             margin: EdgeInsets.only(right: 4 * scale),
                             child: IconButton(
@@ -510,12 +509,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                               padding: EdgeInsets.zero,
                               constraints: BoxConstraints(),
                               onPressed: () {
-                                setState(() {
-                                  filterOptions = FilterOptions();
-                                });
+                                debugPrint('HomePage: Cross icon pressed to clear category filter');
                                 context.read<HomeBloc>().add(const FilterByCategory(null));
-                                context.read<HomeBloc>().add(const FilterByFoodType(null));
-                                context.read<HomeBloc>().add(const ToggleVegOnly(false));
                               },
                             ),
                           ),
@@ -542,7 +537,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               final double screenWidth = constraints.maxWidth;
               final int maxVisibleItems = (screenWidth / itemWidth).floor();
               final bool shouldScroll = sortedCategories.length > maxVisibleItems;
-              final categoryItems = _getCategoryItems(sortedCategories, state.selectedCategory, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
+              final categoryItems = _getCategoryItems(sortedCategories, state.selectedCategoryId, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
               if (shouldScroll) {
                 return SizedBox(
                   height: itemHeight,
@@ -567,7 +562,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
           ),
         ],
       ),
-        );
+    );
   }
 
     Widget _buildFoodTypeFiltersSection(BuildContext context, HomeLoaded state) {
@@ -632,8 +627,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
   
-  List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategory, {double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
-    debugPrint('HomePage: Building category items. Selected category: $selectedCategory');
+  List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategoryId, {double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
+    debugPrint('HomePage: Building category items. Selected categoryId: $selectedCategoryId');
     final Map<String, String> imageMap = {
       'pizza': 'assets/images/pizza.jpg',
       'burger': 'assets/images/burger.jpg',
@@ -642,33 +637,31 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       'drinks': 'assets/images/drinks.jpg',
     };
     return categories.map((category) {
-      String categoryName = category['name'].toString().toLowerCase();
+      String categoryId = category['id']?.toString() ?? '';
       String categoryDisplayName = category['name'].toString();
       String? imagePath;
-      bool isSelected = selectedCategory?.toLowerCase() == categoryName;
-      debugPrint('HomePage: Category $categoryDisplayName - isSelected: $isSelected');
+      bool isSelected = selectedCategoryId == categoryId;
+      debugPrint('HomePage: Category $categoryDisplayName (id: $categoryId) - isSelected: $isSelected');
       for (final entry in imageMap.entries) {
-        if (categoryName == entry.key || (categoryName.contains(entry.key) && entry.key.length > 3)) {
+        if (categoryId == entry.key || (categoryId.contains(entry.key) && entry.key.length > 3)) {
           imagePath = entry.value;
           break;
         }
       }
-      final iconAndColor = _getSmartCategoryIconAndColor(categoryName);
+      final iconAndColor = _getSmartCategoryIconAndColor(categoryDisplayName);
       final icon = iconAndColor['icon'] ?? category['icon'] ?? 'restaurant';
       final color = iconAndColor['color'] ?? category['color'] ?? 'orange';
       if (imagePath != null) {
         return _buildCategoryItem(categoryDisplayName, imagePath, color, isSelected: isSelected, onTap: () {
-          debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
-          final newCategory = isSelected ? null : categoryDisplayName;
-          debugPrint('HomePage: Setting new category to: $newCategory');
-          context.read<HomeBloc>().add(FilterByCategory(newCategory));
+          final newCategoryId = isSelected ? null : categoryId;
+          debugPrint('HomePage: Category tapped: $categoryDisplayName (id: $categoryId), currently selected: $isSelected, setting newCategoryId: $newCategoryId');
+          context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
         }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       } else {
         return _buildCategoryItemWithIcon(categoryDisplayName, _getIconData(icon), _getCategoryColor(color), isSelected: isSelected, onTap: () {
-          debugPrint('HomePage: Category tapped: $categoryDisplayName, currently selected: $isSelected');
-          final newCategory = isSelected ? null : categoryDisplayName;
-          debugPrint('HomePage: Setting new category to: $newCategory');
-          context.read<HomeBloc>().add(FilterByCategory(newCategory));
+          final newCategoryId = isSelected ? null : categoryId;
+          debugPrint('HomePage: Category tapped: $categoryDisplayName (id: $categoryId), currently selected: $isSelected, setting newCategoryId: $newCategoryId');
+          context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
         }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       }
     }).toList();

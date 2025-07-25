@@ -16,11 +16,13 @@ import 'state.dart';
 class SearchPage extends StatefulWidget {
   final double? userLatitude;
   final double? userLongitude;
+  final String? supercategoryId; // <-- Add this line
   
   const SearchPage({
     Key? key,
     this.userLatitude,
     this.userLongitude,
+    this.supercategoryId, // <-- Add this line
   }) : super(key: key);
   
   @override
@@ -586,7 +588,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'cuisine': categoryString,
         'category': categoryString,
         'rating': restaurant.rating,
-        'deliveryTime': '20-30 min', // Fixed: Show actual delivery time instead of distance
+        'deliveryTime': '20-30 min',
         'isVegetarian': false,
         'isVeg': false,
         'veg_nonveg': 'non-veg',
@@ -598,7 +600,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'open_timings': '',
         'owner_name': '',
         'restaurant_type': '',
-        'isAcceptingOrder': 1, // Default to accepting orders for search results
+        'isAcceptingOrder': 1,
+        'supercategory': restaurant.supercategory ?? '', // Use the new field
       };
     }).toList();
 
@@ -607,8 +610,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     for (final menuItem in state.menuItems) {
       final r = menuItem.restaurant;
       if (r.id.isEmpty) continue;
-      if (directRestaurants.any((dr) => dr['partner_id'] == r.id)) continue; // skip if already in direct
-      if (menuRestaurantsMap.containsKey(r.id)) continue; // skip duplicates
+      if (directRestaurants.any((dr) => dr['partner_id'] == r.id)) continue;
+      if (menuRestaurantsMap.containsKey(r.id)) continue;
       menuRestaurantsMap[r.id] = {
         'id': r.id,
         'partner_id': r.id,
@@ -620,7 +623,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'cuisine': r.cuisineType,
         'category': r.cuisineType,
         'rating': r.rating,
-        'deliveryTime': '20-30 min', // Fixed: Show actual delivery time instead of distance
+        'deliveryTime': '20-30 min',
         'isVegetarian': false,
         'isVeg': false,
         'veg_nonveg': 'non-veg',
@@ -632,16 +635,25 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'open_timings': '',
         'owner_name': '',
         'restaurant_type': '',
-        'isAcceptingOrder': 1, // Default to accepting orders for search results
+        'isAcceptingOrder': 1,
+        'supercategory': r.supercategory ?? '', // Use the new field
       };
     }
     final List<Map<String, dynamic>> menuRestaurants = menuRestaurantsMap.values.toList();
 
     // 3. Merge all unique restaurants
-    final List<Map<String, dynamic>> allRestaurants = [
+    List<Map<String, dynamic>> allRestaurants = [
       ...directRestaurants,
       ...menuRestaurants,
     ];
+
+    // --- FILTER BY SUPERCATEGORY IF PASSED ---
+    if (widget.supercategoryId != null && widget.supercategoryId!.isNotEmpty) {
+      allRestaurants = allRestaurants.where((restaurant) {
+        final supercat = restaurant['supercategory']?.toString() ?? '';
+        return supercat == widget.supercategoryId;
+      }).toList();
+    }
 
     if (allRestaurants.isEmpty) {
       return Center(

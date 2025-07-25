@@ -443,7 +443,7 @@ class _OrderConfirmationContent extends StatelessWidget {
               ),
             ),
             child: Text(
-              'Proceed to Pay  →',
+              'Place Order  →',
               style: TextStyle(
                 fontSize: screenWidth * 0.04,
                 fontWeight: FontWeightManager.semiBold,

@@ -155,7 +155,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         if (mounted) {
           Navigator.pushReplacementNamed(
             context,
-            Routes.home,
+            Routes.dashboard,
             arguments: {
               'userData': userData,
               'token': token,

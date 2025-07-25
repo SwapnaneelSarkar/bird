@@ -660,9 +660,17 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
   ) {
     final nameController = TextEditingController();
     bool makeDefault = false;
-    
-    // CRITICAL FIX: Capture the parent context that has access to AddressPickerBloc
     final parentContext = context;
+
+    // Use the saved addresses passed in as a prop for duplicate check
+    List<String> _getSavedNames() {
+      if (widget.savedAddresses != null) {
+        return widget.savedAddresses!
+          .map((a) => (a['address_line2'] ?? 'Other').toString().toLowerCase())
+          .toList();
+      }
+      return [];
+    }
 
     showDialog(
       context: context,
@@ -684,7 +692,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Give this address a name (optional)',
+                  'Give this address a name (required)',
                   style: TextStyle(
                     fontSize: 14,
                     color: ColorManager.black.withOpacity(0.6),
@@ -748,18 +756,34 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop();
-                final addressName = nameController.text.trim().isEmpty
-                    ? 'Other'
-                    : nameController.text.trim();
+                final enteredName = nameController.text.trim();
+                final lowerName = enteredName.toLowerCase();
+                final savedNames = _getSavedNames();
 
-                // CRITICAL FIX: Use parentContext instead of builderContext
-                // parentContext has access to the AddressPickerBloc provider
+                if (enteredName.isEmpty) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter an address name.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                if (savedNames.contains(lowerName)) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Name already exists.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(dialogContext).pop();
                 parentContext.read<AddressPickerBloc>().add(
                   SaveAddressEvent(
                     address: address,
                     subAddress: subAddress,
-                    addressName: addressName,
+                    addressName: enteredName,
                     latitude: latitude,
                     longitude: longitude,
                     fullAddress: fullAddress,

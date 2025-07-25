@@ -7,7 +7,7 @@ import '../service/order_history_service.dart';
 
 class CategoryRecommendationService {
   // Fetch categories with user recommendations
-  static Future<List<Map<String, dynamic>>> fetchRecommendedCategories() async {
+  static Future<List<Map<String, dynamic>>> fetchRecommendedCategories({String? supercategoryId}) async {
     try {
       debugPrint('CategoryRecommendationService: Fetching recommended categories...');
       
@@ -29,8 +29,12 @@ class CategoryRecommendationService {
         debugPrint('CategoryRecommendationService: Analyzed preferences: $categoryPreferences');
       }
 
-      // Fetch categories from API with user_id parameter
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/categories?user_id=$userId');
+      // Fetch categories from API with user_id and supercategory parameters
+      String urlStr = '${ApiConstants.baseUrl}/api/partner/categories?user_id=$userId';
+      if (supercategoryId != null && supercategoryId.isNotEmpty) {
+        urlStr += '&supercategory=$supercategoryId';
+      }
+      final url = Uri.parse(urlStr);
       
       debugPrint('CategoryRecommendationService: Fetching categories from: $url');
       

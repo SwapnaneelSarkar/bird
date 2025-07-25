@@ -58,6 +58,7 @@ class SearchRestaurant extends Equatable {
   final double longitude;
   final List<String> restaurantPhotos;
   final double distance;
+  final String? supercategory;
 
   const SearchRestaurant({
     required this.partnerId,
@@ -69,6 +70,7 @@ class SearchRestaurant extends Equatable {
     required this.longitude,
     required this.restaurantPhotos,
     required this.distance,
+    this.supercategory,
   });
 
   factory SearchRestaurant.fromJson(Map<String, dynamic> json) {
@@ -149,6 +151,7 @@ class SearchRestaurant extends Equatable {
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       restaurantPhotos: photos,
       distance: double.tryParse(json['distance'].toString()) ?? 0.0,
+      supercategory: json['supercategory']?.toString(),
     );
   }
 
@@ -163,6 +166,7 @@ class SearchRestaurant extends Equatable {
     longitude,
     restaurantPhotos,
     distance,
+    supercategory,
   ];
 }
 
@@ -236,6 +240,7 @@ class SearchRestaurantInfo extends Equatable {
   final double longitude;
   final List<String> restaurantPhotos;
   final double distance;
+  final String? supercategory;
 
   const SearchRestaurantInfo({
     required this.id,
@@ -247,6 +252,7 @@ class SearchRestaurantInfo extends Equatable {
     required this.longitude,
     required this.restaurantPhotos,
     required this.distance,
+    this.supercategory,
   });
 
   factory SearchRestaurantInfo.fromJson(Map<String, dynamic> json) {
@@ -316,6 +322,7 @@ class SearchRestaurantInfo extends Equatable {
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       restaurantPhotos: photos,
       distance: double.tryParse(json['distance'].toString()) ?? 0.0,
+      supercategory: json['supercategory']?.toString(),
     );
   }
 
@@ -330,5 +337,6 @@ class SearchRestaurantInfo extends Equatable {
     longitude,
     restaurantPhotos,
     distance,
+    supercategory,
   ];
 }

@@ -747,13 +747,33 @@ class _ChatViewState extends State<ChatView> {
                     fontFamily: FontFamily.Montserrat,
                   ),
                 ),
-                Text(
-                  'Tap to cancel order',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.028,
-                    fontWeight: FontWeightManager.medium,
-                    color: Colors.red.shade600,
-                    fontFamily: FontFamily.Montserrat,
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.04,
+                      vertical: screenHeight * 0.008,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    showCancelOrderBottomSheet(
+                      context: context,
+                      orderId: orderId,
+                      onCancel: _handleCancelOrder,
+                    );
+                  },
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.028,
+                      fontWeight: FontWeightManager.medium,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
                   ),
                 ),
               ],

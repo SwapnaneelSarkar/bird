@@ -28,6 +28,11 @@ double getResponsiveFontSize(BuildContext context, double baseSize) {
   return baseSize * 1.2; // Large tablets/desktop
 }
 
+// Add at the top of the file (after imports):
+bool isFoodSupercategory(String? id) {
+  return id == null || id == 'food' || id == '1' || id == '7acc47a2fa5a4eeb906a753b3'; // Add more ids if needed
+}
+
 // Main home page widget
 class HomePage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -37,10 +42,9 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => HomeBloc()..add(const LoadHomeData()),
-      child: _HomeContent(userData: userData, token: token),
-    );
+    // Do NOT create a new BlocProvider here!
+    // The router should provide the HomeBloc with the correct selectedSupercategoryId.
+    return _HomeContent(userData: userData, token: token);
   }
 }
 
@@ -78,6 +82,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   late AnimationController _animationController;
   FilterOptions filterOptions = FilterOptions();
   String? previousAddress;
+  String? get selectedSupercategoryId => context.read<HomeBloc>().selectedSupercategoryId;
   
   @override
   void initState() {
@@ -103,65 +108,101 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      body: SafeArea(
-        child: BlocListener<HomeBloc, HomeState>(
-          listener: (context, state) {
-            // Handle all address-related state changes
-            _handleAddressUpdates(context, state);
-            
-            // Handle address change notifications
-            if (state is HomeLoaded && state.userAddress != previousAddress) {
-              if (previousAddress != null && previousAddress != 'Add delivery address') {
-                _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
-              }
-              previousAddress = state.userAddress;
-              debugPrint('HomePage: Address changed to: ${state.userAddress}');
-              
-              // Initialize currency when coordinates are available
-              if (state.userLatitude != null && state.userLongitude != null) {
-                CurrencyUtils.getCurrencySymbol(state.userLatitude, state.userLongitude);
-              }
-            }
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushReplacementNamed(
+          context,
+          Routes.dashboard,
+          arguments: {
+            'userData': widget.userData,
+            'token': widget.token,
           },
-          child: BlocBuilder<HomeBloc, HomeState>(
-            buildWhen: (previous, current) {
-              // Always rebuild when state type changes
-              if (previous.runtimeType != current.runtimeType) return true;
-              
-              // For HomeLoaded states, rebuild when important fields change
-              if (previous is HomeLoaded && current is HomeLoaded) {
-                return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
-                       previous.selectedCategoryId != current.selectedCategoryId ||
-                       previous.vegOnly != current.vegOnly ||
-                       previous.restaurants.length != current.restaurants.length;
-              }
-              
-              return true;
-            },
-            builder: (context, state) {
-              debugPrint('HomePage: BlocBuilder received state: \\${state.runtimeType}');
-              if (state is HomeLoaded) {
-                debugPrint('HomePage: BlocBuilder - selectedCategoryId: \\${state.selectedCategoryId}');
-                debugPrint('HomePage: BlocBuilder - vegOnly: \\${state.vegOnly}');
-                debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: \\${state.selectedFoodTypeId}');
-                debugPrint('HomePage: BlocBuilder - restaurants count: \\${state.restaurants.length}');
-                debugPrint('HomePage: BlocBuilder - filtered restaurants count: \\${state.filteredRestaurants.length}');
-              }
-              
-              if (state is HomeLoading) {
-                return _buildLoadingIndicator();
-              } else if (state is HomeLoaded) {
-                return _buildHomeContent(context, state);
-              } else {
-                // If no HomeLoaded at all, show the full error state
-                return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
+        );
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FF),
+        body: SafeArea(
+          child: BlocListener<HomeBloc, HomeState>(
+            listener: (context, state) {
+              // Handle all address-related state changes
+              _handleAddressUpdates(context, state);
+              // Handle address change notifications
+              if (state is HomeLoaded && state.userAddress != previousAddress) {
+                if (previousAddress != null && previousAddress != 'Add delivery address') {
+                  _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
+                }
+                previousAddress = state.userAddress;
+                debugPrint('HomePage: Address changed to: \\${state.userAddress}');
+                // Initialize currency when coordinates are available
+                if (state.userLatitude != null && state.userLongitude != null) {
+                  CurrencyUtils.getCurrencySymbol(state.userLatitude, state.userLongitude);
+                }
               }
             },
+            child: BlocBuilder<HomeBloc, HomeState>(
+              buildWhen: (previous, current) {
+                // Always rebuild when state type changes
+                if (previous.runtimeType != current.runtimeType) return true;
+                // For HomeLoaded states, rebuild when important fields change
+                if (previous is HomeLoaded && current is HomeLoaded) {
+                  return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
+                         previous.selectedCategoryId != current.selectedCategoryId ||
+                         previous.vegOnly != current.vegOnly ||
+                         previous.restaurants.length != current.restaurants.length;
+                }
+                return true;
+              },
+              builder: (context, state) {
+                debugPrint('HomePage: BlocBuilder received state: \\${state.runtimeType}');
+                if (state is HomeLoaded) {
+                  debugPrint('HomePage: BlocBuilder - selectedCategoryId: \\${state.selectedCategoryId}');
+                  debugPrint('HomePage: BlocBuilder - vegOnly: \\${state.vegOnly}');
+                  debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: \\${state.selectedFoodTypeId}');
+                  debugPrint('HomePage: BlocBuilder - restaurants count: \\${state.restaurants.length}');
+                  debugPrint('HomePage: BlocBuilder - filtered restaurants count: \\${state.filteredRestaurants.length}');
+                }
+                if (state is HomeLoading) {
+                  return _buildLoadingWithTimeout(context);
+                } else if (state is HomeLoaded) {
+                  return _buildHomeContent(context, state);
+                } else {
+                  // If no HomeLoaded at all, show the full error state
+                  return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
+                }
+              },
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLoadingWithTimeout(BuildContext context) {
+    return FutureBuilder(
+      future: Future.delayed(const Duration(seconds: 10)),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text('Something went wrong. Please try again.', style: TextStyle(color: Colors.red, fontSize: 16)),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    context.read<HomeBloc>().add(const LoadHomeData());
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+        return _buildLoadingIndicator();
+      },
     );
   }
 
@@ -208,7 +249,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
   
   Widget _buildHomeContent(BuildContext context, HomeLoaded state, {bool isOutsideServiceArea = false}) {
-    debugPrint('UI: Showing home content with ${state.restaurants.length} restaurants');
+    debugPrint('UI: Showing home content with \\${state.restaurants.length} restaurants');
     return Stack(
       children: [
         // Background
@@ -239,7 +280,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             ).animate(controller: _animationController).fadeIn(duration: 400.ms, curve: Curves.easeOut),
 
             // Search Bar
-            _buildSearchBar(context, state)
+            _buildSearchBar(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
               .animate(controller: _animationController)
               .fadeIn(duration: 400.ms, delay: 100.ms, curve: Curves.easeOut)
               .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -258,13 +299,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Popular Categories
-                      _buildCategoriesSection(context, state)
+                      _buildCategoriesSection(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
                         .animate(controller: _animationController)
                         .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
                         .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
-                      // Food Type Filters
-                      if (state.foodTypes.isNotEmpty)
+                      // Food Type Filters (only for food supercategory)
+                      if (isFoodSupercategory(selectedSupercategoryId) && state.foodTypes.isNotEmpty)
                         _buildFoodTypeFiltersSection(context, state)
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 250.ms, curve: Curves.easeOut)
@@ -277,7 +318,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut)
                       else
-                        _buildRestaurantsSection(context, state)
+                        _buildRestaurantsSection(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -384,61 +425,52 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildSearchBar(BuildContext context, HomeLoaded state) {
+  Widget _buildSearchBar(BuildContext context, HomeLoaded state, {bool isStore = false}) {
     return Hero(
       tag: 'search_bar',
       child: Material(
         color: Colors.transparent,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isWide = constraints.maxWidth > 600;
-            final double horizontalPadding = isWide ? 40.0 : 20.0;
-            final double height = isWide ? 60.0 : 52.0;
-            
-            return Container(
-              margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16.0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                height: height,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4), spreadRadius: 2)],
-                  border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => _navigateToSearch(context, state),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: ColorManager.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(Icons.search, color: ColorManager.primary, size: isWide ? 22 : 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Search restaurants...',
-                            style: GoogleFonts.poppins(
-                              fontSize: getResponsiveFontSize(context, 14), 
-                              color: Colors.grey[400], 
-                              fontWeight: FontWeight.w400,
-                            ),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search, color: Colors.grey[500]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  readOnly: true,
+                  decoration: InputDecoration.collapsed(hintText: isStore ? 'Search stores...' : 'Search restaurants...'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BlocProvider(
+                          create: (_) => SearchBloc(),
+                          child: SearchPage(
+                            userLatitude: state.userLatitude,
+                            userLongitude: state.userLongitude,
+                            supercategoryId: selectedSupercategoryId,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -467,9 +499,9 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     }
   }
 
-  Widget _buildCategoriesSection(BuildContext context, HomeLoaded state) {
-    debugPrint('HomePage: _buildCategoriesSection called with selectedCategoryId: ${state.selectedCategoryId}');
-    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: ${state.selectedCategoryId != null}');
+  Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isStore = false}) {
+    debugPrint('HomePage: _buildCategoriesSection called with selectedCategoryId: \\${state.selectedCategoryId}');
+    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: \\${state.selectedCategoryId != null}');
     final sortedCategories = List<Map<String, dynamic>>.from(state.categories)
       ..sort((a, b) => (a['display_order'] ?? 999).compareTo(b['display_order'] ?? 999));
     return Container(
@@ -482,49 +514,44 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               final double maxWidth = constraints.maxWidth;
               // Scale factor: 1 for >=400, down to 0.7 for 280px
               final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 8 * scale),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Recommended for You',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16 * scale, fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isStore ? 'Popular Categories' : 'Popular Categories',
+                    style: GoogleFonts.poppins(
+                      fontSize: getResponsiveFontSize(context, 16 * scale),
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (state.selectedCategoryId != null)
-                          Container(
-                            margin: EdgeInsets.only(right: 4 * scale),
-                            child: IconButton(
-                              icon: Icon(Icons.close, color: Colors.grey[600], size: 20 * scale),
-                              tooltip: 'Clear category filter',
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(),
-                              onPressed: () {
-                                debugPrint('HomePage: Cross icon pressed to clear category filter');
-                                context.read<HomeBloc>().add(const FilterByCategory(null));
-                              },
-                            ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (state.selectedCategoryId != null)
+                        Container(
+                          margin: EdgeInsets.only(right: 4 * scale),
+                          child: IconButton(
+                            icon: Icon(Icons.close, color: Colors.grey[600], size: 20 * scale),
+                            tooltip: 'Clear category filter',
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                            onPressed: () {
+                              debugPrint('HomePage: Cross icon pressed to clear category filter');
+                              context.read<HomeBloc>().add(const FilterByCategory(null));
+                            },
                           ),
-                        IconButton(
-                          icon: Icon(Icons.tune, color: ColorManager.primary, size: 22 * scale),
-                          tooltip: 'Filter',
-                          padding: EdgeInsets.zero,
-                          constraints: BoxConstraints(),
-                          onPressed: () => _showFuturisticFilterDialog(context),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      IconButton(
+                        icon: Icon(Icons.tune, color: ColorManager.primary, size: 22 * scale),
+                        tooltip: 'Filter',
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                        onPressed: () => _showFuturisticFilterDialog(context),
+                      ),
+                    ],
+                  ),
+                ],
               );
             },
           ),
@@ -566,7 +593,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
 
     Widget _buildFoodTypeFiltersSection(BuildContext context, HomeLoaded state) {
-    debugPrint('HomePage: _buildFoodTypeFiltersSection called with selectedFoodTypeId: ${state.selectedFoodTypeId}');
+    debugPrint('HomePage: _buildFoodTypeFiltersSection called with selectedFoodTypeId: \\${state.selectedFoodTypeId}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -592,7 +619,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   ),
                   SizedBox(width: 10 * scale),
                   Text(
-                    'Food Types',
+                    'Food Types', // Only shown for food supercategory
                     style: GoogleFonts.poppins(
                       fontSize: getResponsiveFontSize(context, 14 * scale), 
                       fontWeight: FontWeight.w600, 
@@ -642,16 +669,21 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       String? imagePath;
       bool isSelected = selectedCategoryId == categoryId;
       debugPrint('HomePage: Category $categoryDisplayName (id: $categoryId) - isSelected: $isSelected');
-      for (final entry in imageMap.entries) {
-        if (categoryId == entry.key || (categoryId.contains(entry.key) && entry.key.length > 3)) {
-          imagePath = entry.value;
-          break;
+      // Use API image if available
+      if (category['image'] != null && (category['image'] as String).isNotEmpty) {
+        imagePath = category['image'];
+      } else {
+        for (final entry in imageMap.entries) {
+          if (categoryId == entry.key || (categoryId.contains(entry.key) && entry.key.length > 3)) {
+            imagePath = entry.value;
+            break;
+          }
         }
       }
       final iconAndColor = _getSmartCategoryIconAndColor(categoryDisplayName);
       final icon = iconAndColor['icon'] ?? category['icon'] ?? 'restaurant';
       final color = iconAndColor['color'] ?? category['color'] ?? 'orange';
-      if (imagePath != null) {
+      if (imagePath != null && imagePath.isNotEmpty) {
         return _buildCategoryItem(categoryDisplayName, imagePath, color, isSelected: isSelected, onTap: () {
           final newCategoryId = isSelected ? null : categoryId;
           debugPrint('HomePage: Category tapped: $categoryDisplayName (id: $categoryId), currently selected: $isSelected, setting newCategoryId: $newCategoryId');
@@ -959,9 +991,9 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildRestaurantsSection(BuildContext context, HomeLoaded state) {
-    debugPrint('UI: Building restaurants section with ${state.restaurants.length} restaurants');
-    debugPrint('UI: Current filter options - vegOnly: ${filterOptions.vegOnly}, priceLowToHigh: ${filterOptions.priceLowToHigh}, priceHighToLow: ${filterOptions.priceHighToLow}, ratingHighToLow: ${filterOptions.ratingHighToLow}, ratingLowToHigh: ${filterOptions.ratingLowToHigh}, timeSort: ${filterOptions.timeSort}');
+  Widget _buildRestaurantsSection(BuildContext context, HomeLoaded state, {bool isStore = false}) {
+    debugPrint('UI: Building restaurants section with \\${state.restaurants.length} restaurants');
+    debugPrint('UI: Current filter options - vegOnly: \\${filterOptions.vegOnly}, priceLowToHigh: \\${filterOptions.priceLowToHigh}, priceHighToLow: \\${filterOptions.priceHighToLow}, ratingHighToLow: \\${filterOptions.ratingHighToLow}, ratingLowToHigh: \\${filterOptions.ratingLowToHigh}, timeSort: \\${filterOptions.timeSort}');
     
     // Get filtered restaurants using the state's helper method
     var filteredRestaurants = state.filteredRestaurants;
@@ -970,7 +1002,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     debugPrint('=== ORIGINAL RESTAURANT DATA ===');
     for (int i = 0; i < filteredRestaurants.length; i++) {
       final restaurant = filteredRestaurants[i];
-      debugPrint('Restaurant $i: ${restaurant.name} - Rating: ${restaurant.rating} (${restaurant.rating.runtimeType}), Type: ${restaurant.restaurantType}, Veg: ${restaurant.isVeg}');
+      debugPrint('Restaurant $i: \\${restaurant.name} - Rating: \\${restaurant.rating} (\\${restaurant.rating.runtimeType}), Type: \\${restaurant.restaurantType}, Veg: \\${restaurant.isVeg}');
     }
     
     // Apply additional filters from FilterOptions
@@ -1101,88 +1133,55 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     final isOutsideServiceableArea = state.userAddress != 'Add delivery address' && 
                                    filteredRestaurants.isEmpty;
     
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text(
-                  'All Restaurants',
-                  style: GoogleFonts.poppins(
-                    fontSize: getResponsiveFontSize(context, 18), fontWeight: FontWeight.bold, color: Colors.grey[800], letterSpacing: 0.2,
-                  ),
+    String title = isStore ? 'All Stores' : 'All Restaurants';
+    if (isOutsideServiceableArea) {
+      title = isStore ? 'Outside Store Service Area' : 'Outside Service Area';
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: getResponsiveFontSize(context, 16),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: ColorManager.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${filteredRestaurants.length}',
-                    style: GoogleFonts.poppins(
-                      fontSize: getResponsiveFontSize(context, 12), fontWeight: FontWeight.w600, color: ColorManager.primary,
-                    ),
-                  ),
+              ),
+              Text(
+                '\\${filteredRestaurants.length}',
+                style: GoogleFonts.poppins(
+                  fontSize: getResponsiveFontSize(context, 14),
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[600],
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+        // Restaurant List or Error/Empty State
+        if (filteredRestaurants.isEmpty)
+          _buildEmptyRestaurantsList(isStore: isStore)
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredRestaurants.length,
+            itemBuilder: (context, index) => _buildRestaurantItem(
+              context, filteredRestaurants[index], state, index, isStore: isStore
             ),
           ),
-          const SizedBox(height: 16),
-          // Restaurant List or Error/Empty State
-          if (isOutsideServiceableArea)
-            _buildOutsideServiceableArea(context)
-          else if (filteredRestaurants.isEmpty)
-            _buildEmptyRestaurantsList()
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Calculate number of columns based on width
-                  final double screenWidth = constraints.maxWidth;
-                  final int columns = (screenWidth / 400).floor().clamp(1, 2);
-                  final bool useGrid = columns > 1;
-                  
-                  if (useGrid) {
-                    return GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        childAspectRatio: 1.6,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                      ),
-                      itemCount: filteredRestaurants.length,
-                      itemBuilder: (context, index) => _buildRestaurantItem(
-                        context, filteredRestaurants[index], state, index
-                      ),
-                    );
-                  } else {
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: filteredRestaurants.length,
-                      itemBuilder: (context, index) => _buildRestaurantItem(
-                        context, filteredRestaurants[index], state, index
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded state, int index) {
+  Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded state, int index, {bool isStore = false}) {
     final sanitizedName = _sanitizeRestaurantName(restaurant.name);
     
     return Hero(
@@ -1281,76 +1280,19 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildEmptyRestaurantsList() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset(
-            'assets/images/duckling.jpg',
-            width: 200,
-            height: 200,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Oops!',
-            style: GoogleFonts.poppins(
-              fontSize: getResponsiveFontSize(context, 32),
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Hello! We\'re not flying to this area yet.',
-            style: GoogleFonts.poppins(
-              fontSize: getResponsiveFontSize(context, 18),
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try changing your location.',
-            style: GoogleFonts.poppins(
-              fontSize: getResponsiveFontSize(context, 18),
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () {
-              final state = context.read<HomeBloc>().state;
-              if (state is HomeLoaded) {
-                _showAddressPicker(context, state);
-              }
-            },
-            icon: const Icon(Icons.place, color: Colors.white),
-            label: Text(
-              'Change Location',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                fontSize: getResponsiveFontSize(context, 16),
-                color: Colors.white,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFCF7C42),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              minimumSize: const Size(double.infinity, 54),
-            ),
-          ),
-        ],
+  Widget _buildEmptyRestaurantsList({bool isStore = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.store_mall_directory, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(isStore ? 'No stores found' : 'No restaurants found', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+            const SizedBox(height: 8),
+            Text(isStore ? 'Try changing your filters or location.' : 'Try changing your filters or location.', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+          ],
+        ),
       ),
     );
   }
@@ -1550,11 +1492,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                         ),
                         // Tab Bar for different filter categories
                         TabBar(
-                          tabs: const [
-                            Tab(icon: Icon(Icons.attach_money), text: 'Price'),
-                            Tab(icon: Icon(Icons.timer), text: 'Time'),
-                            Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
-                            Tab(icon: Icon(Icons.star), text: 'Rating'),
+                          tabs: [
+                            const Tab(icon: Icon(Icons.attach_money), text: 'Price'),
+                            const Tab(icon: Icon(Icons.timer), text: 'Time'),
+                            if (isFoodSupercategory(selectedSupercategoryId))
+                              const Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
+                            const Tab(icon: Icon(Icons.star), text: 'Rating'),
                           ],
                           indicatorColor: ColorManager.primary,
                           labelColor: ColorManager.primary,
@@ -1569,7 +1512,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                             children: [
                               _buildPriceFilterTab(tempFilters, setStateDialog),
                               _buildTimeFilterTab(tempFilters, setStateDialog),
-                              _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
+                              if (isFoodSupercategory(selectedSupercategoryId))
+                                _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
                               _buildRatingFilterTab(tempFilters, setStateDialog),
                             ],
                           ),

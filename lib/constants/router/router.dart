@@ -2,6 +2,10 @@
 import 'package:bird/presentation/DeliveryAddressPage/view.dart';
 import 'package:bird/presentation/chat/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
+import 'package:bird/presentation/dashboard/bloc.dart';
+import 'package:bird/presentation/dashboard/view.dart';
+import 'package:bird/presentation/home%20page/bloc.dart';
+import 'package:bird/presentation/home%20page/event.dart';
 import 'package:bird/presentation/order_confirmation/view.dart';
 import 'package:bird/presentation/order_history/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
@@ -10,6 +14,7 @@ import 'package:bird/presentation/restaurant_menu/view.dart';
 import 'package:bird/presentation/restaurant_profile/view.dart';
 import 'package:bird/presentation/settings%20page/view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../presentation/home page/view.dart';
 import '../../presentation/loginPage/view.dart';
@@ -29,6 +34,7 @@ class Routes {
   static const String orderConfirmation = '/orderConfirmation';
   static const String chat = '/chat';
   static const String orderHistory = '/orderHistory';
+  static const String dashboard = '/dashboard';
 
   static const String blank = '/blank';
 }
@@ -42,17 +48,51 @@ class RouteGenerator {
       case Routes.login:
         return MaterialPageRoute(builder: (_) => LoginPage());
 
-      case Routes.home:
+            case Routes.dashboard:
         if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
           final args = routeSettings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (_) => HomePage(
+            builder: (_) => CategoryHomepage(
               userData: args['userData'] as Map<String, dynamic>?,
               token: args['token'] as String?,
             ),
           );
         }
-        return MaterialPageRoute(builder: (_) => const HomePage());
+        return MaterialPageRoute(builder: (_) => const CategoryHomepage());
+
+      case Routes.home:
+  if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {
+    final args = routeSettings.arguments as Map<String, dynamic>;
+    debugPrint('Router: Home route called with arguments: $args');
+    
+    // Fix: Properly extract the selectedSupercategoryId
+    final selectedSupercategoryId = args['selectedSupercategoryId'] as String?;
+    debugPrint('Router: selectedSupercategoryId: $selectedSupercategoryId');
+    
+    return MaterialPageRoute(
+      builder: (_) => BlocProvider(
+        create: (_) {
+          debugPrint('Router: Creating HomeBloc with selectedSupercategoryId: $selectedSupercategoryId');
+          return HomeBloc(
+            selectedSupercategoryId: selectedSupercategoryId, // Pass directly without toString()
+          )..add(const LoadHomeData());
+        },
+        child: HomePage(
+          userData: args['userData'] as Map<String, dynamic>?,
+          token: args['token'] as String?,
+        ),
+      ),
+    );
+  }
+  debugPrint('Router: Home route called without arguments');
+  return MaterialPageRoute(
+    builder: (_) => BlocProvider(
+      create: (_) => HomeBloc()..add(const LoadHomeData()),
+      child: const HomePage(),
+    ),
+  );
+
+
 
       case Routes.profileComplete:
         if (routeSettings.arguments != null && routeSettings.arguments is Map<String, dynamic>) {

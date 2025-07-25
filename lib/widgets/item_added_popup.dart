@@ -231,29 +231,31 @@ class ItemAddedPopup extends StatelessWidget {
               child: Row(
                 children: [
                   // Continue Shopping button
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onContinueShopping?.call();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: Colors.grey[300]!),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Continue Shopping',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ),
-                  ),
+                 Expanded(
+  child: OutlinedButton(
+    onPressed: () {
+      Navigator.of(context).pop();
+      onContinueShopping?.call();
+    },
+    style: OutlinedButton.styleFrom(
+      backgroundColor: Colors.green, // 🔶 Background color added
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      side: BorderSide(color: Colors.transparent), // Remove border
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+    child: Text(
+      'Continue Shopping',
+      style: GoogleFonts.poppins(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Colors.white, // Text color should contrast background
+      ),
+    ),
+  ),
+),
+
                   
                   const SizedBox(width: 12),
                   

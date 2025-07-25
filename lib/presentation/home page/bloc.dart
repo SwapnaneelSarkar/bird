@@ -1,4 +1,4 @@
-// lib/presentation/home page/bloc.dart - FIXED VERSION FOR CURRENT STRUCTURE
+// lib/presentation/home page/bloc.dart - REWRITTEN WITH SUPERCATEGORY FILTER
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -20,7 +20,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final ProfileApiService _profileApiService = ProfileApiService();
   final UpdateUserService _updateUserService = UpdateUserService();
   
-  HomeBloc() : super(HomeInitial()) {
+  // Store the selected supercategory ID for filtering
+  String? _selectedSupercategoryId;
+  
+  // Add a public getter for selectedSupercategoryId
+  String? get selectedSupercategoryId => _selectedSupercategoryId;
+  
+  HomeBloc({String? selectedSupercategoryId}) : super(HomeInitial()) {
+    _selectedSupercategoryId = selectedSupercategoryId;
+    debugPrint('HomeBloc: Constructor called with selectedSupercategoryId: $_selectedSupercategoryId');
+    
     on<LoadHomeData>(_onLoadHomeData);
     on<ToggleVegOnly>(_onToggleVegOnly);
     on<UpdateUserAddress>(_onUpdateUserAddress);
@@ -45,6 +54,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final token = await TokenService.getToken();
       
       debugPrint('HomeBloc: Loading home data with token: ${token != null ? 'Found' : 'Not found'}');
+      debugPrint('HomeBloc: Selected supercategory ID: $_selectedSupercategoryId');
       
       String userAddress = 'Add delivery address';
       double? latitude;
@@ -52,7 +62,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       List<Map<String, dynamic>> savedAddresses = [];
       
       if (userId != null && token != null) {
-        // PRIORITY 1: Fetch user profile data from API first
+        // Fetch user profile data from API first
         debugPrint('HomeBloc: Fetching user profile from API...');
         final profileResult = await _profileApiService.getUserProfile(
           token: token,
@@ -76,7 +86,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           }
         }
         
-        // PRIORITY 2: Load saved addresses for the address picker
+        // Load saved addresses for the address picker
         debugPrint('HomeBloc: Loading saved addresses...');
         final addressResult = await AddressService.getAllAddresses();
         if (addressResult['success'] == true && addressResult['data'] != null) {
@@ -84,7 +94,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           debugPrint('HomeBloc: Loaded ${savedAddresses.length} saved addresses');
         }
         
-        // PRIORITY 3: If no profile address, fallback to saved addresses
+        // If no profile address, fallback to saved addresses
         if (userAddress == 'Add delivery address' && savedAddresses.isNotEmpty) {
           debugPrint('HomeBloc: No profile address, using saved address as fallback');
           final firstAddress = savedAddresses.first;
@@ -103,14 +113,43 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final foodTypesFuture = FoodTypeService.fetchFoodTypes();
       
       final results = await Future.wait([restaurantsFuture, categoriesFuture, foodTypesFuture]);
-      final restaurants = results[0] as List<Restaurant>;
+      final allRestaurants = results[0] as List<Restaurant>;
       final categories = results[1] as List<Map<String, dynamic>>;
       final foodTypes = results[2] as List<Map<String, dynamic>>;
       
-      debugPrint('HomeBloc: Fetched ${restaurants.length} restaurants, ${categories.length} categories, and ${foodTypes.length} food types');
+      // FILTER RESTAURANTS BY SUPERCATEGORY IF SELECTED
+      List<Restaurant> filteredRestaurants = allRestaurants;
+      if (_selectedSupercategoryId != null && _selectedSupercategoryId!.isNotEmpty) {
+        debugPrint('HomeBloc: Starting supercategory filtering with ID: $_selectedSupercategoryId');
+        
+        filteredRestaurants = allRestaurants.where((restaurant) {
+          final restaurantSupercategory = restaurant.supercategory?.toString() ?? '';
+          debugPrint('HomeBloc: Restaurant ${restaurant.name} supercategory: "$restaurantSupercategory", filtering by: "$_selectedSupercategoryId"');
+          final matches = restaurantSupercategory == _selectedSupercategoryId;
+          debugPrint('HomeBloc: Restaurant ${restaurant.name} matches filter: $matches');
+          return matches;
+        }).toList();
+        
+        debugPrint('HomeBloc: Filtered ${allRestaurants.length} restaurants down to ${filteredRestaurants.length} for supercategory $_selectedSupercategoryId');
+        
+        // Log all restaurant supercategories for debugging
+        debugPrint('HomeBloc: All restaurant supercategories:');
+        for (var restaurant in allRestaurants) {
+          debugPrint('  - ${restaurant.name}: ${restaurant.supercategory}');
+        }
+        
+        if (filteredRestaurants.isEmpty) {
+          debugPrint('HomeBloc: No restaurants found for supercategory $_selectedSupercategoryId');
+        }
+      } else {
+        debugPrint('HomeBloc: No supercategory filter applied, showing all ${allRestaurants.length} restaurants');
+      }
+      
+      debugPrint('HomeBloc: Fetched ${allRestaurants.length} total restaurants, showing ${filteredRestaurants.length} after supercategory filter');
+      debugPrint('HomeBloc: Fetched ${categories.length} categories, and ${foodTypes.length} food types');
       
       emit(HomeLoaded(
-        restaurants: restaurants,
+        restaurants: filteredRestaurants,
         categories: categories,
         foodTypes: foodTypes,
         userAddress: userAddress,
@@ -166,14 +205,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         debugPrint('HomeBloc: Address updated successfully in profile');
         
         // Fetch updated restaurants based on new location
-        final restaurants = await _fetchRestaurants(event.latitude, event.longitude);
+        final allRestaurants = await _fetchRestaurants(event.latitude, event.longitude);
+        
+        // Apply supercategory filter if set
+        List<Restaurant> filteredRestaurants = allRestaurants;
+        if (_selectedSupercategoryId != null && _selectedSupercategoryId!.isNotEmpty) {
+          filteredRestaurants = allRestaurants.where((restaurant) {
+            final restaurantSupercategory = restaurant.supercategory?.toString() ?? '';
+            return restaurantSupercategory == _selectedSupercategoryId;
+          }).toList();
+          debugPrint('HomeBloc: Re-filtered restaurants after address update: ${filteredRestaurants.length}');
+        }
         
         // Update state with new address and restaurants
         emit(currentState.copyWith(
           userAddress: event.address,
           userLatitude: event.latitude,
           userLongitude: event.longitude,
-          restaurants: restaurants,
+          restaurants: filteredRestaurants,
           savedAddresses: savedAddresses,
         ));
         
@@ -288,7 +337,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (currentState is HomeLoaded) {
       debugPrint('HomeBloc: Previous selectedCategoryId: ${currentState.selectedCategoryId}');
       debugPrint('HomeBloc: New selectedCategoryId to set: ${event.categoryId}');
-      // Always emit a new state, even if the value is the same, to force UI update
       emit(currentState.copyWith(selectedCategoryId: event.categoryId));
       debugPrint('HomeBloc: State updated with new selectedCategoryId');
     } else {
@@ -309,7 +357,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  // CRITICAL FIX: Try multiple restaurant endpoints
   Future<List<Restaurant>> _fetchRestaurants(double latitude, double longitude) async {
     try {
       debugPrint('HomeBloc: Fetching restaurants with coordinates - Lat: $latitude, Long: $longitude');
@@ -320,88 +367,73 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return [];
       }
 
-      // Try multiple possible endpoints
-      final endpoints = [
-        '/api/restaurants?latitude=$latitude&longitude=$longitude',
-        '/api/partner/restaurants?latitude=$latitude&longitude=$longitude',
-        '/api/restaurant/list?latitude=$latitude&longitude=$longitude',
-      ];
+      // Use the specific endpoint with radius parameter
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurants?latitude=$latitude&longitude=$longitude&radius=30');
+      debugPrint('HomeBloc: Trying restaurant endpoint: $url');
       
-      for (String endpoint in endpoints) {
-        final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-        debugPrint('HomeBloc: Trying restaurant endpoint: $url');
-        
-        try {
-          final response = await http.get(
-            url,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          );
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
-          debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
+      debugPrint('HomeBloc: Restaurant API response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
+        final data = json.decode(response.body);
+        
+        if (data['status'] == true || data['status'] == 'SUCCESS') {
+          final dynamic restaurantsData = data['data'];
           
-          if (response.statusCode == 200) {
-            debugPrint('HomeBloc: Restaurant API response body: ${response.body}');
-            final data = json.decode(response.body);
-            
-            // Check for both possible response structures
-            if (data['status'] == true || data['status'] == 'SUCCESS') {
-              final dynamic restaurantsData = data['data'];
-              
-              // Handle different data structures
-              List<dynamic> restaurantsList = [];
-              if (restaurantsData == null) {
-                debugPrint('HomeBloc: No restaurant data in response');
-                continue; // Try next endpoint
-              } else if (restaurantsData is List) {
-                restaurantsList = restaurantsData;
-              } else if (restaurantsData is Map && restaurantsData['restaurants'] != null) {
-                restaurantsList = restaurantsData['restaurants'] as List;
-              } else {
-                debugPrint('HomeBloc: Unexpected data structure: ${restaurantsData.runtimeType}');
-                continue; // Try next endpoint
-              }
-              
-              debugPrint('HomeBloc: Successfully parsed ${restaurantsList.length} restaurants from $endpoint');
-              
-              if (restaurantsList.isEmpty) {
-                debugPrint('HomeBloc: No restaurants found in response data, trying next endpoint');
-                continue;
-              }
-              
-              // Parse restaurants with error handling
-              final List<Restaurant> restaurants = [];
-              for (var restaurantJson in restaurantsList) {
-                try {
-                  final restaurant = Restaurant.fromJson(restaurantJson as Map<String, dynamic>);
-                  restaurants.add(restaurant);
-                } catch (e) {
-                  debugPrint('HomeBloc: Error parsing individual restaurant: $e');
-                  debugPrint('HomeBloc: Restaurant data: $restaurantJson');
-                  // Continue with other restaurants instead of failing completely
-                }
-              }
-              
-              if (restaurants.isNotEmpty) {
-                debugPrint('HomeBloc: Successfully parsed ${restaurants.length} restaurants');
-                return restaurants;
-              }
-            } else {
-              debugPrint('HomeBloc: API returned error status: ${data['status']}');
-              debugPrint('HomeBloc: Error message: ${data['message']}');
-            }
+          List<dynamic> restaurantsList = [];
+          if (restaurantsData == null) {
+            debugPrint('HomeBloc: No restaurant data in response');
+            return [];
+          } else if (restaurantsData is List) {
+            restaurantsList = restaurantsData;
+          } else if (restaurantsData is Map && restaurantsData['restaurants'] != null) {
+            restaurantsList = restaurantsData['restaurants'] as List;
           } else {
-            debugPrint('HomeBloc: HTTP error ${response.statusCode} for endpoint $endpoint');
+            debugPrint('HomeBloc: Unexpected data structure: ${restaurantsData.runtimeType}');
+            return [];
           }
-        } catch (e) {
-          debugPrint('HomeBloc: Error with endpoint $endpoint: $e');
-          continue; // Try next endpoint
+          
+          debugPrint('HomeBloc: Successfully parsed ${restaurantsList.length} restaurants from endpoint');
+          
+          if (restaurantsList.isEmpty) {
+            debugPrint('HomeBloc: No restaurants found in response data');
+            return [];
+          }
+          
+          // Parse restaurants with error handling
+          final List<Restaurant> restaurants = [];
+          for (var restaurantJson in restaurantsList) {
+            try {
+              final restaurant = Restaurant.fromJson(restaurantJson as Map<String, dynamic>);
+              restaurants.add(restaurant);
+              debugPrint('HomeBloc: Parsed restaurant ${restaurant.name} with supercategory: ${restaurant.supercategory}');
+            } catch (e) {
+              debugPrint('HomeBloc: Error parsing individual restaurant: $e');
+              debugPrint('HomeBloc: Restaurant data: $restaurantJson');
+            }
+          }
+          
+          if (restaurants.isNotEmpty) {
+            debugPrint('HomeBloc: Successfully parsed ${restaurants.length} restaurants');
+            return restaurants;
+          }
+        } else {
+          debugPrint('HomeBloc: API returned error status: ${data['status']}');
+          debugPrint('HomeBloc: Error message: ${data['message']}');
         }
+      } else {
+        debugPrint('HomeBloc: HTTP error ${response.statusCode}');
       }
       
-      debugPrint('HomeBloc: All restaurant endpoints failed or returned no data');
+      debugPrint('HomeBloc: Restaurant endpoint failed or returned no data');
       return [];
     } catch (e) {
       debugPrint('HomeBloc: Error fetching restaurants: $e');
@@ -416,62 +448,48 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final token = await TokenService.getToken();
       if (token == null) return [];
 
-      // Try multiple possible endpoints without location
-      final endpoints = [
-        '/api/restaurants',
-        '/api/partner/restaurants',
-        '/api/partner/all-restaurants',
-      ];
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurants');
+      debugPrint('HomeBloc: Trying no-location endpoint: $url');
       
-      for (String endpoint in endpoints) {
-        final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-        debugPrint('HomeBloc: Trying no-location endpoint: $url');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      debugPrint('HomeBloc: No-location endpoint response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
         
-        try {
-          final response = await http.get(
-            url,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          );
-
-          debugPrint('HomeBloc: No-location endpoint response status: ${response.statusCode}');
-
-          if (response.statusCode == 200) {
-            final data = json.decode(response.body);
-            
-            if (data['status'] == true || data['status'] == 'SUCCESS') {
-              final dynamic restaurantsData = data['data'];
-              
-              List<dynamic> restaurantsList = [];
-              if (restaurantsData is List) {
-                restaurantsList = restaurantsData;
-              } else if (restaurantsData is Map && restaurantsData['restaurants'] != null) {
-                restaurantsList = restaurantsData['restaurants'] as List;
-              }
-              
-              if (restaurantsList.isNotEmpty) {
-                final List<Restaurant> restaurants = [];
-                for (var restaurantJson in restaurantsList) {
-                  try {
-                    final restaurant = Restaurant.fromJson(restaurantJson as Map<String, dynamic>);
-                    restaurants.add(restaurant);
-                  } catch (e) {
-                    debugPrint('HomeBloc: Error parsing restaurant without location: $e');
-                  }
-                }
-                
-                if (restaurants.isNotEmpty) {
-                  debugPrint('HomeBloc: Successfully fetched ${restaurants.length} restaurants without location');
-                  return restaurants;
-                }
+        if (data['status'] == true || data['status'] == 'SUCCESS') {
+          final dynamic restaurantsData = data['data'];
+          
+          List<dynamic> restaurantsList = [];
+          if (restaurantsData is List) {
+            restaurantsList = restaurantsData;
+          } else if (restaurantsData is Map && restaurantsData['restaurants'] != null) {
+            restaurantsList = restaurantsData['restaurants'] as List;
+          }
+          
+          if (restaurantsList.isNotEmpty) {
+            final List<Restaurant> restaurants = [];
+            for (var restaurantJson in restaurantsList) {
+              try {
+                final restaurant = Restaurant.fromJson(restaurantJson as Map<String, dynamic>);
+                restaurants.add(restaurant);
+              } catch (e) {
+                debugPrint('HomeBloc: Error parsing restaurant without location: $e');
               }
             }
+            
+            if (restaurants.isNotEmpty) {
+              debugPrint('HomeBloc: Successfully fetched ${restaurants.length} restaurants without location');
+              return restaurants;
+            }
           }
-        } catch (e) {
-          debugPrint('HomeBloc: Error with no-location endpoint $endpoint: $e');
-          continue;
         }
       }
       
@@ -486,8 +504,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       debugPrint('HomeBloc: Fetching recommended categories...');
       
-      // Use the new recommendation service
-      final categories = await CategoryRecommendationService.fetchRecommendedCategories();
+      final categories = await CategoryRecommendationService.fetchRecommendedCategories(supercategoryId: _selectedSupercategoryId);
       
       debugPrint('HomeBloc: Fetched ${categories.length} recommended categories');
       return categories;
@@ -498,7 +515,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  // Static categories as fallback
   List<Map<String, dynamic>> _getStaticCategories() {
     debugPrint('HomeBloc: Using static categories as fallback');
     return [

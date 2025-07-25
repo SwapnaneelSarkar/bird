@@ -200,30 +200,29 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _navigateBasedOnLogin(OtpVerificationSuccessState state) {
-    debugPrint('OTP Verification Successful - Is Login: ${state.isLogin}');
+    debugPrint('OTP Verification Successful - Is Login:  [33m${state.isLogin} [0m');
     
     if (state.isLogin) {
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    Routes.home,
-    (route) => false, // removes all previous routes
-    arguments: {
-      'userData': state.userData,
-      'token': state.token,
-    },
-  );
-} else {
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    Routes.profileComplete,
-    (route) => false,
-    arguments: {
-      'userData': state.userData,
-      'token': state.token,
-    },
-  );
-}
-
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.dashboard, // Changed from Routes.home
+        (route) => false, // removes all previous routes
+        arguments: {
+          'userData': state.userData,
+          'token': state.token,
+        },
+      );
+    } else {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.profileComplete,
+        (route) => false,
+        arguments: {
+          'userData': state.userData,
+          'token': state.token,
+        },
+      );
+    }
   }
 
   void _handleOtpResent() {

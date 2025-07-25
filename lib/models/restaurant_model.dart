@@ -1,4 +1,4 @@
-// lib/models/restaurant_model.dart - UPDATED VERSION WITH BETTER ERROR HANDLING
+// lib/models/restaurant_model.dart - UPDATED WITH SUPERCATEGORY FIELD
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../utils/timezone_utils.dart';
@@ -23,6 +23,7 @@ class Restaurant {
   final List<String> availableCategories;
   final int? isAcceptingOrder;
   final Map<String, dynamic>? restaurantFoodType;
+  final String? supercategory; // ADD SUPERCATEGORY FIELD
 
   Restaurant({
     required this.id,
@@ -44,6 +45,7 @@ class Restaurant {
     this.availableCategories = const [],
     this.isAcceptingOrder,
     this.restaurantFoodType,
+    this.supercategory, // ADD SUPERCATEGORY PARAMETER
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -121,6 +123,10 @@ class Restaurant {
       
       final restaurantType = json['restaurant_type']?.toString();
 
+      // PARSE SUPERCATEGORY FIELD
+      final supercategory = json['supercategory']?.toString();
+      debugPrint('Restaurant: Parsed supercategory: $supercategory for restaurant: $name');
+
       // Parse availableCategories field
       List<String> availableCategories = [];
       try {
@@ -167,7 +173,7 @@ class Restaurant {
         restaurantFoodType = null;
       }
 
-      debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name (ID: $id)');
+      debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name (ID: $id, Supercategory: $supercategory)');
       
       return Restaurant(
         id: id,
@@ -189,6 +195,7 @@ class Restaurant {
         availableCategories: availableCategories,
         isAcceptingOrder: isAcceptingOrder,
         restaurantFoodType: restaurantFoodType,
+        supercategory: supercategory, // ADD SUPERCATEGORY TO CONSTRUCTOR
       );
     } catch (e) {
       debugPrint('Restaurant.fromJson: Error parsing restaurant: $e');
@@ -204,6 +211,7 @@ class Restaurant {
         availableCategories: [],
         isAcceptingOrder: null,
         restaurantFoodType: null,
+        supercategory: json['supercategory']?.toString(), // ADD SUPERCATEGORY TO FALLBACK
       );
     }
   }
@@ -263,110 +271,111 @@ class Restaurant {
   }
 
   // Helper method to determine if restaurant is currently open (IST aware, parses open_timings JSON)
-  static bool? _determineOpenStatus(String? openTimings) {
-    if (openTimings == null || openTimings.isEmpty) return null;
+  static bool? _determineOpenStatus(String? timingsJson) {
+    if (timingsJson == null || timingsJson.isEmpty) return null;
+    
     try {
-      // If 24/7 or 24 in timings, always open
-      if (openTimings.toLowerCase().contains('24')) return true;
-      // Parse timings JSON
-      final timings = Map<String, dynamic>.from(json.decode(openTimings.replaceAll("\\", "")));
       final now = TimezoneUtils.getCurrentTimeIST();
-      final weekday = now.weekday; // 1=Mon, 7=Sun
-      final dayKey = _weekdayToKey(weekday);
-      final todayHours = timings[dayKey]?.toString();
+      final currentDay = _getDayName(now.weekday);
       
-      if (todayHours == null || todayHours.toLowerCase().contains('closed')) return false;
-      // Parse hours, e.g. "9am - 9pm" or "10:30am - 11:15pm" or "10.42am - 9pm"
-      final match = RegExp(r'(\d{1,2}([:.]\d{2})?\s*[ap]m)\s*-\s*(\d{1,2}([:.]\d{2})?\s*[ap]m)', caseSensitive: false).firstMatch(todayHours);
-      if (match != null) {
-        final openStr = match.group(1)!;
-        final closeStr = match.group(3)!;
-        final openTime = _parseTimeIST(openStr, now);
-        final closeTime = _parseTimeIST(closeStr, now);
-        
-        if (openTime != null && closeTime != null) {
-          // If close is past midnight, adjust
-          final closeAdjusted = closeTime.isBefore(openTime) ? closeTime.add(const Duration(days: 1)) : closeTime;
-          
-          // Add a small tolerance (1 minute) to handle edge cases
-          final tolerance = const Duration(minutes: 1);
-          final openTimeWithTolerance = openTime.subtract(tolerance);
-          
-          final isOpen = now.isAfter(openTimeWithTolerance) && now.isBefore(closeAdjusted);
-          
-          // Debug log for troubleshooting
-          debugPrint('Restaurant open status: Current=${now.hour}:${now.minute}, Open=${openTime.hour}:${openTime.minute}, Close=${closeAdjusted.hour}:${closeAdjusted.minute}, IsOpen=$isOpen');
-          
-          return isOpen;
-        }
-      }
-      return null;
+      // Parse the operational hours JSON
+      final Map<String, dynamic> timings = json.decode(timingsJson);
+      final String todayTimings = timings[currentDay.toLowerCase()]?.toString() ?? '';
+      
+      if (todayTimings.isEmpty) return false;
+      
+      return _isCurrentlyOpen(todayTimings, now);
     } catch (e) {
-      debugPrint('Error parsing open status: $e');
+      debugPrint('Restaurant: Error parsing operational hours: $e');
       return null;
     }
   }
 
-  // Helper method to extract closing time for today (in IST, from open_timings JSON)
-  static String? _extractClosingTime(String? openTimings) {
-    if (openTimings == null || openTimings.isEmpty) return null;
+  // Helper method to extract closing time from timings
+  static String? _extractClosingTime(String? timingsJson) {
+    if (timingsJson == null || timingsJson.isEmpty) return null;
+    
     try {
-      if (openTimings.toLowerCase().contains('24')) return '11:59 PM';
-      final timings = Map<String, dynamic>.from(json.decode(openTimings.replaceAll("\\", "")));
       final now = TimezoneUtils.getCurrentTimeIST();
-      final weekday = now.weekday;
-      final dayKey = _weekdayToKey(weekday);
-      final todayHours = timings[dayKey]?.toString();
-      if (todayHours == null || todayHours.toLowerCase().contains('closed')) return null;
-      final match = RegExp(r'(\d{1,2}([:.]\d{2})?\s*[ap]m)\s*-\s*(\d{1,2}([:.]\d{2})?\s*[ap]m)', caseSensitive: false).firstMatch(todayHours);
-      if (match != null) {
-        final closeStr = match.group(3)!;
-        return closeStr.toUpperCase();
-      }
-      return null;
-    } catch (e) {
-      debugPrint('Error parsing closing time: $e');
-      return null;
-    }
-  }
-
-  // Helper: Convert weekday int to key string used in timings JSON
-  static String _weekdayToKey(int weekday) {
-    switch (weekday) {
-      case 1: return 'mon';
-      case 2: return 'tue';
-      case 3: return 'wed';
-      case 4: return 'thu';
-      case 5: return 'fri';
-      case 6: return 'sat';
-      case 7: return 'sun';
-      default: return 'mon';
-    }
-  }
-
-  // Helper: Parse a time string like "9am" or "10:30pm" to DateTime today in IST
-  static DateTime? _parseTimeIST(String timeStr, DateTime baseDay) {
-    try {
-      final cleaned = timeStr.trim().toLowerCase().replaceAll(' ', '');
+      final currentDay = _getDayName(now.weekday);
       
-      // Updated regex to handle both colon and dot separators: "10:42am" or "10.42am"
-      final match = RegExp(r'^(\d{1,2})([:.](\d{2}))?(am|pm)').firstMatch(cleaned);
-      if (match != null) {
-        int hour = int.parse(match.group(1)!);
-        int minute = match.group(3) != null ? int.parse(match.group(3)!) : 0;
-        final isPM = match.group(4) == 'pm';
-        
-        if (hour == 12) {
-          hour = isPM ? 12 : 0;
-        } else if (isPM) {
-          hour += 12;
-        }
-        
-        return DateTime(baseDay.year, baseDay.month, baseDay.day, hour, minute);
+      final Map<String, dynamic> timings = json.decode(timingsJson);
+      final String todayTimings = timings[currentDay.toLowerCase()]?.toString() ?? '';
+      
+      if (todayTimings.isEmpty) return null;
+      
+      // Extract closing time from format like "9am - 11.59pm"
+      final parts = todayTimings.split(' - ');
+      if (parts.length == 2) {
+        return parts[1].trim();
       }
-      return null;
     } catch (e) {
-      debugPrint('Error parsing time string "$timeStr": $e');
+      debugPrint('Restaurant: Error extracting closing time: $e');
+    }
+    
+    return null;
+  }
+
+  // Helper method to get day name from weekday number
+  static String _getDayName(int weekday) {
+    const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    return days[weekday - 1];
+  }
+
+  // Helper method to check if restaurant is currently open
+  static bool _isCurrentlyOpen(String timings, DateTime now) {
+    try {
+      // Parse timings like "9am - 11.59pm"
+      final parts = timings.split(' - ');
+      if (parts.length != 2) return false;
+      
+      final openTime = _parseTime(parts[0].trim());
+      final closeTime = _parseTime(parts[1].trim());
+      
+      if (openTime == null || closeTime == null) return false;
+      
+      final currentMinutes = now.hour * 60 + now.minute;
+      
+      // Handle case where restaurant closes after midnight
+      if (closeTime < openTime) {
+        return currentMinutes >= openTime || currentMinutes <= closeTime;
+      } else {
+        return currentMinutes >= openTime && currentMinutes <= closeTime;
+      }
+    } catch (e) {
+      debugPrint('Restaurant: Error checking if currently open: $e');
+      return false;
+    }
+  }
+
+  // Helper method to parse time strings like "9am", "11.59pm"
+  static int? _parseTime(String timeStr) {
+    try {
+      timeStr = timeStr.toLowerCase().trim();
+      bool isPM = timeStr.contains('pm');
+      bool isAM = timeStr.contains('am');
+      
+      if (!isPM && !isAM) return null;
+      
+      // Remove am/pm
+      String numStr = timeStr.replaceAll('am', '').replaceAll('pm', '').trim();
+      
+      // Handle formats like "11.59" or "9"
+      List<String> parts = numStr.contains('.') ? numStr.split('.') : [numStr, '0'];
+      
+      int hours = int.tryParse(parts[0]) ?? 0;
+      int minutes = int.tryParse(parts[1]) ?? 0;
+      
+      // Convert to 24-hour format
+      if (isPM && hours != 12) {
+        hours += 12;
+      } else if (isAM && hours == 12) {
+        hours = 0;
+      }
+      
+      return hours * 60 + minutes;
+    } catch (e) {
+      debugPrint('Restaurant: Error parsing time: $e');
       return null;
     }
   }
@@ -377,6 +386,8 @@ class Restaurant {
       'partner_id': id, // For compatibility
       'name': name,
       'restaurant_name': name, // For compatibility
+      'address': address,
+      'description': description,
       'imageUrl': imageUrl ?? (photos.isNotEmpty ? photos.first : ''),
       'cuisine': cuisine,
       'category': cuisine, // For compatibility
@@ -398,6 +409,7 @@ class Restaurant {
       'closesAt': closesAt,
       'description': description,
       'isAcceptingOrder': isAcceptingOrder,
+      'supercategory': supercategory, // ADD SUPERCATEGORY TO MAP
     };
   }
 
@@ -405,7 +417,7 @@ class Restaurant {
 
   @override
   String toString() {
-    return 'Restaurant(id: $id, name: $name, cuisine: $cuisine, isVeg: $isVeg, rating: $rating)';
+    return 'Restaurant(id: $id, name: $name, cuisine: $cuisine, isVeg: $isVeg, rating: $rating, supercategory: $supercategory)';
   }
 
   @override
@@ -437,6 +449,7 @@ class Restaurant {
     List<String>? photos,
     List<String>? availableCategories,
     int? isAcceptingOrder,
+    String? supercategory, // ADD SUPERCATEGORY TO COPYWITH
   }) {
     return Restaurant(
       id: id ?? this.id,
@@ -457,6 +470,7 @@ class Restaurant {
       photos: photos ?? this.photos,
       availableCategories: availableCategories ?? this.availableCategories,
       isAcceptingOrder: isAcceptingOrder ?? this.isAcceptingOrder,
+      supercategory: supercategory ?? this.supercategory, // ADD SUPERCATEGORY TO COPYWITH
     );
   }
 }

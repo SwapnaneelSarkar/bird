@@ -8,6 +8,7 @@ import '../address bottomSheet/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import '../../constants/router/router.dart';
 
 class AddressScreen extends StatefulWidget {
   final String? name;
@@ -58,9 +59,9 @@ class _AddressScreenState extends State<AddressScreen> {
           listener: (context, state) {
             if (state is AddressSubmittedState) {
               // Navigate to next screen
-              debugPrint('AddressScreen: Address submitted successfully, navigating to home');
+              debugPrint('AddressScreen: Address submitted successfully, navigating to dashboard');
               Navigator.of(context).pushNamedAndRemoveUntil(
-                '/home',
+                Routes.dashboard,
                 (route) => false,
               );
             }

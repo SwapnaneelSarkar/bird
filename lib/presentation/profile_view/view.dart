@@ -44,6 +44,44 @@ class ProfileView extends StatelessWidget {
           centerTitle: false,
           title: const Text('Profile', style: TextStyle(color: Colors.black)),
           leading: const BackButton(color: Colors.black),
+          actions: [
+            BlocBuilder<ProfileBloc, ProfileState>(
+              builder: (context, state) {
+                if (state is ProfileLoaded) {
+                  return IconButton(
+                    icon: const Icon(
+                      Icons.logout,
+                      color: Colors.red,
+                      size: 24,
+                    ),
+                    onPressed: () async {
+                      final shouldLogout = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Confirm Logout'),
+                          content: const Text('Are you sure you want to logout?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (shouldLogout == true) {
+                        context.read<ProfileBloc>().add(LogoutRequested());
+                      }
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
         ),
         body: BlocConsumer<ProfileBloc, ProfileState>(
           listener: (context, state) {
@@ -76,9 +114,6 @@ class ProfileView extends StatelessWidget {
                     const SizedBox(height: 24),
                     // Info Cards Shimmer
                     _buildInfoCardsShimmer(),
-                    const SizedBox(height: 24),
-                    // Logout Button Shimmer
-                    _buildLogoutButtonShimmer(),
                   ],
                 ),
               );
@@ -92,97 +127,130 @@ class ProfileView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Column(
                   children: [
-                    // Profile Header Card
+                    // Profile Header Card - Now clickable and with gradient background
                     Container(
-                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            ColorManager.primary,
+                            ColorManager.primary.withOpacity(0.8),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: softBoxShadow,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFE67E22).withOpacity(0.3),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: Row(
-                        children: [
-                          // Updated Profile Image
-                          Container(
-                            width: w * 0.22,
-                            height: w * 0.22,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.grey[200],
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 3,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 6,
-                                  spreadRadius: 0.5,
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(w * 0.11),
-                              child: userData['image'] != null && userData['image'].toString().isNotEmpty
-                                ? Image.network(
-                                    _getFullImageUrl(userData['image']),
-                                    fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress.expectedTotalBytes != null
-                                              ? loadingProgress.cumulativeBytesLoaded / 
-                                                  loadingProgress.expectedTotalBytes!
-                                              : null,
-                                          valueColor: const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFFE67E22),
-                                          ),
-                                          strokeWidth: 2,
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      debugPrint('Error loading profile image: $error');
-                                      return Icon(
-                                        Icons.person,
-                                        size: w * 0.11,
-                                        color: Colors.grey,
-                                      );
-                                    },
-                                  )
-                                : Icon(
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.settings);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                // Profile Avatar with Icon
+                                Container(
+                                  width: w * 0.22,
+                                  height: w * 0.22,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withOpacity(0.15),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
                                     Icons.person,
                                     size: w * 0.11,
-                                    color: Colors.grey,
-                                  ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  userData['username'] ?? 'User',
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  userData['email'] ?? 'No email',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        userData['username'] ?? 'User',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.phone,
+                                            size: 16,
+                                            color: Colors.white70,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              userData['mobile'] ?? userData['phone'] ?? 'No mobile number',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.white70,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.edit,
+                                            size: 14,
+                                            color: Colors.white60,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Text(
+                                            'Tap to edit profile',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white60,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: Colors.white60,
+                                  size: 18,
                                 ),
                               ],
                             ),
-                          )
-                        ],
+                          ),
+                        ),
                       ),
                     ),
 
@@ -211,21 +279,20 @@ class ProfileView extends StatelessWidget {
                               ),
                               const Spacer(),
                               TextButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => OrderHistoryView()),
-    );
-  },
-  child: const Text(
-    'View All',
-    style: TextStyle(
-      color: Color(0xFFE67E22),
-      fontWeight: FontWeight.w600,
-    ),
-  ),
-)
-
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => OrderHistoryView()),
+                                  );
+                                },
+                                child: const Text(
+                                  'View All',
+                                  style: TextStyle(
+                                    color: Color(0xFFE67E22),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              )
                             ],
                           ),
                           // Show recent orders from API
@@ -257,32 +324,32 @@ class ProfileView extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
-                    // Info Cards
-ProfileCardTile(
-  leadingIcon: const Icon(Icons.description, size: 20, color: Color(0xFFE67E22)),
-  title: 'Terms & Conditions',
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const TermsConditionsPage(),
-      ),
-    );
-  },
-),
-const SizedBox(height: 12),
-ProfileCardTile(
-  leadingIcon: const Icon(Icons.privacy_tip, size: 20, color: Color(0xFFE67E22)),
-  title: 'Privacy Policy',
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const PrivacyPolicyPage(),
-      ),
-    );
-  },
-),
+                    // Info Cards (Settings removed)
+                    ProfileCardTile(
+                      leadingIcon: const Icon(Icons.description, size: 20, color: Color(0xFFE67E22)),
+                      title: 'Terms & Conditions',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TermsConditionsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ProfileCardTile(
+                      leadingIcon: const Icon(Icons.privacy_tip, size: 20, color: Color(0xFFE67E22)),
+                      title: 'Privacy Policy',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PrivacyPolicyPage(),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 12),
                     ProfileCardTile(
                       leadingIcon: const Icon(Icons.share, size: 20, color: Color(0xFFE67E22)),
@@ -295,23 +362,7 @@ ProfileCardTile(
                         );
                       },
                     ),
-                    const SizedBox(height: 12),
-                    ProfileCardTile(
-                      leadingIcon: const Icon(Icons.settings, size: 20, color: Color(0xFFE67E22)),
-                      title: 'Settings',
-                      onTap: () {
-                        Navigator.pushNamed(context, Routes.settings);
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Logout Button
-                    _LogoutButton(
-                      onPressed: () {
-                        context.read<ProfileBloc>().add(LogoutRequested());
-                      },
-                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               );
@@ -380,7 +431,14 @@ ProfileCardTile(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFE0E0E0),
+              Color(0xFFBDBDBD),
+            ],
+          ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: softBoxShadow,
         ),
@@ -405,8 +463,17 @@ ProfileCardTile(
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    width: 200,
+                    width: 120,
                     height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 100,
+                    height: 12,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(4),
@@ -508,7 +575,7 @@ ProfileCardTile(
   Widget _buildInfoCardsShimmer() {
     return Column(
       children: List.generate(
-        4,
+        3, // Reduced from 4 since we removed settings
         (index) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Shimmer.fromColors(
@@ -543,31 +610,6 @@ ProfileCardTile(
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogoutButtonShimmer() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: softBoxShadow,
-        ),
-        child: Center(
-          child: Container(
-            width: 100,
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
             ),
           ),
         ),
@@ -669,89 +711,5 @@ class _OrderTile extends StatelessWidget {
       return cleanPath;
     }
     return '${ApiConstants.baseUrl}/api/${cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath}';
-  }
-}
-
-class _LogoutButton extends StatelessWidget {
-  final VoidCallback onPressed;
-
-  const _LogoutButton({required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: softBoxShadow,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () async {
-                final shouldLogout = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Confirm Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  ),
-                );
-                if (shouldLogout == true) {
-                  onPressed();
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFFFFEAEA),
-                      ),
-                      child: const Icon(Icons.logout, color: Colors.red, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Logout',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          height: 4,
-          width: 60,
-          decoration: BoxDecoration(
-            color: Color(0xFF554CF3),
-            borderRadius: BorderRadius.circular(100),
-          ),
-        ),
-      ],
-    );
   }
 }

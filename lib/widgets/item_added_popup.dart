@@ -238,7 +238,7 @@ class ItemAddedPopup extends StatelessWidget {
       onContinueShopping?.call();
     },
     style: OutlinedButton.styleFrom(
-      backgroundColor: Colors.green, // 🔶 Background color added
+      backgroundColor: ColorManager.primary.withOpacity(0.8), // 🔶 Background color added
       padding: const EdgeInsets.symmetric(vertical: 16),
       side: BorderSide(color: Colors.transparent), // Remove border
       shape: RoundedRectangleBorder(

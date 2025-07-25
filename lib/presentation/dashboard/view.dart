@@ -258,18 +258,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 curve: Curves.easeOutCubic,
               ).fadeIn(delay: 200.ms, duration: 600.ms),
             ),
-            
-            // Quick Actions Section
-            SliverToBoxAdapter(
-              child: _buildQuickActionsSection().animate().slideY(
-                begin: 0.3,
-                end: 0,
-                duration: 800.ms,
-                curve: Curves.easeOutCubic,
-              ).fadeIn(delay: 400.ms, duration: 600.ms),
-            ),
-            
-            // Recent Orders Section
+                        // Recent Orders Section
             if (state.recentOrders.isNotEmpty)
               SliverToBoxAdapter(
                 child: _buildRecentOrdersSection(state.recentOrders).animate().slideY(
@@ -279,6 +268,17 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                   curve: Curves.easeOutCubic,
                 ).fadeIn(delay: 600.ms, duration: 600.ms),
               ),
+            
+
+            // Quick Actions Section
+            SliverToBoxAdapter(
+              child: _buildQuickActionsSection().animate().slideY(
+                begin: 0.3,
+                end: 0,
+                duration: 800.ms,
+                curve: Curves.easeOutCubic,
+              ).fadeIn(delay: 400.ms, duration: 600.ms),
+            ),
             
             // Bottom spacing
             const SliverToBoxAdapter(
@@ -404,65 +404,65 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
             ],
           ),
           const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.grey[200]!,
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: ColorManager.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.location_on,
-                    color: ColorManager.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Delivering to',
-                        style: GoogleFonts.poppins(
-                          fontSize: _getResponsiveFontSize(12),
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        state.userAddress,
-                        style: GoogleFonts.poppins(
-                          fontSize: _getResponsiveFontSize(14),
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: Colors.grey[500],
-                  size: 24,
-                ),
-              ],
-            ),
-          ),
+          // Container(
+          //   padding: const EdgeInsets.all(16),
+          //   decoration: BoxDecoration(
+          //     color: Colors.white.withOpacity(0.8),
+          //     borderRadius: BorderRadius.circular(16),
+          //     border: Border.all(
+          //       color: Colors.grey[200]!,
+          //       width: 1,
+          //     ),
+          //   ),
+          //   // child: Row(
+          //   //   children: [
+          //   //     Container(
+          //   //       padding: const EdgeInsets.all(8),
+          //   //       decoration: BoxDecoration(
+          //   //         color: ColorManager.primary.withOpacity(0.1),
+          //   //         borderRadius: BorderRadius.circular(10),
+          //   //       ),
+          //   //       child: Icon(
+          //   //         Icons.location_on,
+          //   //         color: ColorManager.primary,
+          //   //         size: 20,
+          //   //       ),
+          //   //     ),
+          //   //     const SizedBox(width: 12),
+          //   //     Expanded(
+          //   //       child: Column(
+          //   //         crossAxisAlignment: CrossAxisAlignment.start,
+          //   //         children: [
+          //   //           Text(
+          //   //             'Delivering to',
+          //   //             style: GoogleFonts.poppins(
+          //   //               fontSize: _getResponsiveFontSize(12),
+          //   //               color: Colors.grey[600],
+          //   //               fontWeight: FontWeight.w500,
+          //   //             ),
+          //   //           ),
+          //   //           const SizedBox(height: 2),
+          //   //           Text(
+          //   //             state.userAddress,
+          //   //             style: GoogleFonts.poppins(
+          //   //               fontSize: _getResponsiveFontSize(14),
+          //   //               color: Colors.black87,
+          //   //               fontWeight: FontWeight.w600,
+          //   //             ),
+          //   //             maxLines: 1,
+          //   //             overflow: TextOverflow.ellipsis,
+          //   //           ),
+          //   //         ],
+          //   //       ),
+          //   //     ),
+          //   //     Icon(
+          //   //       Icons.keyboard_arrow_down_rounded,
+          //   //       color: Colors.grey[500],
+          //   //       size: 24,
+          //   //     ),
+          //   //   ],
+          //   // ),
+          // ),
         ],
       ),
     );

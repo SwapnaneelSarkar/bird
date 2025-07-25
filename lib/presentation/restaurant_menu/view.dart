@@ -3,16 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bird/constants/color/colorConstant.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../constants/font/fontManager.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/food_item_card.dart';
 import '../../widgets/cart_dialog.dart';
 import '../../widgets/item_added_popup.dart';
-import '../../models/attribute_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
-import '../../widgets/menu_item_attributes_dialog.dart';
 import '../../utils/currency_utils.dart';
 import '../../service/cart_service.dart';
 
@@ -40,7 +37,7 @@ class RestaurantDetailsPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               const Text('Restaurant data not available', 
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -143,6 +140,33 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     }
     
     return filteredMenu;
+  }
+
+  // Group menu items by category (venue items vs restaurant items)
+  Map<String, List<Map<String, dynamic>>> _groupMenuByCategory(List<Map<String, dynamic>> menu) {
+    Map<String, List<Map<String, dynamic>>> groupedMenu = {
+      'Venue Items': <Map<String, dynamic>>[],
+      'Restaurant Items': <Map<String, dynamic>>[],
+    };
+    
+    for (var item in menu) {
+      // Check if item is venue-related based on category or type
+      final category = item['category']?.toString().toLowerCase() ?? '';
+      final type = item['type']?.toString().toLowerCase() ?? '';
+      
+      if (category.contains('venue') || type.contains('venue') || 
+          category.contains('hall') || type.contains('hall') ||
+          category.contains('space') || type.contains('space')) {
+        groupedMenu['Venue Items']!.add(item);
+      } else {
+        groupedMenu['Restaurant Items']!.add(item);
+      }
+    }
+    
+    // Remove empty categories
+    groupedMenu.removeWhere((key, value) => value.isEmpty);
+    
+    return groupedMenu;
   }
 
   // Check if item was added for the first time and show popup
@@ -267,7 +291,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                           backgroundColor: Colors.orangeAccent,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                         ),
                       ),
                     ],
@@ -336,193 +360,633 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state) {
     Map<String, dynamic> restaurant = state.restaurant;
     List<Map<String, dynamic>> filteredAndSortedMenu = _filterAndSortMenu(state.menu);
+    Map<String, List<Map<String, dynamic>>> groupedMenu = _groupMenuByCategory(filteredAndSortedMenu);
     
-    return RepaintBoundary(
-      child: Column(
-        children: [
-          _buildSearchBar(context, restaurant),
-          _buildRestaurantHeader(context, restaurant),
-          
-          // Show appropriate message if menu is empty after filtering
-          if (filteredAndSortedMenu.isEmpty) 
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      state.menu.isEmpty 
-                          ? 'No menu items available'
-                          : 'No items match your search',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.menu.isEmpty
-                          ? 'This restaurant has not added any items yet'
-                          : 'Try a different search term or clear filters',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[500],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (!state.menu.isEmpty && _searchQuery.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _searchController.clear();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orangeAccent,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Clear Search'),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            )
-          else
-            Expanded(
+    return CustomScrollView(
+      slivers: [
+        // Scrollable header
+        _buildSliverAppBar(context, restaurant),
+        
+        // Show appropriate message if menu is empty after filtering
+        if (filteredAndSortedMenu.isEmpty) 
+          SliverFillRemaining(
+            child: Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Menu header with filter option
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Menu',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _toggleFilterMenu,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(4),
-                              color: _isFilterMenuOpen || _sortOption != 'none' 
-                                ? Colors.grey[200] 
-                                : Colors.white,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.filter_list, 
-                                  color: _sortOption != 'none' ? Colors.black : Colors.grey[700], 
-                                  size: 16
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Sort', 
-                                  style: TextStyle(
-                                    fontSize: 14, 
-                                    color: _sortOption != 'none' ? Colors.black : Colors.grey[700],
-                                    fontWeight: _sortOption != 'none' ? FontWeight.bold : FontWeight.normal,
-                                  )
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                  Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.menu.isEmpty 
+                        ? 'No menu items available'
+                        : 'No items match your search',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[600],
                     ),
                   ),
-                  
-                  // Filter dropdown menu
-                  if (_isFilterMenuOpen)
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.3),
-                            spreadRadius: 1,
-                            blurRadius: 5,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildFilterOption(
-                            'Price: Low to High', 
-                            'price_asc', 
-                            Icons.arrow_upward
-                          ),
-                          Divider(height: 1, color: Colors.grey[200]),
-                          _buildFilterOption(
-                            'Price: High to Low', 
-                            'price_desc', 
-                            Icons.arrow_downward
-                          ),
-                          if (_sortOption != 'none') ...[
-                            Divider(height: 1, color: Colors.grey[200]),
-                            _buildFilterOption(
-                              'Clear Sorting', 
-                              'none', 
-                              Icons.clear
-                            ),
-                          ],
-                        ],
+                  const SizedBox(height: 8),
+                  Text(
+                    state.menu.isEmpty
+                        ? 'This restaurant has not added any items yet'
+                        : 'Try a different search term or clear filters',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (state.menu.isNotEmpty && _searchQuery.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ColorManager.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Clear Search'),
                       ),
                     ),
-                  
-                  // Menu items list - SEAMLESS CART OPERATIONS
-                  Expanded(
-                    child: ListView.builder(
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).padding.bottom + 80, // Account for navigation bar + floating button
+                ],
+              ),
+            ),
+          )
+        else ...[
+          // Menu header with filter option
+          SliverToBoxAdapter(
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Menu',
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _toggleFilterMenu,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                        color: _isFilterMenuOpen || _sortOption != 'none' 
+                          ? ColorManager.primary.withOpacity(0.1) 
+                          : Colors.white,
                       ),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: filteredAndSortedMenu.length,
-                      itemBuilder: (context, index) {
-                        final menuItem = filteredAndSortedMenu[index];
-                        final quantity = state.cartQuantities[menuItem['id']] ?? 0;
-                        
-                        return RepaintBoundary(
-                          child: FoodItemCard(
-                            item: menuItem,
-                            quantity: quantity,
-                            onQuantityChanged: (newQuantity, {attributes}) {
-                              // attributes is already List<SelectedAttribute> from FoodItemCard
-                              context.read<RestaurantDetailsBloc>().add(
-                                AddItemToCart(
-                                  item: menuItem,
-                                  quantity: newQuantity,
-                                  attributes: attributes,
-                                ),
-                              );
-                              
-                              // Check if this is the first time adding this item
-                              _checkAndShowPopup(menuItem['id'], newQuantity, menuItem);
-                            },
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.filter_list, 
+                            color: _sortOption != 'none' ? ColorManager.primary : Colors.grey[700], 
+                            size: 18
                           ),
-                        );
-                      },
+                          const SizedBox(width: 6),
+                          Text(
+                            'Sort', 
+                            style: TextStyle(
+                              fontSize: 14, 
+                              color: _sortOption != 'none' ? ColorManager.primary : Colors.grey[700],
+                              fontWeight: _sortOption != 'none' ? FontWeight.bold : FontWeight.normal,
+                            )
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+          
+          // Filter dropdown menu
+          if (_isFilterMenuOpen)
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _buildFilterOption(
+                      'Price: Low to High', 
+                      'price_asc', 
+                      Icons.arrow_upward
+                    ),
+                    Divider(height: 1, color: Colors.grey[200]),
+                    _buildFilterOption(
+                      'Price: High to Low', 
+                      'price_desc', 
+                      Icons.arrow_downward
+                    ),
+                    if (_sortOption != 'none') ...[
+                      Divider(height: 1, color: Colors.grey[200]),
+                      _buildFilterOption(
+                        'Clear Sorting', 
+                        'none', 
+                        Icons.clear
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          
+          // Menu sections with separators
+          ...groupedMenu.entries.map((entry) {
+            return [
+              // Section header with separator
+              SliverToBoxAdapter(
+                child: _buildSectionHeader(entry.key, entry.value.length),
+              ),
+              
+              // Menu items for this section
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final menuItem = entry.value[index];
+                    final quantity = state.cartQuantities[menuItem['id']] ?? 0;
+                    
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: FoodItemCard(
+                        item: menuItem,
+                        quantity: quantity,
+                        onQuantityChanged: (newQuantity, {attributes}) {
+                          context.read<RestaurantDetailsBloc>().add(
+                            AddItemToCart(
+                              item: menuItem,
+                              quantity: newQuantity,
+                              attributes: attributes,
+                            ),
+                          );
+                          
+                          // Check if this is the first time adding this item
+                          _checkAndShowPopup(menuItem['id'], newQuantity, menuItem);
+                        },
+                      ),
+                    );
+                  },
+                  childCount: entry.value.length,
+                ),
+              ),
+            ];
+          }).expand((widgets) => widgets).toList(),
+          
+          // Bottom padding for floating button
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: MediaQuery.of(context).padding.bottom + 100,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context, Map<String, dynamic> restaurant) {
+    return SliverAppBar(
+      expandedHeight: 280,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: Container(
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: IconButton(
+          icon: Icon(Icons.arrow_back, color: ColorManager.primary),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      actions: [
+        Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: ColorManager.primary),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) {
+              if (value == 'restaurant_profile') {
+                Navigator.pushNamed(
+                  context,
+                  Routes.restaurantProfile,
+                  arguments: restaurant['id'],
+                );
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'restaurant_profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: ColorManager.primary, size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Restaurant Profile',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                ColorManager.primary,
+                ColorManager.primary.withOpacity(0.9),
+                Colors.white,
+              ],
+              stops: const [0.0, 0.3, 1.0],
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  
+                  // Restaurant info
+                  _buildRestaurantInfo(restaurant),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Search bar
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: ColorManager.primary.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search for dishes, venues...',
+                        hintStyle: GoogleFonts.poppins(
+                          color: Colors.grey[500], 
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: InputBorder.none,
+                        prefixIcon: Icon(Icons.search, color: ColorManager.primary, size: 22),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        suffixIcon: _searchQuery.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () => _searchController.clear(),
+                              child: Container(
+                                margin: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.clear, color: Colors.grey[600], size: 16),
+                              ),
+                            )
+                          : null,
+                      ),
+                      style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRestaurantInfo(Map<String, dynamic> restaurant) {
+    final isVeg = restaurant['isVeg'] == true || 
+                 restaurant['veg_nonveg'] == 'veg' ||
+                 (restaurant['veg_nonveg'] ?? '').toString().toLowerCase() == 'veg';
+    
+    final distance = restaurant['calculatedDistance'] ?? '${restaurant['distance'] ?? 1.2} Kms';
+    final rating = restaurant['rating']?.toString() ?? '4.3';
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          restaurant['name'] ?? 'Restaurant',
+          style: GoogleFonts.poppins(
+            fontSize: 26, 
+            fontWeight: FontWeight.bold, 
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.3),
+                offset: const Offset(0, 1),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            // Rating
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: ColorManager.yellowAcc,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    rating,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13, 
+                      color: Colors.white, 
+                      fontWeight: FontWeight.w700
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Distance
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.location_on, color: ColorManager.primary, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    distance,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: ColorManager.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Veg indicator
+            if (isVeg)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Pure Veg',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String sectionName, int itemCount) {
+    return Container(
+      margin: const EdgeInsets.only(top: 20, bottom: 8),
+      child: Column(
+        children: [
+          // Decorative separator line
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  (sectionName == 'Venue Items' 
+                    ? Colors.purple 
+                    : ColorManager.primary).withOpacity(0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Section title with background
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: sectionName == 'Venue Items' 
+                  ? Colors.purple.withOpacity(0.3)
+                  : ColorManager.primary.withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: sectionName == 'Venue Items' 
+                      ? Colors.purple 
+                      : ColorManager.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                
+                const SizedBox(width: 16),
+                
+                Icon(
+                  sectionName == 'Venue Items' 
+                    ? Icons.location_city
+                    : Icons.restaurant,
+                  color: sectionName == 'Venue Items' 
+                    ? Colors.purple 
+                    : ColorManager.primary,
+                  size: 20,
+                ),
+                
+                const SizedBox(width: 12),
+                
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sectionName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$itemCount ${itemCount == 1 ? 'item' : 'items'} available',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: (sectionName == 'Venue Items' 
+                      ? Colors.purple 
+                      : ColorManager.primary).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    itemCount.toString(),
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: sectionName == 'Venue Items' 
+                        ? Colors.purple 
+                        : ColorManager.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -535,238 +999,28 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
       onTap: () => _setSortOption(option),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        color: isSelected ? Colors.orangeAccent.withOpacity(0.1) : Colors.transparent,
+        color: isSelected ? ColorManager.primary.withOpacity(0.1) : Colors.transparent,
         child: Row(
           children: [
             Icon(
               icon, 
               size: 16, 
-              color: isSelected ? Colors.orangeAccent : Colors.grey[700],
+              color: isSelected ? ColorManager.primary : Colors.grey[700],
             ),
             const SizedBox(width: 8),
             Text(
               title,
-              style: TextStyle(
+              style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: isSelected ? Colors.orangeAccent : Colors.black,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? ColorManager.primary : Colors.black,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
             const Spacer(),
             if (isSelected)
-              const Icon(Icons.check, size: 16, color: Colors.orangeAccent),
+              Icon(Icons.check, size: 16, color: ColorManager.primary),
           ],
         ),
-      ),
-    );
-  }
-  
-  Widget _buildSearchBar(BuildContext context, Map<String, dynamic> restaurant) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.arrow_back, size: 24),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search dishes...',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                    border: InputBorder.none,
-                    icon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    isDense: true,
-                    suffixIcon: _searchQuery.isNotEmpty
-                      ? GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                          },
-                          child: Icon(Icons.clear, color: Colors.grey[400], size: 18),
-                        )
-                      : null,
-                  ),
-                  style: const TextStyle(fontSize: 16),
-                  textAlignVertical: TextAlignVertical.center,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.black),
-              onSelected: (value) {
-                if (value == 'restaurant_profile') {
-                  Navigator.pushNamed(
-                    context,
-                    Routes.restaurantProfile,
-                    arguments: restaurant['id'],
-                  );
-                }
-              },
-              itemBuilder: (BuildContext context) => [
-                PopupMenuItem<String>(
-                  value: 'restaurant_profile',
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: ColorManager.primary, size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Restaurant Profile',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildRestaurantHeader(BuildContext context, Map<String, dynamic> restaurant) {
-    // Extract the veg/non-veg status
-    final isVeg = restaurant['isVeg'] == true || 
-                 restaurant['veg_nonveg'] == 'veg' ||
-                 (restaurant['veg_nonveg'] ?? '').toString().toLowerCase() == 'veg';
-    
-    // Get the category/cuisine
-    final cuisine = restaurant['cuisine'] ?? 
-                   restaurant['category'] ?? 
-                   'Restaurant';
-    
-    // Use calculated distance if available, otherwise use default value
-    final distance = restaurant['calculatedDistance'] ?? '${restaurant['distance'] ?? 1.2} Kms';
-    
-    // Get rating or use default
-    final rating = restaurant['rating']?.toString() ?? '4.3';
-    
-    debugPrint('RestaurantHeader: isVeg = $isVeg, cuisine = $cuisine, distance = $distance');
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            restaurant['name'] ?? 'Restaurant',
-            style: GoogleFonts.poppins(
-              fontSize: 24, 
-              fontWeight: FontWeight.bold, 
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 8),
-          
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              // Pure Veg indicator (only show if restaurant is vegetarian)
-              if (isVeg)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.eco_outlined, color: Colors.green, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Pure Veg', 
-                        style: GoogleFonts.poppins(
-                          fontSize: 12, 
-                          color: Colors.green, 
-                          fontWeight: FontWeight.w500
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              
-              // Add spacing only if veg indicator is shown
-              if (isVeg)
-                const SizedBox(width: 12),
-              
-              // Distance badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.place_outlined, color: Colors.grey[700], size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      distance, 
-                      style: GoogleFonts.poppins(
-                        fontSize: 12, 
-                        color: Colors.grey[700], 
-                        fontWeight: FontWeight.w500
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: 12),
-              
-              // Rating badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 14),
-                    const SizedBox(width: 2),
-                    Text(
-                      rating,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12, 
-                        color: Colors.amber[800], 
-                        fontWeight: FontWeight.w500
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -776,7 +1030,10 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     final restaurantDetailsPage = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
     final userLatitude = restaurantDetailsPage?.userLatitude;
     final userLongitude = restaurantDetailsPage?.userLongitude;
-    final currentRestaurantId = state.restaurant['id']?.toString() ?? state.restaurant['partner_id']?.toString() ?? state.restaurant['partnerId']?.toString() ?? '';
+    final currentRestaurantId = state.restaurant['id']?.toString() ?? 
+                              state.restaurant['partner_id']?.toString() ?? 
+                              state.restaurant['partnerId']?.toString() ?? '';
+    
     return FutureBuilder<Map<String, dynamic>?>(
       future: CartService.getCart(),
       builder: (context, cartSnapshot) {
@@ -784,10 +1041,12 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
         final cartPartnerId = cart?['partner_id']?.toString() ?? '';
         final cartHasItems = (cart?['items'] as List?)?.isNotEmpty ?? false;
         final showClear = cartHasItems && cartPartnerId.isNotEmpty && cartPartnerId != currentRestaurantId;
+        
         return FutureBuilder<String>(
           future: CurrencyUtils.getCurrencySymbol(userLatitude, userLongitude),
           builder: (context, snapshot) {
             final currencySymbol = snapshot.data ?? '\$';
+            
             return Container(
               width: screenWidth * 0.96,
               height: 70,
@@ -799,7 +1058,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
                     blurRadius: 18,
-                    offset: Offset(0, 6),
+                    offset: const Offset(0, 6),
                   ),
                 ],
                 border: Border.all(color: ColorManager.primary.withOpacity(0.08)),
@@ -864,7 +1123,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                   if (showClear) ...[
                     const SizedBox(width: 14),
                     // Clear Cart button (icon)
-                    Container(
+                    SizedBox(
                       height: 56,
                       child: OutlinedButton.icon(
                         onPressed: () async {
@@ -886,7 +1145,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                                       BoxShadow(
                                         color: Colors.black.withOpacity(0.10),
                                         blurRadius: 24,
-                                        offset: Offset(0, 10),
+                                        offset: const Offset(0, 10),
                                       ),
                                     ],
                                   ),
@@ -981,9 +1240,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                               SnackBar(
                                 content: Row(
                                   children: [
-                                    Icon(Icons.delete_forever_rounded, color: Colors.white),
-                                    SizedBox(width: 12),
-                                    Expanded(child: Text('Cart cleared successfully!')),
+                                    const Icon(Icons.delete_forever_rounded, color: Colors.white),
+                                    const SizedBox(width: 12),
+                                    const Expanded(child: Text('Cart cleared successfully!')),
                                   ],
                                 ),
                                 backgroundColor: Colors.red,

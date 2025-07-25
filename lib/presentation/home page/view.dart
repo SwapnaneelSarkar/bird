@@ -248,8 +248,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     }
   }
   
-  Widget _buildHomeContent(BuildContext context, HomeLoaded state, {bool isOutsideServiceArea = false}) {
+  Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
     debugPrint('UI: Showing home content with \\${state.restaurants.length} restaurants');
+    
+    // Determine if we're outside service area
+    final isOutsideServiceableArea = state.userAddress != 'Add delivery address' && 
+                                   state.filteredRestaurants.isEmpty;
+    
     return Stack(
       children: [
         // Background
@@ -298,21 +303,22 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Popular Categories
-                      _buildCategoriesSection(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
-                        .animate(controller: _animationController)
-                        .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
-                        .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
+                      // Popular Categories - Only show if not outside service area
+                      if (!isOutsideServiceableArea)
+                        _buildCategoriesSection(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
+                          .animate(controller: _animationController)
+                          .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
+                          .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
-                      // Food Type Filters (only for food supercategory)
-                      if (isFoodSupercategory(selectedSupercategoryId) && state.foodTypes.isNotEmpty)
+                      // Food Type Filters (only for food supercategory) - Only show if not outside service area
+                      if (!isOutsideServiceableArea && isFoodSupercategory(selectedSupercategoryId) && state.foodTypes.isNotEmpty)
                         _buildFoodTypeFiltersSection(context, state)
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 250.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
                       // All Restaurants or Outside Service Area Message
-                      if (isOutsideServiceArea)
+                      if (isOutsideServiceableArea)
                         _buildOutsideServiceableArea(context)
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
@@ -476,28 +482,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Future<void> _navigateToSearch(BuildContext context, HomeLoaded state) async {
-    debugPrint('HomePage: Navigating to search with user coordinates - Lat: ${state.userLatitude}, Long: ${state.userLongitude}');
-    
-    final result = await Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => BlocProvider(
-          create: (context) => SearchBloc(),
-          child: SearchPage(
-            userLatitude: state.userLatitude,
-            userLongitude: state.userLongitude,
-          ),
-        ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
-    
-    if (result != null && result is Map<String, dynamic>) {
-      _navigateToRestaurantDetails(context, result);
-    }
-  }
+
 
   Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isStore = false}) {
     debugPrint('HomePage: _buildCategoriesSection called with selectedCategoryId: \\${state.selectedCategoryId}');
@@ -1130,13 +1115,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       debugPrint('Final Position $i: ${restaurant.name} - Rating: $rating, Type: $type, Veg: ${restaurant.isVeg}');
     }
     
-    final isOutsideServiceableArea = state.userAddress != 'Add delivery address' && 
-                                   filteredRestaurants.isEmpty;
-    
     String title = isStore ? 'All Stores' : 'All Restaurants';
-    if (isOutsideServiceableArea) {
-      title = isStore ? 'Outside Store Service Area' : 'Outside Service Area';
-    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1165,18 +1144,15 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             ],
           ),
         ),
-        // Restaurant List or Error/Empty State
-        if (filteredRestaurants.isEmpty)
-          _buildEmptyRestaurantsList(isStore: isStore)
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filteredRestaurants.length,
-            itemBuilder: (context, index) => _buildRestaurantItem(
-              context, filteredRestaurants[index], state, index, isStore: isStore
-            ),
+        // Restaurant List
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: filteredRestaurants.length,
+          itemBuilder: (context, index) => _buildRestaurantItem(
+            context, filteredRestaurants[index], state, index, isStore: isStore
           ),
+        ),
       ],
     );
   }
@@ -1280,22 +1256,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildEmptyRestaurantsList({bool isStore = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.store_mall_directory, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text(isStore ? 'No stores found' : 'No restaurants found', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
-            const SizedBox(height: 8),
-            Text(isStore ? 'Try changing your filters or location.' : 'Try changing your filters or location.', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   void _navigateToRestaurantDetails(BuildContext context, dynamic restaurant) {
     debugPrint('HomePage: Navigating to restaurant details');
@@ -1986,105 +1947,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     );
   }
 
-  Widget _buildRadioOption({
-    required String title,
-    required String subtitle,
-    required String value,
-    required String? groupValue,
-    required Color color,
-    required ValueChanged<String?> onChanged,
-  }) {
-    final isSelected = groupValue == value;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isSelected ? color.withOpacity(0.1) : Colors.grey[100],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          // Custom Toggle Switch
-          GestureDetector(
-            onTap: () => onChanged(value),
-            child: Container(
-              width: 56,
-              height: 32,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: isSelected ? color : Colors.grey[400],
-                boxShadow: isSelected ? [
-                  BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ] : [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  // Toggle Circle
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    left: isSelected ? 26 : 2,
-                    top: 2,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: getResponsiveFontSize(context, 16),
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? color : Colors.grey[800],
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.poppins(
-                    fontSize: getResponsiveFontSize(context, 13),
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   // Smart category icon and color selector based on category name
   Map<String, String> _getSmartCategoryIconAndColor(String categoryName) {

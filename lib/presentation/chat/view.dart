@@ -3,11 +3,13 @@ import 'package:bird/service/chat_service.dart';
 import 'package:bird/service/socket_service.dart';
 import 'package:bird/utils/snackbar_utils.dart';
 import 'package:bird/widgets/cancel_order_bottom_sheet.dart';
+import 'package:bird/widgets/chat_order_details_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/chat_models.dart';
+import '../../models/order_details_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -452,7 +454,9 @@ class _ChatViewState extends State<ChatView> {
         (ModalRoute.of(context)?.settings.arguments as String?) ?? 
         'default_order';
         
-    debugPrint('ChatView: Building with order ID: $orderId');
+    debugPrint('ChatView: 🏗️ Building with order ID: $orderId');
+    debugPrint('ChatView: 🏗️ Widget orderId: ${widget.orderId}');
+    debugPrint('ChatView: 🏗️ Route arguments: ${ModalRoute.of(context)?.settings.arguments}');
     
     return BlocProvider(
       create: (context) {
@@ -538,9 +542,76 @@ class _ChatViewState extends State<ChatView> {
       child: Column(
         children: [
           _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
-          _buildOrderHeader(state.chatRoom, screenWidth, screenHeight, orderId),
+          // Show order details if available
+          Builder(
+            builder: (context) {
+              debugPrint('ChatView: 🔍 Order details in state: ${state.orderDetails != null ? 'Available' : 'Not available'}');
+              if (state.orderDetails != null) {
+                debugPrint('ChatView: 📋 Order ID: ${state.orderDetails!.orderId}');
+                debugPrint('ChatView: 📋 Restaurant: ${state.orderDetails!.restaurantName}');
+                debugPrint('ChatView: 📋 Items count: ${state.orderDetails!.items.length}');
+                                 return ChatOrderDetailsWidget(
+                   orderDetails: state.orderDetails!,
+                   menuItemDetails: state.menuItemDetails,
+                   onCancelOrder: () {
+                     showCancelOrderBottomSheet(
+                       context: context,
+                       orderId: orderId,
+                       onCancel: _handleCancelOrder,
+                     );
+                   },
+                 );
+              } else {
+                debugPrint('ChatView: ❌ No order details available to display');
+                // Show a simple placeholder for testing
+                return Container(
+                  margin: EdgeInsets.all(screenWidth * 0.035),
+                  padding: EdgeInsets.all(screenWidth * 0.04),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Order Details Not Available',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          fontWeight: FontWeightManager.bold,
+                          color: Colors.orange[700],
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      Text(
+                        'Order ID: $orderId',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.035,
+                          fontWeight: FontWeightManager.medium,
+                          color: Colors.grey[600],
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.005),
+                      Text(
+                        'Debug: Order details could not be loaded',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.03,
+                          fontWeight: FontWeightManager.regular,
+                          color: Colors.grey[500],
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
           Expanded(
-            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight),
+            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight, state.orderDetails),
           ),
           _buildMessageInput(context, state.isSendingMessage, screenWidth, screenHeight),
         ],
@@ -642,149 +713,9 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildOrderHeader(ChatRoom chatRoom, double screenWidth, double screenHeight, String orderId) {
-    return GestureDetector(
-      onTap: () {
-        // Show cancel order bottom sheet
-        showCancelOrderBottomSheet(
-          context: context,
-          orderId: orderId,
-          onCancel: _handleCancelOrder,
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(screenWidth * 0.04),
-        decoration: BoxDecoration(
-          color: ColorManager.primary.withOpacity(0.05),
-          border: Border(
-            bottom: BorderSide(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Order #${chatRoom.orderId}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.042,
-                            fontWeight: FontWeightManager.bold,
-                            color: ColorManager.black,
-                            fontFamily: FontFamily.Montserrat,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: screenWidth * 0.02),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        size: screenWidth * 0.05,
-                        color: Colors.grey.shade600,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: screenWidth * 0.02),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.028,
-                    vertical: screenHeight * 0.006,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(screenWidth * 0.035),
-                    border: Border.all(
-                      color: Colors.green.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: screenWidth * 0.018,
-                        height: screenWidth * 0.018,
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: screenWidth * 0.018),
-                      Text(
-                        'Active',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.03,
-                          fontWeight: FontWeightManager.medium,
-                          color: Colors.green,
-                          fontFamily: FontFamily.Montserrat,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: screenHeight * 0.008),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Chat with Restaurant',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.033,
-                    fontWeight: FontWeightManager.regular,
-                    color: Colors.grey.shade600,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.04,
-                      vertical: screenHeight * 0.008,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    showCancelOrderBottomSheet(
-                      context: context,
-                      orderId: orderId,
-                      onCancel: _handleCancelOrder,
-                    );
-                  },
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.028,
-                      fontWeight: FontWeightManager.medium,
-                      fontFamily: FontFamily.Montserrat,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight) {
+
+  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails) {
     if (messages.isEmpty && !isSending) {
       return Center(
         child: Column(
@@ -804,7 +735,7 @@ class _ChatViewState extends State<ChatView> {
             ),
             SizedBox(height: screenHeight * 0.02),
             Text(
-              'Start a conversation',
+              orderDetails != null ? 'Order Details Available' : 'Start a conversation',
               style: TextStyle(
                 fontSize: screenWidth * 0.045,
                 fontWeight: FontWeightManager.semiBold,
@@ -814,7 +745,9 @@ class _ChatViewState extends State<ChatView> {
             ),
             SizedBox(height: screenHeight * 0.01),
             Text(
-              'Send a message to get help with your order',
+              orderDetails != null 
+                ? 'Your order details are shown above. Send a message to get help with your order.'
+                : 'Send a message to get help with your order',
               style: TextStyle(
                 fontSize: screenWidth * 0.035,
                 fontWeight: FontWeightManager.regular,

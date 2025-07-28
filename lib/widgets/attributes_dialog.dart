@@ -92,7 +92,7 @@ class _AttributesDialogState extends State<AttributesDialog> {
                       ),
                       SizedBox(height: screenHeight * 0.005),
                       Text(
-                        '₹${widget.item['price']?.toString() ?? '0'}',
+                        '${widget.item['price']?.toString() ?? '0'}',
                         style: GoogleFonts.poppins(
                           fontSize: screenWidth * 0.04,
                           fontWeight: FontWeight.w500,
@@ -178,7 +178,7 @@ class _AttributesDialogState extends State<AttributesDialog> {
                               ),
                             ),
                             subtitle: Text(
-                              '+₹${entry.value.toString()}',
+                              '+${entry.value.toString()}',
                               style: GoogleFonts.poppins(
                                 fontSize: screenWidth * 0.03,
                                 color: ColorManager.primary,

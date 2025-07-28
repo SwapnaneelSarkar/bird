@@ -321,7 +321,7 @@ class _OrderConfirmationContent extends StatelessWidget {
         children: [
           // Subtotal
           FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbol(null, null),
+            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
             builder: (context, snapshot) {
               final currencySymbol = snapshot.data ?? '₹';
               return _buildSummaryRow(
@@ -349,7 +349,7 @@ class _OrderConfirmationContent extends StatelessWidget {
           
           // Total
           FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbol(null, null),
+            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
             builder: (context, snapshot) {
               final currencySymbol = snapshot.data ?? '₹';
               return _buildSummaryRow(

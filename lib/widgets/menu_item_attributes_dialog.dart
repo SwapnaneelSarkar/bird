@@ -245,7 +245,7 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
                       ),
                       SizedBox(height: screenWidth * 0.01),
                       Text(
-                        '₹${_totalPrice.toStringAsFixed(2)}',
+                        '${_totalPrice.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
                           fontSize: screenWidth * 0.04,
                           fontWeight: FontWeight.w500,
@@ -520,7 +520,7 @@ class _MenuItemAttributesDialogState extends State<MenuItemAttributesDialog> {
     
     final isSelected = selectedValues.contains(value.valueId);
     final priceText = value.priceAdjustment != null && value.priceAdjustment! > 0 
-        ? ' (+₹${value.priceAdjustment!.toStringAsFixed(2)})' 
+        ? ' (+${value.priceAdjustment!.toStringAsFixed(2)})' 
         : '';
 
     return Container(

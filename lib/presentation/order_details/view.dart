@@ -546,7 +546,7 @@ class _OrderDetailsContent extends StatelessWidget {
           Divider(color: Colors.grey[200]),
           SizedBox(height: screenHeight * 0.015),
           FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbol(null, null),
+            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
             builder: (context, snapshot) {
               final currencySymbol = snapshot.data ?? '₹';
               return _buildSummaryRow('Subtotal', CurrencyUtils.formatPrice(orderDetails.subtotal, currencySymbol), screenWidth, false);
@@ -554,7 +554,7 @@ class _OrderDetailsContent extends StatelessWidget {
           ),
           SizedBox(height: screenHeight * 0.01),
           FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbol(null, null),
+            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
             builder: (context, snapshot) {
               final currencySymbol = snapshot.data ?? '₹';
               return _buildSummaryRow('Delivery Fee', CurrencyUtils.formatPrice(orderDetails.deliveryFees, currencySymbol), screenWidth, false);
@@ -564,7 +564,7 @@ class _OrderDetailsContent extends StatelessWidget {
           Divider(color: Colors.grey[200]),
           SizedBox(height: screenHeight * 0.015),
           FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbol(null, null),
+            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
             builder: (context, snapshot) {
               final currencySymbol = snapshot.data ?? '₹';
               return _buildSummaryRow('Total Amount', CurrencyUtils.formatPrice(orderDetails.grandTotal, currencySymbol), screenWidth, true);
@@ -835,7 +835,7 @@ class _OrderDetailsContent extends StatelessWidget {
                     ),
                   ),
                   FutureBuilder<String>(
-                    future: CurrencyUtils.getCurrencySymbol(null, null),
+                    future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                     builder: (context, snapshot) {
                       final currencySymbol = snapshot.data ?? '₹';
                       return Text(
@@ -872,12 +872,12 @@ class _OrderDetailsContent extends StatelessWidget {
         ),
         
         // Total Price - Using order price calculation
-        FutureBuilder<String>(
-          future: CurrencyUtils.getCurrencySymbol(null, null),
-          builder: (context, snapshot) {
-            final currencySymbol = snapshot.data ?? '₹';
-            return Text(
-              CurrencyUtils.formatPrice(item.totalPrice, currencySymbol),
+                        FutureBuilder<String>(
+                  future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
+                  builder: (context, snapshot) {
+                    final currencySymbol = snapshot.data ?? '₹';
+                    return Text(
+                      CurrencyUtils.formatPrice(item.totalPrice, currencySymbol),
               style: TextStyle(
                 fontSize: screenWidth * 0.04,
                 fontWeight: FontWeightManager.bold,

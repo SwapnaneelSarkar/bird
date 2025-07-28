@@ -10,11 +10,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
-import '../../service/token_service.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import '../../widgets/shimmer_helper.dart';
 import '../address bottomSheet/view.dart';
 import '../../service/address_service.dart';
+import '../../widgets/verification_dialog.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({Key? key}) : super(key: key);
@@ -42,6 +42,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   
   // --- ADDED: Saved addresses for address picker ---
   List<Map<String, dynamic>> _savedAddresses = [];
+  // --- END ADDED ---
+  
+  // --- ADDED: Verification status tracking ---
+  bool _isEmailVerified = false;
+  bool _isPhoneVerified = false;
+  String _originalEmail = '';
+  String _originalPhone = '';
   // --- END ADDED ---
   
   @override
@@ -74,6 +81,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     _emailController.text = userData['email'] ?? '';
     _phoneController.text = userData['mobile'] ?? '';
     _addressController.text = userData['address'] ?? '';
+    
+    // Store original values for verification comparison
+    _originalEmail = userData['email'] ?? '';
+    _originalPhone = userData['mobile'] ?? '';
     
     // Store coordinates
     _latitude = userData['latitude'] != null ? double.tryParse(userData['latitude'].toString()) : null;
@@ -160,6 +171,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   void _saveSettings() {
     HapticFeedback.mediumImpact(); // Add haptic feedback
     
+    // Check if verified fields have been modified and reset verification status
+    _checkAndResetVerificationStatus();
+    
     setState(() {
       _isSaving = true;
     });
@@ -174,6 +188,31 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       longitude: _longitude,
       imageFile: _profileImage, // Pass the image file here for saving
     ));
+  }
+
+  // Method to check if verified fields have been modified and reset verification status
+  void _checkAndResetVerificationStatus() {
+    // Check if email was modified and reset verification if changed
+    if (_isEmailVerified && _emailController.text != _originalEmail) {
+      setState(() {
+        _isEmailVerified = false;
+      });
+      _showSnackBar(
+        message: 'Email verification reset because email was modified. Please verify again.',
+        isError: true,
+      );
+    }
+    
+    // Check if phone was modified and reset verification if changed
+    if (_isPhoneVerified && _phoneController.text != _originalPhone) {
+      setState(() {
+        _isPhoneVerified = false;
+      });
+      _showSnackBar(
+        message: 'Phone verification reset because phone was modified. Please verify again.',
+        isError: true,
+      );
+    }
   }
 
   // Helper method to show snackbar
@@ -622,8 +661,8 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               isRequired: true,
                             ),
                             
-                            // Email Field
-                            _buildSettingsField(
+                            // Email Field with Verification
+                            _buildVerifiableField(
                               label: 'Email',
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
@@ -631,10 +670,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 200,
                               isRequired: true,
+                              isVerified: _isEmailVerified,
+                              onVerify: () => _showEmailVerificationDialog(),
+                              fieldType: 'email',
                             ),
                             
-                            // Phone Number Field
-                            _buildSettingsField(
+                            // Phone Number Field with Verification
+                            _buildVerifiableField(
                               label: 'Phone Number',
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
@@ -642,6 +684,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 300,
                               isRequired: true,
+                              isVerified: _isPhoneVerified,
+                              onVerify: () => _showPhoneVerificationDialog(),
+                              fieldType: 'phone',
                             ),
                             
                             // Address Field with location picker
@@ -873,6 +918,182 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       ),
     ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
   }
+
+  // Helper method to build verifiable field (editable after verification)
+  Widget _buildVerifiableField({
+    required String label,
+    required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    required IconData icon,
+    required double responsiveTextScale,
+    required int animationDelay,
+    bool isRequired = false,
+    bool isVerified = false,
+    required VoidCallback onVerify,
+    String? fieldType, // 'email' or 'phone'
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isRequired ? '$label *' : label,
+            style: TextStyle(
+              fontSize: FontSize.s12 * responsiveTextScale,
+              color: Colors.grey,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          SizedBox(height: 8 * responsiveTextScale),
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6 * responsiveTextScale),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.orange,
+                  size: 18 * responsiveTextScale,
+                ),
+              ),
+              SizedBox(width: 8 * responsiveTextScale),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  enabled: isVerified, // Make field editable only after verification
+                  style: TextStyle(
+                    color: isVerified ? ColorManager.black : Colors.grey[600],
+                    fontSize: FontSize.s14 * responsiveTextScale,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: FontSize.s12 * responsiveTextScale,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                    disabledBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: isVerified ? UnderlineInputBorder(
+                      borderSide: BorderSide(color: ColorManager.primary, width: 1),
+                    ) : InputBorder.none,
+                  ),
+                  onTap: () {
+                    if (!isVerified) {
+                      HapticFeedback.selectionClick();
+                      _showSnackBar(
+                        message: 'Please verify this field first before editing',
+                        isError: true,
+                      );
+                    }
+                  },
+                  // Remove the onChanged callback that was resetting verification immediately
+                  // Verification will only be reset when save button is pressed
+                ),
+              ),
+              SizedBox(width: 8 * responsiveTextScale),
+              // Verification button
+              Container(
+                decoration: BoxDecoration(
+                  color: isVerified ? Colors.green : ColorManager.primary,
+                  borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                    onTap: isVerified ? null : onVerify, // Disable button if already verified
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12 * responsiveTextScale,
+                        vertical: 8 * responsiveTextScale,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isVerified ? Icons.verified : Icons.verified_user,
+                            color: Colors.white,
+                            size: 16 * responsiveTextScale,
+                          ),
+                          SizedBox(width: 4 * responsiveTextScale),
+                          Text(
+                            isVerified ? 'Verified' : 'Verify',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: FontSize.s12 * responsiveTextScale,
+                              fontWeight: FontWeightManager.medium,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(thickness: 0.8),
+        ],
+      ),
+    ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
+  }
+
+  // Show email verification dialog
+  void _showEmailVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => VerificationDialog(
+        title: 'Verify Email',
+        subtitle: 'Enter the 6-digit OTP sent to your phone\n${_phoneController.text}',
+        value: _emailController.text,
+        type: VerificationType.email,
+        phoneNumber: _phoneController.text, // Pass the phone number for OTP
+        onVerificationSuccess: () {
+          setState(() {
+            _isEmailVerified = true;
+          });
+          _showSnackBar(
+            message: 'Email verified successfully! You can now edit this field.',
+            isError: false,
+          );
+        },
+      ),
+    );
+  }
+
+  // Show phone verification dialog
+  void _showPhoneVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => VerificationDialog(
+        title: 'Verify Phone',
+        subtitle: 'Enter the 6-digit OTP sent to\n${_phoneController.text}',
+        value: _phoneController.text,
+        type: VerificationType.phone,
+        onVerificationSuccess: () {
+          setState(() {
+            _isPhoneVerified = true;
+          });
+          _showSnackBar(
+            message: 'Phone number verified successfully! You can now edit this field.',
+            isError: false,
+          );
+        },
+      ),
+    );
+  }
+
+
 
   Widget _buildDeleteAccountButton(double responsiveTextScale) {
     return Container(

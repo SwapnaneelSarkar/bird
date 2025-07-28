@@ -928,7 +928,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               FutureBuilder<String>(
-                future: CurrencyUtils.getCurrencySymbol(null, null),
+                future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                 builder: (context, snapshot) {
                   final currencySymbol = snapshot.data ?? '₹';
                   return Text(

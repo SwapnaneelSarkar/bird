@@ -136,7 +136,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 debugPrint('HomePage: Address changed to: \\${state.userAddress}');
                 // Initialize currency when coordinates are available
                 if (state.userLatitude != null && state.userLongitude != null) {
-                  CurrencyUtils.getCurrencySymbol(state.userLatitude, state.userLongitude);
+                  CurrencyUtils.getCurrencySymbolFromUserLocation();
                 }
               }
             },
@@ -457,7 +457,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               Expanded(
                 child: TextField(
                   readOnly: true,
-                  decoration: InputDecoration.collapsed(hintText: isStore ? 'Search stores...' : 'Search restaurants...'),
+                  decoration: InputDecoration.collapsed(hintText: isStore ? 'Search stores...' : 'Search restaurants or dishes...'),
                   onTap: () {
                     Navigator.push(
                       context,

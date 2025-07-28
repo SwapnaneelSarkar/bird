@@ -248,8 +248,8 @@ class _FoodItemCardState extends State<FoodItemCard> {
                       // Price (aligned with name text)
                       Padding(
                         padding: EdgeInsets.only(left: screenWidth * 0.06),
-                        child: FutureBuilder<String>(
-                          future: CurrencyUtils.getCurrencySymbol(null, null),
+                        child:                         FutureBuilder<String>(
+                          future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                           builder: (context, snapshot) {
                             final currencySymbol = snapshot.data ?? '₹';
                             return Text(

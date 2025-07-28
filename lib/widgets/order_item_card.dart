@@ -121,7 +121,7 @@ class OrderItemCard extends StatelessWidget {
                 
                 // Price per item
                 FutureBuilder<String>(
-                  future: CurrencyUtils.getCurrencySymbol(null, null),
+                  future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                   builder: (context, snapshot) {
                     final currencySymbol = snapshot.data ?? '₹';
                     return Text(
@@ -140,7 +140,7 @@ class OrderItemCard extends StatelessWidget {
                 if (attributes.isNotEmpty) ...[
                   SizedBox(height: screenHeight * 0.005),
                   ...attributes.map((attr) => FutureBuilder<String>(
-                    future: CurrencyUtils.getCurrencySymbol(null, null),
+                    future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                     builder: (context, snapshot) {
                       final currencySymbol = snapshot.data ?? '₹';
                       return Padding(
@@ -169,7 +169,7 @@ class OrderItemCard extends StatelessWidget {
             children: [
               // Total price
               FutureBuilder<String>(
-                future: CurrencyUtils.getCurrencySymbol(null, null),
+                future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                 builder: (context, snapshot) {
                   final currencySymbol = snapshot.data ?? '₹';
                   return Text(

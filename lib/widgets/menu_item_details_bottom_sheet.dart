@@ -577,7 +577,7 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
             child: Row(
               children: [
                 Text(
-                  '₹${price.toString()}',
+                                          '${price.toString()}',
                   style: GoogleFonts.poppins(
                     fontSize: 24, // Reduced from 32 to 24
                     fontWeight: FontWeight.bold,

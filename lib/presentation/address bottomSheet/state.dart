@@ -253,3 +253,36 @@ class AddressDeletedSuccessfully extends AddressPickerState {
   @override
   List<Object?> get props => [deletedAddressId];
 }
+
+// Address editing states
+class AddressEditing extends AddressPickerState {
+  final SavedAddress savedAddress;
+
+  const AddressEditing({required this.savedAddress});
+
+  @override
+  List<Object?> get props => [savedAddress];
+}
+
+class AddressUpdating extends AddressPickerState {}
+
+class AddressUpdatedSuccessfully extends AddressPickerState {
+  final SavedAddress updatedAddress;
+
+  const AddressUpdatedSuccessfully({required this.updatedAddress});
+
+  @override
+  List<Object?> get props => [updatedAddress];
+}
+
+// Address sharing states
+class AddressSharing extends AddressPickerState {}
+
+class AddressSharedSuccessfully extends AddressPickerState {
+  final SavedAddress sharedAddress;
+
+  const AddressSharedSuccessfully({required this.sharedAddress});
+
+  @override
+  List<Object?> get props => [sharedAddress];
+}

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../presentation/order_history/state.dart';
 import '../constants/api_constant.dart';
+import '../utils/currency_utils.dart';
 
 class OrderItemCard extends StatelessWidget {
   final OrderItem order;
@@ -130,14 +131,20 @@ class OrderItemCard extends StatelessWidget {
               ),
               
               // Price
-              Text(
-                '₹${order.price.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2D2D2D),
-                  fontFamily: 'Roboto',
-                ),
+              FutureBuilder<String>(
+                future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
+                builder: (context, snapshot) {
+                  final currencySymbol = snapshot.data ?? '₹';
+                  return Text(
+                    CurrencyUtils.formatPrice(order.price, currencySymbol),
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF2D2D2D),
+                      fontFamily: 'Roboto',
+                    ),
+                  );
+                },
               ),
             ],
           ),

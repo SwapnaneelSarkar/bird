@@ -204,10 +204,10 @@ class ItemAddedPopup extends StatelessWidget {
                         const SizedBox(height: 8),
                         
                         // Price
-                        FutureBuilder<String>(
-                          future: CurrencyUtils.getCurrencySymbol(null, null),
-                          builder: (context, snapshot) {
-                            final currencySymbol = snapshot.data ?? '₹';
+                                FutureBuilder<String>(
+          future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
+          builder: (context, snapshot) {
+            final currencySymbol = snapshot.data ?? '₹';
                             return Text(
                               CurrencyUtils.formatPrice(itemPrice, currencySymbol),
                               style: GoogleFonts.poppins(

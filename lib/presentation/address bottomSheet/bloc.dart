@@ -35,6 +35,9 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     on<LoadSavedAddressesEvent>(_onLoadSavedAddresses);
     on<SelectSavedAddressEvent>(_onSelectSavedAddress);
     on<DeleteSavedAddressEvent>(_onDeleteSavedAddress);
+    on<EditAddressEvent>(_onEditAddress);
+    on<UpdateAddressEvent>(_onUpdateAddress);
+    on<ShareAddressEvent>(_onShareAddress);
   }
 
   Future<void> _onInitialize(
@@ -152,6 +155,129 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     } catch (e) {
       debugPrint('AddressPickerBloc: Error deleting saved address: $e');
       emit(AddressPickerLoadFailure(error: 'Error deleting address. Please try again.'));
+    }
+  }
+
+  Future<void> _onEditAddress(
+      EditAddressEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Editing address: ${event.savedAddress.addressId}');
+      emit(AddressEditing(savedAddress: event.savedAddress));
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error editing address: $e');
+      emit(AddressPickerLoadFailure(error: 'Error editing address. Please try again.'));
+    }
+  }
+
+  Future<void> _onUpdateAddress(
+      UpdateAddressEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Updating address: ${event.addressId}');
+      emit(AddressUpdating());
+
+      // Get authentication token
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        debugPrint('AddressPickerBloc: No authentication token found');
+        emit(AddressPickerLoadFailure(error: 'Please login again'));
+        return;
+      }
+
+      // Prepare API request body
+      final requestBody = {
+        "address_line1": event.addressLine1,
+        "address_line2": event.addressLine2,
+        "city": event.city,
+        "state": event.state,
+        "postal_code": event.postalCode,
+        "country": event.country,
+        "is_default": event.isDefault,
+        "latitude": event.latitude,
+        "longitude": event.longitude,
+      };
+
+      debugPrint('AddressPickerBloc: Sending request to update address: $requestBody');
+
+      // Make API call to update address
+      final response = await http.put(
+        Uri.parse('${ApiConstants.baseUrl}/api/user/addresses/${event.addressId}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('AddressPickerBloc: Update API response status: ${response.statusCode}');
+      debugPrint('AddressPickerBloc: Update API response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['status'] == true) {
+          debugPrint('AddressPickerBloc: Address updated successfully');
+          
+          // Update local cache
+          final updatedAddress = SavedAddress(
+            addressId: event.addressId,
+            userId: _savedAddresses.firstWhere((addr) => addr.addressId == event.addressId).userId,
+            addressLine1: event.addressLine1,
+            addressLine2: event.addressLine2,
+            city: event.city,
+            state: event.state,
+            postalCode: event.postalCode,
+            country: event.country,
+            isDefault: event.isDefault,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            createdAt: _savedAddresses.firstWhere((addr) => addr.addressId == event.addressId).createdAt,
+            updatedAt: DateTime.now(),
+          );
+          
+          // Update in local cache
+          final index = _savedAddresses.indexWhere((addr) => addr.addressId == event.addressId);
+          if (index != -1) {
+            _savedAddresses[index] = updatedAddress;
+          }
+          
+          // Emit success state
+          emit(AddressUpdatedSuccessfully(updatedAddress: updatedAddress));
+          
+          // Reload the list
+          emit(SavedAddressesLoaded(
+            savedAddresses: _savedAddresses,
+            suggestions: _recentAddresses,
+          ));
+        } else {
+          debugPrint('AddressPickerBloc: API returned error: ${responseData['message']}');
+          emit(AddressPickerLoadFailure(
+            error: responseData['message'] ?? 'Failed to update address'
+          ));
+        }
+      } else {
+        debugPrint('AddressPickerBloc: HTTP error ${response.statusCode}');
+        emit(AddressPickerLoadFailure(
+          error: 'Failed to update address. Please try again.'
+        ));
+      }
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error updating address: $e');
+      emit(AddressPickerLoadFailure(error: 'Error updating address. Please try again.'));
+    }
+  }
+
+  Future<void> _onShareAddress(
+      ShareAddressEvent event, Emitter<AddressPickerState> emit) async {
+    try {
+      debugPrint('AddressPickerBloc: Sharing address: ${event.savedAddress.addressId}');
+      emit(AddressSharing());
+      
+      // For now, just emit success - the actual sharing will be handled in the UI
+      emit(AddressSharedSuccessfully(sharedAddress: event.savedAddress));
+    } catch (e) {
+      debugPrint('AddressPickerBloc: Error sharing address: $e');
+      emit(AddressPickerLoadFailure(error: 'Error sharing address. Please try again.'));
     }
   }
 

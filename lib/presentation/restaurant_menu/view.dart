@@ -1043,9 +1043,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
         final showClear = cartHasItems && cartPartnerId.isNotEmpty && cartPartnerId != currentRestaurantId;
         
         return FutureBuilder<String>(
-          future: CurrencyUtils.getCurrencySymbol(userLatitude, userLongitude),
+                      future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
           builder: (context, snapshot) {
-            final currencySymbol = snapshot.data ?? '\$';
+            final currencySymbol = snapshot.data ?? '₹';
             
             return Container(
               width: screenWidth * 0.96,

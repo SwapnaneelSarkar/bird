@@ -89,7 +89,7 @@ class OrderItemsFullListPage extends StatelessWidget {
                           ),
                         ),
                         FutureBuilder<String>(
-                          future: CurrencyUtils.getCurrencySymbol(null, null),
+                          future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                           builder: (context, snapshot) {
                             final currencySymbol = snapshot.data ?? '₹';
                             return Text(
@@ -123,7 +123,7 @@ class OrderItemsFullListPage extends StatelessWidget {
                 ),
               ),
               FutureBuilder<String>(
-                future: CurrencyUtils.getCurrencySymbol(null, null),
+                future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                 builder: (context, snapshot) {
                   final currencySymbol = snapshot.data ?? '₹';
                   return Text(

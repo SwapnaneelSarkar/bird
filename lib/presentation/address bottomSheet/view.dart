@@ -1,6 +1,8 @@
 // lib/presentation/address bottomSheet/view.dart - Updated with real-time address updates
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import 'package:lottie/lottie.dart';
@@ -124,6 +126,39 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
             }
           }
           
+          if (state is AddressUpdatedSuccessfully) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Address updated successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            
+            // Reload saved addresses to reflect the changes
+            context.read<AddressPickerBloc>().add(LoadSavedAddressesEvent());
+          }
+          
+          if (state is AddressDeletedSuccessfully) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Address deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            
+            // Reload saved addresses to reflect the changes
+            context.read<AddressPickerBloc>().add(LoadSavedAddressesEvent());
+          }
+          
+          if (state is AddressSharedSuccessfully) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Address shared successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          
           if (state is AddressPickerLoadFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -167,8 +202,8 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                 
                 // Content
                 Expanded(
-                  child: _showSavedAddresses && (widget.savedAddresses?.isNotEmpty ?? false)
-                      ? _buildSavedAddressesList(textScale)
+                  child: _showSavedAddresses && _hasSavedAddresses(state)
+                      ? _buildSavedAddressesList(textScale, state)
                       : _buildSearchContent(context, state, textScale),
                 ),
               ],
@@ -214,7 +249,17 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
     );
   }
 
-  Widget _buildSavedAddressesList(double textScale) {
+  bool _hasSavedAddresses(AddressPickerState state) {
+    if (state is AddressPickerLoadSuccess) {
+      return state.savedAddresses.isNotEmpty;
+    }
+    if (state is SavedAddressesLoaded) {
+      return state.savedAddresses.isNotEmpty;
+    }
+    return widget.savedAddresses?.isNotEmpty ?? false;
+  }
+
+  Widget _buildSavedAddressesList(double textScale, AddressPickerState state) {
     return Column(
       children: [
         // Search new address button
@@ -255,25 +300,63 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
         
         // Saved addresses list
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 20 * textScale),
-            itemCount: widget.savedAddresses!.length,
-            itemBuilder: (context, index) {
-              final address = widget.savedAddresses![index];
-              return _buildSavedAddressItem(address, textScale);
-            },
-          ),
+          child: _buildSavedAddressesListView(textScale, state),
         ),
       ],
     );
   }
 
-  Widget _buildSavedAddressItem(Map<String, dynamic> address, double textScale) {
+  Widget _buildSavedAddressesListView(double textScale, AddressPickerState state) {
+    List<Map<String, dynamic>> addresses = [];
+    
+    if (state is AddressPickerLoadSuccess) {
+      addresses = state.savedAddresses.map((savedAddress) => {
+        'address_id': savedAddress.addressId,
+        'address_line1': savedAddress.addressLine1,
+        'address_line2': savedAddress.displayName,
+        'city': savedAddress.city,
+        'state': savedAddress.state,
+        'postal_code': savedAddress.postalCode,
+        'country': savedAddress.country,
+        'is_default': savedAddress.isDefault ? 1 : 0,
+        'latitude': savedAddress.latitude.toString(),
+        'longitude': savedAddress.longitude.toString(),
+      }).toList();
+    } else if (state is SavedAddressesLoaded) {
+      addresses = state.savedAddresses.map((savedAddress) => {
+        'address_id': savedAddress.addressId,
+        'address_line1': savedAddress.addressLine1,
+        'address_line2': savedAddress.displayName,
+        'city': savedAddress.city,
+        'state': savedAddress.state,
+        'postal_code': savedAddress.postalCode,
+        'country': savedAddress.country,
+        'is_default': savedAddress.isDefault ? 1 : 0,
+        'latitude': savedAddress.latitude.toString(),
+        'longitude': savedAddress.longitude.toString(),
+      }).toList();
+    } else {
+      addresses = widget.savedAddresses ?? [];
+    }
+
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: 20 * textScale),
+      itemCount: addresses.length,
+      itemBuilder: (context, index) {
+        final address = addresses[index];
+        final bloc = BlocProvider.of<AddressPickerBloc>(context, listen: false);
+        return _buildSavedAddressItem(address, textScale, bloc);
+      },
+    );
+  }
+
+  Widget _buildSavedAddressItem(Map<String, dynamic> address, double textScale, AddressPickerBloc bloc) {
     final addressName = address['address_line2'] ?? 'Other';
     final addressLine = address['address_line1'] ?? '';
     final city = address['city'] ?? '';
     final state = address['state'] ?? '';
     final isDefault = address['is_default'] == 1;
+    final addressId = address['address_id']?.toString() ?? '';
     
     IconData iconData;
     Color iconColor;
@@ -384,10 +467,59 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 16 * textScale,
+              // Action buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Share button
+                  IconButton(
+                    onPressed: () {
+                      _showShareOptions(context, address, textScale);
+                    },
+                    icon: Icon(
+                      Icons.share,
+                      color: Colors.grey[600],
+                      size: 18 * textScale,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: 32 * textScale,
+                      minHeight: 32 * textScale,
+                    ),
+                  ),
+                  // Edit button
+                  IconButton(
+                    onPressed: () {
+                      _showEditAddressDialog(context, address, textScale, bloc);
+                    },
+                    icon: Icon(
+                      Icons.edit,
+                      color: Colors.grey[600],
+                      size: 18 * textScale,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: 32 * textScale,
+                      minHeight: 32 * textScale,
+                    ),
+                  ),
+                  // Delete button
+                  IconButton(
+                    onPressed: () {
+                      _showDeleteConfirmation(context, addressId, addressName, textScale, bloc);
+                    },
+                    icon: Icon(
+                      Icons.delete,
+                      color: Colors.red[400],
+                      size: 18 * textScale,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: 32 * textScale,
+                      minHeight: 32 * textScale,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -803,5 +935,445 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
         ),
       ),
     );
+  }
+
+  void _showShareOptions(BuildContext context, Map<String, dynamic> address, double textScale) {
+    final addressName = address['address_line2'] ?? 'Other';
+    final addressLine = address['address_line1'] ?? '';
+    final city = address['city'] ?? '';
+    final state = address['state'] ?? '';
+    final fullAddress = '$addressLine, $city, $state';
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20 * textScale),
+            topRight: Radius.circular(20 * textScale),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: EdgeInsets.only(top: 8.0 * textScale),
+              child: Container(
+                width: 40 * textScale,
+                height: 4 * textScale,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2 * textScale),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(20 * textScale),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Share Address',
+                    style: TextStyle(
+                      fontSize: FontSize.s18 * textScale,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                  SizedBox(height: 8 * textScale),
+                  Text(
+                    'Choose how you want to share this address',
+                    style: TextStyle(
+                      fontSize: FontSize.s12 * textScale,
+                      color: Colors.grey[500],
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                  SizedBox(height: 16 * textScale),
+                  Container(
+                    padding: EdgeInsets.all(12 * textScale),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8 * textScale),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          addressName,
+                          style: TextStyle(
+                            fontSize: FontSize.s14 * textScale,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                        ),
+                        SizedBox(height: 4 * textScale),
+                        Text(
+                          fullAddress,
+                          style: TextStyle(
+                            fontSize: FontSize.s12 * textScale,
+                            color: Colors.grey[600],
+                            fontFamily: FontFamily.Montserrat,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20 * textScale),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _shareText(fullAddress);
+                          },
+                          icon: Icon(Icons.share, size: 18 * textScale),
+                          label: Text(
+                            'Share Address',
+                            style: TextStyle(fontSize: FontSize.s14 * textScale),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ColorManager.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8 * textScale),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12 * textScale),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            Clipboard.setData(ClipboardData(text: fullAddress));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Address copied to clipboard'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.copy, size: 18 * textScale),
+                          label: Text(
+                            'Copy to Clipboard',
+                            style: TextStyle(fontSize: FontSize.s14 * textScale),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: ColorManager.primary,
+                            side: BorderSide(color: ColorManager.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8 * textScale),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditAddressDialog(BuildContext context, Map<String, dynamic> address, double textScale, AddressPickerBloc bloc) {
+    final addressId = address['address_id']?.toString() ?? '';
+    final addressNameController = TextEditingController(text: address['address_line2'] ?? '');
+    final addressLineController = TextEditingController(text: address['address_line1'] ?? '');
+    final cityController = TextEditingController(text: address['city'] ?? '');
+    final stateController = TextEditingController(text: address['state'] ?? '');
+    final postalCodeController = TextEditingController(text: address['postal_code'] ?? '');
+    final countryController = TextEditingController(text: address['country'] ?? 'India');
+    bool isDefault = address['is_default'] == 1;
+    final latitude = double.tryParse(address['latitude']?.toString() ?? '') ?? 0.0;
+    final longitude = double.tryParse(address['longitude']?.toString() ?? '') ?? 0.0;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'Edit Address',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: ColorManager.primary,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Address Name',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: addressNameController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Home, Office',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Address Line 1',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: addressLineController,
+                  decoration: InputDecoration(
+                    hintText: 'Street address',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'City',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: cityController,
+                            decoration: InputDecoration(
+                              hintText: 'City',
+                              filled: true,
+                              fillColor: ColorManager.otpField,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'State',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: stateController,
+                            decoration: InputDecoration(
+                              hintText: 'State',
+                              filled: true,
+                              fillColor: ColorManager.otpField,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isDefault,
+                      activeColor: ColorManager.primary,
+                      onChanged: (value) {
+                        setState(() {
+                          isDefault = value ?? false;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Make this my default address',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: ColorManager.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: ColorManager.primary,
+              ),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final addressName = addressNameController.text.trim();
+                final addressLine = addressLineController.text.trim();
+                final city = cityController.text.trim();
+                final state = stateController.text.trim();
+                final postalCode = postalCodeController.text.trim();
+                final country = countryController.text.trim();
+
+                if (addressName.isEmpty || addressLine.isEmpty || city.isEmpty || state.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in all required fields.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.of(dialogContext).pop();
+                // Use the passed bloc instance
+                bloc.add(
+                  UpdateAddressEvent(
+                    addressId: addressId,
+                    addressLine1: addressLine,
+                    addressLine2: addressName,
+                    city: city,
+                    state: state,
+                    postalCode: postalCode,
+                    country: country,
+                    latitude: latitude,
+                    longitude: longitude,
+                    isDefault: isDefault,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String addressId, String addressName, double textScale, AddressPickerBloc bloc) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          'Delete Address',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$addressName"? This action cannot be undone.',
+          style: TextStyle(
+            fontSize: 14,
+            color: ColorManager.black,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: ColorManager.primary,
+            ),
+            child: const Text('Cancel'),
+          ),
+                      ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                // Use the passed bloc instance
+                bloc.add(
+                  DeleteSavedAddressEvent(addressId: addressId),
+                );
+              },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareText(String text) {
+    // Share to other apps
+    SharePlus.instance.share(ShareParams(text: text));
   }
 }

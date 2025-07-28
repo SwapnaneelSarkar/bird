@@ -128,20 +128,23 @@ class OrderHistoryService {
   // Get order details by ID
   static Future<Map<String, dynamic>> getOrderDetails(String orderId) async {
     try {
-      debugPrint('OrderHistoryService: Fetching order details for: $orderId');
+      debugPrint('OrderHistoryService: 🔍 Fetching order details for: $orderId');
       
       final token = await TokenService.getToken();
       
       if (token == null) {
+        debugPrint('OrderHistoryService: ❌ No token available');
         return {
           'success': false,
           'message': 'Authentication required. Please login again.',
         };
       }
       
+      debugPrint('OrderHistoryService: ✅ Token available');
+      
       final url = Uri.parse('${ApiConstants.baseUrl}/api/user/order/$orderId');
       
-      debugPrint('OrderHistoryService: Order details URL: $url');
+      debugPrint('OrderHistoryService: 🌐 Order details URL: $url');
       
       final response = await http.get(
         url,
@@ -151,14 +154,19 @@ class OrderHistoryService {
         },
       );
 
-      debugPrint('OrderHistoryService: Order details response status: ${response.statusCode}');
-      debugPrint('OrderHistoryService: Order details response body: ${response.body}');
+      debugPrint('OrderHistoryService: 📡 Response status: ${response.statusCode}');
+      debugPrint('OrderHistoryService: 📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         
-        if (responseData['status'] == true && responseData['data'] != null) {
-          debugPrint('OrderHistoryService: Order details fetched successfully');
+        debugPrint('OrderHistoryService: 🔍 Response data status: ${responseData['status']}');
+        debugPrint('OrderHistoryService: 🔍 Response data has data: ${responseData['data'] != null}');
+        
+        // Check for both "SUCCESS" string and true boolean status (like order details page)
+        if ((responseData['status'] == 'SUCCESS' || responseData['status'] == true) && responseData['data'] != null) {
+          debugPrint('OrderHistoryService: ✅ Order details fetched successfully');
+          debugPrint('OrderHistoryService: 📋 Order data: ${responseData['data']}');
           
           return {
             'success': true,
@@ -166,33 +174,36 @@ class OrderHistoryService {
             'message': 'Order details fetched successfully',
           };
         } else {
-          debugPrint('OrderHistoryService: Invalid order details response');
+          debugPrint('OrderHistoryService: ❌ Invalid order details response');
+          debugPrint('OrderHistoryService: ❌ Response status: ${responseData['status']}');
+          debugPrint('OrderHistoryService: ❌ Response message: ${responseData['message']}');
           return {
             'success': false,
             'message': responseData['message'] ?? 'Failed to fetch order details',
           };
         }
       } else if (response.statusCode == 404) {
-        debugPrint('OrderHistoryService: Order not found');
+        debugPrint('OrderHistoryService: ❌ Order not found (404)');
         return {
           'success': false,
           'message': 'Order not found',
         };
       } else if (response.statusCode == 401) {
-        debugPrint('OrderHistoryService: Unauthorized access');
+        debugPrint('OrderHistoryService: ❌ Unauthorized access (401)');
         return {
           'success': false,
           'message': 'Session expired. Please login again.',
         };
       } else {
-        debugPrint('OrderHistoryService: Server error: ${response.statusCode}');
+        debugPrint('OrderHistoryService: ❌ Server error: ${response.statusCode}');
         return {
           'success': false,
           'message': 'Server error occurred. Please try again.',
         };
       }
-    } catch (e) {
-      debugPrint('OrderHistoryService: Exception in order details: $e');
+    } catch (e, stackTrace) {
+      debugPrint('OrderHistoryService: ❌ Exception in order details: $e');
+      debugPrint('OrderHistoryService: ❌ Stack trace: $stackTrace');
       return {
         'success': false,
         'message': 'Network error occurred. Please check your connection.',

@@ -488,141 +488,42 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         ],
                       ),
                       child: Column(
-                        children: [
-                          // Profile image with animations
-                          TweenAnimationBuilder<double>(
-                            tween: Tween<double>(begin: 0.0, end: 1.0),
-                            duration: const Duration(milliseconds: 800),
-                            curve: Curves.elasticOut,
-                            builder: (context, value, child) {
-                              return Transform.scale(
-                                scale: value,
-                                child: child,
-                              );
-                            },
-                            child: Stack(
-                              children: [
-                                GestureDetector(
-                                  onTap: _pickImage,
-                                  child: Container(
-                                    width: 110 * responsiveTextScale,
-                                    height: 110 * responsiveTextScale,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.grey[200],
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 4,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.08),
-                                          blurRadius: 10,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Hero(  // Add Hero animation for profile photo
-                                      tag: 'profile_image',
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(55 * responsiveTextScale),
-                                        child: _profileImage != null
-                                            ? Image.file(
-                                                _profileImage!,
-                                                fit: BoxFit.cover,
-                                              )
-                                            : state.userData['image'] != null && state.userData['image'].toString().isNotEmpty
-                                                ? Image.network(
-                                                    _getFullImageUrl(state.userData['image']),
-                                                    fit: BoxFit.cover,
-                                                    loadingBuilder: (context, child, loadingProgress) {
-                                                      if (loadingProgress == null) return child;
-                                                      return Center(
-                                                        child: CircularProgressIndicator(
-                                                          value: loadingProgress.expectedTotalBytes != null
-                                                              ? loadingProgress.cumulativeBytesLoaded / 
-                                                                  loadingProgress.expectedTotalBytes!
-                                                              : null,
-                                                          valueColor: const AlwaysStoppedAnimation<Color>(
-                                                            Colors.orange,
-                                                          ),
-                                                          strokeWidth: 2,
-                                                        ),
-                                                      );
-                                                    },
-                                                    errorBuilder: (context, error, stackTrace) {
-                                                      debugPrint('Error loading image: $error');
-                                                      return Icon(
-                                                        Icons.person,
-                                                        size: 55 * responsiveTextScale,
-                                                        color: Colors.grey,
-                                                      );
-                                                    },
-                                                  )
-                                                : Icon(
-                                                    Icons.person,
-                                                    size: 55 * responsiveTextScale,
-                                                    color: Colors.grey,
-                                                  ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: TweenAnimationBuilder<double>(
-                                    tween: Tween<double>(begin: 0.0, end: 1.0),
-                                    duration: const Duration(milliseconds: 600),
-                                    curve: Curves.elasticOut,
-                                    builder: (context, value, child) {
-                                      return Transform.scale(
-                                        scale: value,
-                                        child: child,
-                                      );
-                                    },
-                                    child: GestureDetector(
-                                      onTap: _pickImage,
-                                      child: Container(
-                                        padding: EdgeInsets.all(8 * responsiveTextScale),
-                                        decoration: BoxDecoration(
-                                          color: ColorManager.primary,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.1),
-                                              blurRadius: 4,
-                                              spreadRadius: 0,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Icon(
-                                          Icons.camera_alt,
-                                          size: 18 * responsiveTextScale,
-                                          color: ColorManager.textWhite,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 12 * responsiveTextScale),
-                          Text(
-                            'Tap to change profile photo',
-                            style: TextStyle(
-                              fontSize: FontSize.s12 * responsiveTextScale,
-                              color: Colors.grey,
-                              letterSpacing: 0.2,
-                              fontFamily: FontFamily.Montserrat,
-                            ),
-                          ).animate().fadeIn(duration: 600.ms),
-                        ],
+children: [
+  Container(
+    width: 110 * responsiveTextScale,
+    height: 110 * responsiveTextScale,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.grey[200],
+      border: Border.all(
+        color: Colors.white,
+        width: 4,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 10,
+          spreadRadius: 1,
+        ),
+      ],
+    ),
+    child: Icon(
+      Icons.person,
+      size: 55 * responsiveTextScale,
+      color: Colors.grey,
+    ),
+  ),
+  SizedBox(height: 12 * responsiveTextScale),
+  Text(
+    'Profile',
+    style: TextStyle(
+      fontSize: FontSize.s12 * responsiveTextScale,
+      color: Colors.grey,
+      letterSpacing: 0.2,
+      fontFamily: FontFamily.Montserrat,
+    ),
+  ),
+],
                       ),
                     ).animate().slideY(begin: 0.05, end: 0, duration: 600.ms, curve: Curves.easeOutQuint),
                     

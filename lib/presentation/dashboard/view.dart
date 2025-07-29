@@ -13,6 +13,7 @@ import 'state.dart';
 import '../home page/view.dart';
 import '../home page/bloc.dart';
 import '../home page/event.dart';
+import '../../widgets/cached_image.dart';
 
 class CategoryHomepage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -469,50 +470,110 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
   }
 
   Widget _buildCategoriesSection(List<CategoryModel> categories) {
+    // Determine if we should show "View All" button
+    final shouldShowViewAll = categories.length > 4;
+    final displayCategories = shouldShowViewAll ? categories.take(4).toList() : categories;
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Choose your favorite',
-            style: GoogleFonts.poppins(
-              fontSize: _getResponsiveFontSize(22),
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Choose your favorite',
+                  style: GoogleFonts.poppins(
+                    fontSize: _getResponsiveFontSize(18),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              if (shouldShowViewAll)
+                GestureDetector(
+                  onTap: () {
+                    // TODO: Navigate to full categories page
+                    debugPrint('Dashboard: View all categories tapped');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: ColorManager.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: ColorManager.primary.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'View All (${categories.length})',
+                      style: GoogleFonts.poppins(
+                        fontSize: _getResponsiveFontSize(10),
+                        fontWeight: FontWeight.w600,
+                        color: ColorManager.primary,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             'Select a category to explore delicious options',
             style: GoogleFonts.poppins(
-              fontSize: _getResponsiveFontSize(14),
+              fontSize: _getResponsiveFontSize(12),
               color: Colors.grey[600],
               fontWeight: FontWeight.w400,
             ),
           ),
-          const SizedBox(height: 24),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.1,
-            ),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final category = categories[index];
-              return _buildCategoryCard(category, index);
-            },
+          const SizedBox(height: 16),
+          // Dynamic height based on number of categories
+          Stack(
+            children: [
+              SizedBox(
+                height: displayCategories.length <= 3 ? 140 : 160, // Adjust height based on category count
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  itemCount: displayCategories.length,
+                  itemBuilder: (context, index) {
+                    final category = displayCategories[index];
+                    return _buildCategoryCard(category, index, totalCategories: displayCategories.length);
+                  },
+                ),
+              ),
+              // Scroll indicator for many categories
+              if (displayCategories.length > 3)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 20,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.white.withOpacity(0.0),
+                          Colors.white.withOpacity(0.8),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryCard(CategoryModel category, int index) {
+  Widget _buildCategoryCard(CategoryModel category, int index, {int? totalCategories}) {
     final gradients = [
       [const Color(0xFFFFE0B2), ColorManager.primary],
       [const Color(0xFFE8F5E8), const Color(0xFF4CAF50)],
@@ -523,9 +584,18 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     ];
     
     final gradient = gradients[index % gradients.length];
+    final accentColor = gradient[1];
+
+    // Dynamic sizing based on total categories
+    final totalCats = totalCategories ?? 2;
+    final cardWidth = totalCats <= 3 ? 100.0 : 90.0; // Smaller cards if more categories
+    final imageSize = totalCats <= 3 ? 70.0 : 60.0; // Smaller images if more categories
+    final innerImageSize = totalCats <= 3 ? 66.0 : 56.0; // Smaller inner images if more categories
+    final fontSize = totalCats <= 3 ? 11.0 : 10.0; // Smaller font if more categories
 
     // Debug print to verify what is being passed
-    debugPrint('Dashboard: Showing card for ${category.name} (id: ${category.id})');
+    debugPrint('Dashboard: Showing card for ${category.name} (id: ${category.id}) with image: ${category.image}');
+    debugPrint('Dashboard: Total categories: $totalCats, Card width: $cardWidth');
     final supercategoryId = category.id;
 
     return GestureDetector(
@@ -539,157 +609,178 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
         );
       },
       child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: gradient[1].withOpacity(0.25),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  gradient[0],
-                  gradient[1].withOpacity(0.8),
-                ],
-              ),
-            ),
-            child: Stack(
+        width: cardWidth,
+        margin: EdgeInsets.symmetric(horizontal: totalCats <= 3 ? 6 : 4), // Tighter spacing for more categories
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
               children: [
-                // Background pattern circles
-                Positioned(
-                  top: -30,
-                  right: -30,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
+                // Shadow container
+                Container(
+                  width: imageSize,
+                  height: imageSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentColor.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 1.5,
+                      )
+                    ],
                   ),
                 ),
-                Positioned(
-                  bottom: -20,
-                  left: -20,
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      shape: BoxShape.circle,
-                    ),
+                // Image container
+                Container(
+                  width: innerImageSize,
+                  height: innerImageSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
                   ),
-                ),
-                
-                // Content - Fixed layout to prevent overflow
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Icon container
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _getCategoryIcon(category.name),
-                          color: gradient[1],
-                          size: 28,
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 12),
-                      
-                      // Category name - Fixed to prevent overflow
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              category.name,
-                              style: GoogleFonts.poppins(
-                                fontSize: _getResponsiveFontSize(16),
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            
-                            const SizedBox(height: 4),
-                            
-                            // Bottom row with subtitle and arrow
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Explore ${category.name.toLowerCase()}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: _getResponsiveFontSize(10),
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontWeight: FontWeight.w500,
+                  child: ClipOval(
+                    child: category.image != null && category.image!.isNotEmpty
+                        ? (category.image!.startsWith('http') 
+                            ? Image.network(
+                                category.image!,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  debugPrint('Dashboard: Loading image: ${category.image}');
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: gradient,
+                                      ),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        value: loadingProgress.expectedTotalBytes != null
+                                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                            : null,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  debugPrint('Dashboard: Network image error: $error');
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: gradient,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      _getCategoryIcon(category.name),
+                                      color: Colors.white,
+                                      size: totalCats <= 3 ? 28 : 24,
+                                    ),
+                                  );
+                                },
+                              )
+                            : CachedImage(
+                                imageUrl: category.image!,
+                                fit: BoxFit.cover,
+                                placeholder: (context) => Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(10),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: gradient,
+                                    ),
                                   ),
                                   child: Icon(
-                                    Icons.arrow_forward_rounded,
+                                    _getCategoryIcon(category.name),
                                     color: Colors.white,
-                                    size: 16,
+                                    size: totalCats <= 3 ? 28 : 24,
                                   ),
                                 ),
-                              ],
+                                errorWidget: (context, error) {
+                                  debugPrint('Dashboard: CachedImage error: $error');
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: gradient,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      _getCategoryIcon(category.name),
+                                      color: Colors.white,
+                                      size: totalCats <= 3 ? 28 : 24,
+                                    ),
+                                  );
+                                },
+                              ))
+                        : Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: gradient,
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                            child: Icon(
+                              _getCategoryIcon(category.name),
+                              color: Colors.white,
+                              size: totalCats <= 3 ? 28 : 24,
+                            ),
+                          ),
                   ),
                 ),
               ],
             ),
-          ),
+            SizedBox(height: totalCats <= 3 ? 8 : 6), // Tighter spacing for more categories
+            // Category name container
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: totalCats <= 3 ? 7 : 5, 
+                vertical: totalCats <= 3 ? 4 : 3
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1.5),
+                  )
+                ],
+                border: Border.all(
+                  color: accentColor.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                category.name,
+                style: GoogleFonts.poppins(
+                  fontSize: _getResponsiveFontSize(fontSize),
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[800],
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                maxLines: totalCats <= 3 ? 2 : 1, // Single line for more categories
+              ),
+            ),
+          ],
         ),
       ).animate().scale(
         begin: const Offset(0.8, 0.8),
         end: const Offset(1, 1),
         duration: Duration(milliseconds: 400 + (index * 150)),
         curve: Curves.easeOutBack,
-      ).fadeIn(
-        duration: Duration(milliseconds: 600 + (index * 100)),
-        curve: Curves.easeOut,
       ),
     );
   }
@@ -978,14 +1069,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
 
   // Helper Methods
   String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good Morning';
-    } else if (hour < 17) {
-      return 'Good Afternoon';
-    } else {
-      return 'Good Evening';
-    }
+    return 'Welcome Back';
   }
 
   IconData _getCategoryIcon(String categoryName) {

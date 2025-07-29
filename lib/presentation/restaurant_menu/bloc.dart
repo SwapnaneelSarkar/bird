@@ -97,29 +97,69 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
         return;
       }
       
-      // Fetch menu items from the API
+      // Fetch categories and menu items
+      List<Map<String, dynamic>> categories = [];
       List<Map<String, dynamic>> menuItems = [];
       bool needsLogin = false;
       String errorMessage = '';
       
       try {
-        final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurant/$partnerId');
+        // Fetch categories first
+        final categoriesUrl = Uri.parse('${ApiConstants.baseUrl}/api/partner/categories');
+        debugPrint('RestaurantDetailsBloc: Fetching categories from: $categoriesUrl');
         
-        debugPrint('RestaurantDetailsBloc: Fetching menu from: $url');
-        
-        final response = await http.get(
-          url,
+        final categoriesResponse = await http.get(
+          categoriesUrl,
           headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
           },
         );
         
-        debugPrint('RestaurantDetailsBloc: API Response Status: ${response.statusCode}');
-        if (response.statusCode == 200) {
-          debugPrint('RestaurantDetailsBloc: API Response Body: ${response.body}');
+        debugPrint('RestaurantDetailsBloc: Categories API Response Status: ${categoriesResponse.statusCode}');
+        
+        if (categoriesResponse.statusCode == 200) {
+          final categoriesData = jsonDecode(categoriesResponse.body);
+          if (categoriesData['status'] == 'SUCCESS' && categoriesData['data'] != null) {
+            final List<dynamic> categoriesList = categoriesData['data'];
+            categories = categoriesList.map((category) => {
+              'id': category['id'].toString(),
+              'name': category['name'].toString(),
+              'display_order': category['display_order'] ?? 999,
+            }).toList();
+            
+            // Sort categories by display order
+            categories.sort((a, b) => (a['display_order'] as int).compareTo(b['display_order'] as int));
+            
+            debugPrint('RestaurantDetailsBloc: Loaded ${categories.length} categories');
+          } else {
+            debugPrint('RestaurantDetailsBloc: Categories API returned error: ${categoriesData['message']}');
+          }
+        } else if (categoriesResponse.statusCode == 401 || categoriesResponse.statusCode == 403) {
+          needsLogin = true;
+          errorMessage = 'Your session has expired. Please login again.';
+        } else {
+          debugPrint('RestaurantDetailsBloc: Categories API Error: Status ${categoriesResponse.statusCode}');
+        }
+        
+        // Fetch restaurant menu
+        final restaurantUrl = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurant/$partnerId');
+        debugPrint('RestaurantDetailsBloc: Fetching menu from: $restaurantUrl');
+        
+        final restaurantResponse = await http.get(
+          restaurantUrl,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        );
+        
+        debugPrint('RestaurantDetailsBloc: Restaurant API Response Status: ${restaurantResponse.statusCode}');
+        
+        if (restaurantResponse.statusCode == 200) {
+          debugPrint('RestaurantDetailsBloc: Restaurant API Response Body: ${restaurantResponse.body}');
           
-          final Map<String, dynamic> responseData = jsonDecode(response.body);
+          final Map<String, dynamic> responseData = jsonDecode(restaurantResponse.body);
           
           if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
             final data = responseData['data'];
@@ -131,7 +171,10 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
             if (apiRestaurant['partner_id'] != null) restaurant['id'] = apiRestaurant['partner_id'];
             if (apiRestaurant['restaurant_name'] != null) restaurant['name'] = apiRestaurant['restaurant_name'];
             if (apiRestaurant['category'] != null) restaurant['cuisine'] = apiRestaurant['category'];
-            if (apiRestaurant['address'] != null) restaurant['address'] = apiRestaurant['address'];
+            // Only update address if it's not already present or if API has a different one
+            if (apiRestaurant['address'] != null && apiRestaurant['address'].toString().isNotEmpty) {
+              restaurant['address'] = apiRestaurant['address'];
+            }
             if (apiRestaurant['latitude'] != null) restaurant['latitude'] = apiRestaurant['latitude'];
             if (apiRestaurant['longitude'] != null) restaurant['longitude'] = apiRestaurant['longitude'];
             if (apiRestaurant['veg_nonveg'] != null) restaurant['isVeg'] = apiRestaurant['veg_nonveg'] == 'veg';
@@ -141,6 +184,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
             if (apiRestaurant['rating'] != null) restaurant['rating'] = apiRestaurant['rating'];
             if (apiRestaurant['restaurant_type'] != null) restaurant['restaurantType'] = apiRestaurant['restaurant_type'];
             if (apiRestaurant['isAcceptingOrder'] != null) restaurant['isAcceptingOrder'] = apiRestaurant['isAcceptingOrder'] == 1;
+            if (apiRestaurant['cooking_time'] != null) restaurant['cooking_time'] = apiRestaurant['cooking_time'];
             
             // Format menu items from API response
             if (data['menu'] != null && data['menu'] is List) {
@@ -165,7 +209,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
                   'description': item['description'] ?? '',
                   'imageUrl': item['image_url'],
                   'isVeg': item['isVeg'] == 1,
-                  'category': item['category'],
+                  'category': item['category']?.toString() ?? '',
                   'available': item['available'] == 1,
                   'isTaxIncluded': item['isTaxIncluded'] == 1,
                   'isCancellable': item['isCancellable'] == 1,
@@ -184,17 +228,17 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
             debugPrint('RestaurantDetailsBloc: API returned non-success status: ${responseData['message']}');
             errorMessage = responseData['message'] ?? 'Failed to load restaurant menu';
           }
-        } else if (response.statusCode == 401 || response.statusCode == 403) {
+        } else if (restaurantResponse.statusCode == 401 || restaurantResponse.statusCode == 403) {
           // Authentication error
-          debugPrint('RestaurantDetailsBloc: Authentication error: ${response.statusCode}');
+          debugPrint('RestaurantDetailsBloc: Authentication error: ${restaurantResponse.statusCode}');
           needsLogin = true;
           errorMessage = 'Your session has expired. Please login again.';
         } else {
-          debugPrint('RestaurantDetailsBloc: Restaurant API Error: Status ${response.statusCode}');
+          debugPrint('RestaurantDetailsBloc: Restaurant API Error: Status ${restaurantResponse.statusCode}');
           errorMessage = 'Server error. Please try again later.';
         }
       } catch (e) {
-        debugPrint('RestaurantDetailsBloc: Error fetching restaurant menu: $e');
+        debugPrint('RestaurantDetailsBloc: Error fetching data: $e');
         errorMessage = 'Network error. Please check your connection.';
       }
       
@@ -231,6 +275,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
       emit(RestaurantDetailsLoaded(
         restaurant: restaurant,
         menu: menuItems,
+        categories: categories,
         cartQuantities: cartQuantities,
         isFavorite: isFavorite,
         cartItemCount: await CartService.getCartItemCount(),

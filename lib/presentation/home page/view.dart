@@ -252,8 +252,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     debugPrint('UI: Showing home content with \\${state.restaurants.length} restaurants');
     
     // Determine if we're outside service area
+    // Only hide categories/toggles if there are NO restaurants at all for this location
+    // NOT when filters result in no restaurants
     final isOutsideServiceableArea = state.userAddress != 'Add delivery address' && 
-                                   state.filteredRestaurants.isEmpty;
+                                   state.restaurants.isEmpty;
     
     return Stack(
       children: [
@@ -484,25 +486,29 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
 
 
 
-  Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isStore = false}) {
-    debugPrint('HomePage: _buildCategoriesSection called with selectedCategoryId: \\${state.selectedCategoryId}');
-    debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: \\${state.selectedCategoryId != null}');
-    final sortedCategories = List<Map<String, dynamic>>.from(state.categories)
-      ..sort((a, b) => (a['display_order'] ?? 999).compareTo(b['display_order'] ?? 999));
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxWidth = constraints.maxWidth;
-              // Scale factor: 1 for >=400, down to 0.7 for 280px
-              final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
+Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isStore = false}) {
+  debugPrint('HomePage: _buildCategoriesSection called with selectedCategoryId: ${state.selectedCategoryId}');
+  debugPrint('HomePage: _buildCategoriesSection - Show All button should be visible: ${state.selectedCategoryId != null}');
+  
+  final sortedCategories = List<Map<String, dynamic>>.from(state.categories)
+    ..sort((a, b) => (a['display_order'] ?? 999).compareTo(b['display_order'] ?? 999));
+
+  return Container(
+    margin: const EdgeInsets.only(top: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxWidth = constraints.maxWidth;
+            final double scale = (maxWidth / 400).clamp(0.7, 1.0);
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(left: 20 * scale), // ⬅️ shifted further right
+                  child: Text(
                     isStore ? 'Popular Categories' : 'Popular Categories',
                     style: GoogleFonts.poppins(
                       fontSize: getResponsiveFontSize(context, 16 * scale),
@@ -510,72 +516,81 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                       color: Colors.grey[800],
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (state.selectedCategoryId != null)
-                        Container(
-                          margin: EdgeInsets.only(right: 4 * scale),
-                          child: IconButton(
-                            icon: Icon(Icons.close, color: Colors.grey[600], size: 20 * scale),
-                            tooltip: 'Clear category filter',
-                            padding: EdgeInsets.zero,
-                            constraints: BoxConstraints(),
-                            onPressed: () {
-                              debugPrint('HomePage: Cross icon pressed to clear category filter');
-                              context.read<HomeBloc>().add(const FilterByCategory(null));
-                            },
-                          ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (state.selectedCategoryId != null)
+                      Container(
+                        margin: EdgeInsets.only(right: 4 * scale),
+                        child: IconButton(
+                          icon: Icon(Icons.close, color: Colors.grey[600], size: 20 * scale),
+                          tooltip: 'Clear category filter',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            debugPrint('HomePage: Cross icon pressed to clear category filter');
+                            context.read<HomeBloc>().add(const FilterByCategory(null));
+                          },
                         ),
-                      IconButton(
-                        icon: Icon(Icons.tune, color: ColorManager.primary, size: 22 * scale),
-                        tooltip: 'Filter',
-                        padding: EdgeInsets.zero,
-                        constraints: BoxConstraints(),
-                        onPressed: () => _showFuturisticFilterDialog(context),
                       ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxWidth = constraints.maxWidth;
-              final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-              final double itemWidth = 90.0 * scale;
-              final double itemHeight = 120.0 * scale;
-              final double screenWidth = constraints.maxWidth;
-              final int maxVisibleItems = (screenWidth / itemWidth).floor();
-              final bool shouldScroll = sortedCategories.length > maxVisibleItems;
-              final categoryItems = _getCategoryItems(sortedCategories, state.selectedCategoryId, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
-              if (shouldScroll) {
-                return SizedBox(
-                  height: itemHeight,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
-                    children: categoryItems,
-                  ),
-                );
-              } else {
-                return Container(
-                  height: itemHeight,
+                    IconButton(
+                      icon: Icon(Icons.tune, color: ColorManager.primary, size: 22 * scale),
+                      tooltip: 'Filter',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showFuturisticFilterDialog(context),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxWidth = constraints.maxWidth;
+            final double scale = (maxWidth / 400).clamp(0.7, 1.0);
+            final double itemWidth = 90.0 * scale;
+            final double itemHeight = 120.0 * scale;
+            final double screenWidth = constraints.maxWidth;
+            final int maxVisibleItems = (screenWidth / itemWidth).floor();
+            final bool shouldScroll = sortedCategories.length > maxVisibleItems;
+
+            final categoryItems = _getCategoryItems(
+              sortedCategories,
+              state.selectedCategoryId,
+              scale: scale,
+              itemWidth: itemWidth,
+              itemHeight: itemHeight,
+            );
+
+            if (shouldScroll) {
+              return SizedBox(
+                height: itemHeight,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: categoryItems,
-                  ),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
+                  children: categoryItems,
+                ),
+              );
+            } else {
+              return Container(
+                height: itemHeight,
+                padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: categoryItems,
+                ),
+              );
+            }
+          },
+        ),
+      ],
+    ),
+  );
+}
 
     Widget _buildFoodTypeFiltersSection(BuildContext context, HomeLoaded state) {
     debugPrint('HomePage: _buildFoodTypeFiltersSection called with selectedFoodTypeId: \\${state.selectedFoodTypeId}');
@@ -1133,26 +1148,22 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   color: Colors.grey[800],
                 ),
               ),
-              Text(
-                '\\${filteredRestaurants.length}',
-                style: GoogleFonts.poppins(
-                  fontSize: getResponsiveFontSize(context, 14),
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
-                ),
-              ),
+             
             ],
           ),
         ),
-        // Restaurant List
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: filteredRestaurants.length,
-          itemBuilder: (context, index) => _buildRestaurantItem(
-            context, filteredRestaurants[index], state, index, isStore: isStore
+        // Restaurant List or No Results Message
+        if (filteredRestaurants.isEmpty)
+          _buildNoResultsMessage(context, state)
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredRestaurants.length,
+            itemBuilder: (context, index) => _buildRestaurantItem(
+              context, filteredRestaurants[index], state, index, isStore: isStore
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1179,6 +1190,70 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       ).animate(controller: _animationController)
         .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
         .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
+    );
+  }
+
+  Widget _buildNoResultsMessage(BuildContext context, HomeLoaded state) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No Restaurants Found',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(context, 24),
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Try adjusting your filters or search criteria.',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(context, 16),
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Clear all filters
+              context.read<HomeBloc>().add(const FilterByCategory(null));
+              context.read<HomeBloc>().add(const FilterByFoodType(null));
+              context.read<HomeBloc>().add(const ToggleVegOnly(false));
+            },
+            icon: const Icon(Icons.clear_all, color: Colors.white),
+            label: Text(
+              'Clear Filters',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                fontSize: getResponsiveFontSize(context, 16),
+                color: Colors.white,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorManager.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(double.infinity, 54),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

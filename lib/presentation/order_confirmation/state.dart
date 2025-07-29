@@ -1,3 +1,4 @@
+import 'package:bird/models/payment_mode.dart';
 import 'package:equatable/equatable.dart';
 import '../../../models/order_confirmation_model.dart';
 
@@ -7,6 +8,23 @@ abstract class OrderConfirmationState extends Equatable {
   @override
   List<Object?> get props => [];
 }
+class PaymentMethodsLoaded extends OrderConfirmationState {
+  final List<PaymentMethod> methods;
+  final OrderSummary orderSummary;
+  final Map<String, dynamic> cartMetadata;
+  final String? selectedPaymentMode;
+  
+  PaymentMethodsLoaded(
+    this.methods,
+    this.orderSummary,
+    this.cartMetadata,
+    this.selectedPaymentMode,
+  );
+  
+  @override
+  List<Object?> get props => [methods, orderSummary, cartMetadata, selectedPaymentMode];
+}
+
 
 class OrderConfirmationInitial extends OrderConfirmationState {}
 

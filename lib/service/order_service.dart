@@ -6,6 +6,48 @@ import '../constants/api_constant.dart';
 import '../service/token_service.dart';
 
 class OrderService {
+  // Test payment methods API
+  static Future<Map<String, dynamic>> testPaymentMethods() async {
+    try {
+      debugPrint('OrderService: Testing payment methods API...');
+      
+      final token = await TokenService.getToken();
+      if (token == null) {
+        debugPrint('OrderService: No authentication token found for payment methods test');
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login again.',
+        };
+      }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/user/paymentMethods');
+      debugPrint('OrderService: Testing payment methods URL: $url');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('OrderService: Payment methods test response status: ${response.statusCode}');
+      debugPrint('OrderService: Payment methods test response body: ${response.body}');
+      
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'body': response.body,
+      };
+    } catch (e) {
+      debugPrint('OrderService: Payment methods test exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
   // Place order API
   static Future<Map<String, dynamic>> placeOrder({
     required String partnerId,

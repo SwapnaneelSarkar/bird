@@ -21,7 +21,12 @@ class ProceedToChat extends OrderConfirmationEvent {
 }
 
 class PlaceOrder extends OrderConfirmationEvent {
-  const PlaceOrder();
+  final String? paymentMode;
+  
+  const PlaceOrder({this.paymentMode});
+  
+  @override
+  List<Object?> get props => [paymentMode];
 }
 
 class SelectPaymentMode extends OrderConfirmationEvent {
@@ -54,3 +59,5 @@ class RemoveOrderItem extends OrderConfirmationEvent {
   @override
   List<Object?> get props => [itemId];
 }
+
+class LoadPaymentMethods extends OrderConfirmationEvent {}

@@ -14,6 +14,7 @@ class RestaurantDetailsLoading extends RestaurantDetailsState {}
 class RestaurantDetailsLoaded extends RestaurantDetailsState {
   final Map<String, dynamic> restaurant;
   final List<Map<String, dynamic>> menu;
+  final List<Map<String, dynamic>> categories;
   final Map<String, int> cartQuantities;
   final bool isFavorite;
   final int cartItemCount;
@@ -22,6 +23,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
   const RestaurantDetailsLoaded({
     required this.restaurant,
     required this.menu,
+    required this.categories,
     required this.cartQuantities,
     required this.isFavorite,
     this.cartItemCount = 0,
@@ -32,6 +34,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
   List<Object?> get props => [
     restaurant, 
     menu, 
+    categories,
     cartQuantities, 
     isFavorite, 
     cartItemCount, 
@@ -41,6 +44,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
   RestaurantDetailsLoaded copyWith({
     Map<String, dynamic>? restaurant,
     List<Map<String, dynamic>>? menu,
+    List<Map<String, dynamic>>? categories,
     Map<String, int>? cartQuantities,
     bool? isFavorite,
     int? cartItemCount,
@@ -49,6 +53,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
     return RestaurantDetailsLoaded(
       restaurant: restaurant ?? this.restaurant,
       menu: menu ?? this.menu,
+      categories: categories ?? this.categories,
       cartQuantities: cartQuantities ?? this.cartQuantities,
       isFavorite: isFavorite ?? this.isFavorite,
       cartItemCount: cartItemCount ?? this.cartItemCount,
@@ -66,9 +71,6 @@ class RestaurantDetailsError extends RestaurantDetailsState {
   @override
   List<Object?> get props => [message, needsLogin];
 }
-
-// REMOVED: CartUpdateSuccess and CartUpdateError states
-// These were causing the OpenGL UI rebuild issues
 
 class CartConflictDetected extends RestaurantDetailsState {
   final String currentRestaurant;

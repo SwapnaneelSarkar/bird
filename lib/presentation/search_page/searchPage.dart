@@ -285,7 +285,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     color: Colors.black87,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Search restaurants or dishes',
+                    hintText: 'Search Stores',
                     hintStyle: GoogleFonts.poppins(
                       fontSize: screenWidth * 0.04,
                       color: Colors.grey[400],

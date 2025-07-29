@@ -130,8 +130,21 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
         
         if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
           final List<dynamic> categoriesData = responseData['data'];
+          debugPrint('CategoryHomepageBloc: Found ${categoriesData.length} categories in response');
           
-          return categoriesData.map((json) => CategoryModel.fromJson(json)).toList();
+          final List<CategoryModel> categories = [];
+          for (int i = 0; i < categoriesData.length; i++) {
+            final categoryJson = categoriesData[i];
+            try {
+              final category = CategoryModel.fromJson(categoryJson);
+              debugPrint('CategoryHomepageBloc: Created category: ${category.name} with image: ${category.image}');
+              categories.add(category);
+            } catch (e) {
+              debugPrint('CategoryHomepageBloc: Error parsing category $i: $e');
+            }
+          }
+          
+          return categories;
         } else {
           debugPrint('CategoryHomepageBloc: API returned error: ${responseData['message'] ?? 'Unknown error'}');
           return [];

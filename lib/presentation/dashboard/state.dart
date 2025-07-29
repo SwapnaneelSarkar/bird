@@ -1,5 +1,6 @@
 // lib/presentation/category_homepage/state.dart
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 abstract class CategoryHomepageState extends Equatable {
   const CategoryHomepageState();
@@ -77,20 +78,30 @@ class CategorySelected extends CategoryHomepageState {
 class CategoryModel extends Equatable {
   final String id;
   final String name;
+  final String? image; // Add image field
 
   const CategoryModel({
     required this.id,
     required this.name,
+    this.image, // Add image parameter
   });
 
   @override
-  List<Object?> get props => [id, name];
+  List<Object?> get props => [id, name, image]; // Add image to props
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
-    return CategoryModel(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
+    final image = json['image'];
+    final name = json['name'];
+    final id = json['id'];
+    debugPrint('CategoryModel.fromJson: Parsing category $name (id: $id)');
+    
+    final category = CategoryModel(
+      id: id ?? '',
+      name: name ?? '',
+      image: image, // Parse image from API response
     );
+    
+    return category;
   }
 }
 

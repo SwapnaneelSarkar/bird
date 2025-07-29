@@ -65,14 +65,16 @@ class RestaurantDetailsPage extends StatelessWidget {
           userLatitude: userLatitude,
           userLongitude: userLongitude,
         )),
-      child: _RestaurantDetailsContent(),
+      child: const _RestaurantDetailsContent(),
     );
   }
 }
 
 class _RestaurantDetailsContent extends StatefulWidget {
+  const _RestaurantDetailsContent();
+
   @override
-  _RestaurantDetailsContentState createState() => _RestaurantDetailsContentState();
+  State<_RestaurantDetailsContent> createState() => _RestaurantDetailsContentState();
 }
 
 class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
@@ -83,7 +85,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   bool _isShowingConflictDialog = false;
   
   // Track previous quantities to detect first-time additions
-  Map<String, int> _previousQuantities = {};
+  final Map<String, int> _previousQuantities = {};
   
   // Track if cart was empty when page loaded
   bool _wasCartEmpty = true;
@@ -142,31 +144,56 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     return filteredMenu;
   }
 
-  // Group menu items by category (venue items vs restaurant items)
-  Map<String, List<Map<String, dynamic>>> _groupMenuByCategory(List<Map<String, dynamic>> menu) {
-    Map<String, List<Map<String, dynamic>>> groupedMenu = {
-      'Venue Items': <Map<String, dynamic>>[],
-      'Restaurant Items': <Map<String, dynamic>>[],
-    };
+  // Group menu items by category using categories from API
+  Map<String, List<Map<String, dynamic>>> _groupMenuByCategory(
+    List<Map<String, dynamic>> menu, 
+    List<Map<String, dynamic>> categories
+  ) {
+    final Map<String, List<Map<String, dynamic>>> groupedMenu = {};
+    final List<Map<String, dynamic>> otherItems = [];
     
-    for (var item in menu) {
-      // Check if item is venue-related based on category or type
-      final category = item['category']?.toString().toLowerCase() ?? '';
-      final type = item['type']?.toString().toLowerCase() ?? '';
+    // Create a map for quick category lookup
+    final Map<String, String> categoryMap = {};
+    for (final category in categories) {
+      categoryMap[category['id']?.toString() ?? ''] = category['name']?.toString() ?? '';
+    }
+    
+    // Group items by category
+    for (final item in menu) {
+      final categoryId = item['category']?.toString() ?? '';
+      final categoryName = categoryMap[categoryId];
       
-      if (category.contains('venue') || type.contains('venue') || 
-          category.contains('hall') || type.contains('hall') ||
-          category.contains('space') || type.contains('space')) {
-        groupedMenu['Venue Items']!.add(item);
+      if (categoryName != null && categoryName.isNotEmpty) {
+        // Add to existing category or create new one
+        groupedMenu.putIfAbsent(categoryName, () => []).add(item);
       } else {
-        groupedMenu['Restaurant Items']!.add(item);
+        // Category not found, add to others
+        otherItems.add(item);
       }
     }
     
-    // Remove empty categories
-    groupedMenu.removeWhere((key, value) => value.isEmpty);
+    // Add "Others" section if there are items without matching categories
+    if (otherItems.isNotEmpty) {
+      groupedMenu['Others'] = otherItems;
+    }
     
-    return groupedMenu;
+    // Sort categories by display order (preserve the order from API)
+    final Map<String, List<Map<String, dynamic>>> sortedGroupedMenu = {};
+    
+    // First add categories in their API order
+    for (final category in categories) {
+      final categoryName = category['name']?.toString() ?? '';
+      if (groupedMenu.containsKey(categoryName)) {
+        sortedGroupedMenu[categoryName] = groupedMenu[categoryName]!;
+      }
+    }
+    
+    // Then add "Others" at the end if it exists
+    if (groupedMenu.containsKey('Others')) {
+      sortedGroupedMenu['Others'] = groupedMenu['Others']!;
+    }
+    
+    return sortedGroupedMenu;
   }
 
   // Check if item was added for the first time and show popup
@@ -216,7 +243,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
           } else if (state is RestaurantDetailsLoaded) {
             // Initialize previous quantities when state is loaded
             if (_previousQuantities.isEmpty) {
-              _previousQuantities = Map.from(state.cartQuantities);
+              _previousQuantities.addAll(state.cartQuantities);
               
               // Check if cart was empty when page loaded
               _wasCartEmpty = state.cartItemCount == 0;
@@ -230,91 +257,24 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
           }
         },
         builder: (context, state) {
+          debugPrint('🔄 VIEW: Current state type: ${state.runtimeType}');
+          
           if (state is RestaurantDetailsLoading) {
+            debugPrint('⏳ VIEW: Showing loading state');
             return const Center(child: CircularProgressIndicator());
           } else if (state is RestaurantDetailsLoaded) {
+            debugPrint('✅ VIEW: Showing loaded content');
             return _buildUpdatedContent(context, state);
           } else if (state is CartConflictDetected) {
+            debugPrint('⚠️ VIEW: Showing cart conflict state');
             // While dialog is being handled, show the previous loaded content
             return _buildUpdatedContent(context, state.previousState);
           } else if (state is RestaurantDetailsError) {
-            final isNetworkError = state.message.toLowerCase().contains('network error');
-            if (isNetworkError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.wifi_off, size: 72, color: Colors.orangeAccent),
-                      const SizedBox(height: 24),
-                      Text(
-                        'No Internet Connection',
-                        style: GoogleFonts.poppins(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orangeAccent,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'We couldn\'t connect to our servers.\nPlease check your Wi-Fi or mobile data and try again.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          color: Colors.grey,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 28),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          // Retry by reloading the restaurant details
-                          final parent = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
-                          if (parent != null) {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (context) => RestaurantDetailsPage(
-                                  restaurantData: parent.restaurantData,
-                                  userLatitude: parent.userLatitude,
-                                  userLongitude: parent.userLongitude,
-                                ),
-                              ),
-                            );
-                          } else {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orangeAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            } else {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(state.message, style: const TextStyle(fontSize: 16, color: Colors.red)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context), 
-                      child: const Text('Go Back')
-                    ),
-                  ],
-                ),
-              );
-            }
+            debugPrint('❌ VIEW: Showing error state: ${state.message}');
+            return _buildErrorContent(context, state);
           }
           
+          debugPrint('🤷 VIEW: Showing default loading state');
           return const Center(child: CircularProgressIndicator());
         },
       ),
@@ -331,6 +291,84 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     );
   }
 
+  Widget _buildErrorContent(BuildContext context, RestaurantDetailsError state) {
+    final isNetworkError = state.message.toLowerCase().contains('network error');
+    if (isNetworkError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.wifi_off, size: 72, color: Colors.orangeAccent),
+              const SizedBox(height: 24),
+              Text(
+                'No Internet Connection',
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orangeAccent,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'We couldn\'t connect to our servers.\nPlease check your Wi-Fi or mobile data and try again.',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Retry by reloading the restaurant details
+                  final parent = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
+                  if (parent != null) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => RestaurantDetailsPage(
+                          restaurantData: parent.restaurantData,
+                          userLatitude: parent.userLatitude,
+                          userLongitude: parent.userLongitude,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orangeAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(state.message, style: const TextStyle(fontSize: 16, color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text('Go Back')
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Future<void> _showCartConflictDialog(BuildContext context, CartConflictDetected state) async {
     try {
       debugPrint('RestaurantDetailsView: Showing cart conflict dialog');
@@ -342,25 +380,35 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
       );
       
       if (result == true) {
-        context.read<RestaurantDetailsBloc>().add(
-          ReplaceCartWithNewRestaurant(
-            item: state.pendingItem,
-            quantity: state.pendingQuantity,
-          ),
-        );
+        if (mounted) {
+          context.read<RestaurantDetailsBloc>().add(
+            ReplaceCartWithNewRestaurant(
+              item: state.pendingItem,
+              quantity: state.pendingQuantity,
+            ),
+          );
+        }
       } else {
-        context.read<RestaurantDetailsBloc>().add(const DismissCartConflict());
+        if (mounted) {
+          context.read<RestaurantDetailsBloc>().add(const DismissCartConflict());
+        }
       }
     } catch (e) {
       debugPrint('RestaurantDetailsView: Error in cart conflict dialog: $e');
-      context.read<RestaurantDetailsBloc>().add(const DismissCartConflict());
+      if (mounted) {
+        context.read<RestaurantDetailsBloc>().add(const DismissCartConflict());
+      }
     }
   }
 
   Widget _buildUpdatedContent(BuildContext context, RestaurantDetailsLoaded state) {
-    Map<String, dynamic> restaurant = state.restaurant;
-    List<Map<String, dynamic>> filteredAndSortedMenu = _filterAndSortMenu(state.menu);
-    Map<String, List<Map<String, dynamic>>> groupedMenu = _groupMenuByCategory(filteredAndSortedMenu);
+    debugPrint('🏗️ VIEW: Building updated content');
+    debugPrint('🏗️ VIEW: Restaurant data keys: ${state.restaurant.keys.toList()}');
+    debugPrint('🏗️ VIEW: Address in state: "${state.restaurant['address']}"');
+    
+    final restaurant = state.restaurant;
+    final filteredAndSortedMenu = _filterAndSortMenu(state.menu);
+    final groupedMenu = _groupMenuByCategory(filteredAndSortedMenu, state.categories);
     
     return CustomScrollView(
       slivers: [
@@ -374,7 +422,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                  Icon(Icons.search, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     state.menu.isEmpty 
@@ -564,6 +612,10 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   }
 
   Widget _buildSliverAppBar(BuildContext context, Map<String, dynamic> restaurant) {
+    debugPrint('🏛️ VIEW: Building SliverAppBar');
+    debugPrint('🏛️ VIEW: Restaurant data in AppBar: ${restaurant.keys.toList()}');
+    debugPrint('🏛️ VIEW: Address in AppBar: "${restaurant['address']}"');
+    
     return SliverAppBar(
       expandedHeight: 280,
       floating: false,
@@ -681,7 +733,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search for dishes, venues...',
+                        hintText: 'Search for dishes, categories...',
                         hintStyle: GoogleFonts.poppins(
                           color: Colors.grey[500], 
                           fontSize: 15,
@@ -838,8 +890,6 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                       ),
                       child: Center(
                         child: Container(
-                          width: 4,
-                          height: 4,
                           decoration: const BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
@@ -866,134 +916,54 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
   }
 
   Widget _buildSectionHeader(String sectionName, int itemCount) {
+    // Determine if this is the "Others" section
+    final isOthersSection = sectionName == 'Others';
+    
     return Container(
-      margin: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Column(
+      margin: const EdgeInsets.only(top: 24, bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
         children: [
-          // Decorative separator line
+          // Simple colored line indicator
           Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+            width: 3,
+            height: 20,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  (sectionName == 'Venue Items' 
-                    ? Colors.purple 
-                    : ColorManager.primary).withOpacity(0.3),
-                  Colors.transparent,
-                ],
+              color: isOthersSection ? Colors.grey[400] : ColorManager.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Category name
+          Expanded(
+            child: Text(
+              sectionName,
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
           ),
           
-          const SizedBox(height: 16),
-          
-          // Section title with background
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: sectionName == 'Venue Items' 
-                  ? Colors.purple.withOpacity(0.3)
-                  : ColorManager.primary.withOpacity(0.3),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: sectionName == 'Venue Items' 
-                      ? Colors.purple 
-                      : ColorManager.primary,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                
-                const SizedBox(width: 16),
-                
-                Icon(
-                  sectionName == 'Venue Items' 
-                    ? Icons.location_city
-                    : Icons.restaurant,
-                  color: sectionName == 'Venue Items' 
-                    ? Colors.purple 
-                    : ColorManager.primary,
-                  size: 20,
-                ),
-                
-                const SizedBox(width: 12),
-                
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sectionName,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$itemCount ${itemCount == 1 ? 'item' : 'items'} available',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: (sectionName == 'Venue Items' 
-                      ? Colors.purple 
-                      : ColorManager.primary).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    itemCount.toString(),
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: sectionName == 'Venue Items' 
-                        ? Colors.purple 
-                        : ColorManager.primary,
-                    ),
-                  ),
-                ),
-              ],
+          // Item count
+          Text(
+            '$itemCount ${itemCount == 1 ? 'item' : 'items'}',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
           ),
-          
-          const SizedBox(height: 12),
         ],
       ),
     );
   }
   
   Widget _buildFilterOption(String title, String option, IconData icon) {
-    bool isSelected = _sortOption == option;
+    final isSelected = _sortOption == option;
     
     return InkWell(
       onTap: () => _setSortOption(option),
@@ -1027,9 +997,6 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
 
   Widget _buildCartFloatingButton(BuildContext context, RestaurantDetailsLoaded state) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final restaurantDetailsPage = context.findAncestorWidgetOfExactType<RestaurantDetailsPage>();
-    final userLatitude = restaurantDetailsPage?.userLatitude;
-    final userLongitude = restaurantDetailsPage?.userLongitude;
     final currentRestaurantId = state.restaurant['id']?.toString() ?? 
                               state.restaurant['partner_id']?.toString() ?? 
                               state.restaurant['partnerId']?.toString() ?? '';
@@ -1043,7 +1010,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
         final showClear = cartHasItems && cartPartnerId.isNotEmpty && cartPartnerId != currentRestaurantId;
         
         return FutureBuilder<String>(
-                      future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
+          future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
           builder: (context, snapshot) {
             final currencySymbol = snapshot.data ?? '₹';
             
@@ -1126,135 +1093,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                     SizedBox(
                       height: 56,
                       child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (context) {
-                              final screenWidth = MediaQuery.of(context).size.width;
-                              final screenHeight = MediaQuery.of(context).size.height;
-                              return Dialog(
-                                backgroundColor: Colors.transparent,
-                                insetPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-                                child: Container(
-                                  padding: EdgeInsets.all(screenWidth * 0.07),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(24),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.10),
-                                        blurRadius: 24,
-                                        offset: const Offset(0, 10),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: screenWidth * 0.15,
-                                        height: screenWidth * 0.15,
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.08),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(Icons.delete_forever_rounded, color: Colors.red, size: screenWidth * 0.09),
-                                      ),
-                                      SizedBox(height: screenHeight * 0.025),
-                                      Text(
-                                        'Clear All Items?',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: screenWidth * 0.052,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.grey[800],
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      SizedBox(height: screenHeight * 0.012),
-                                      Text(
-                                        'Are you sure you want to remove all items from your cart? This action cannot be undone.',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: screenWidth * 0.037,
-                                          color: Colors.grey[600],
-                                          height: 1.5,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      SizedBox(height: screenHeight * 0.04),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: () => Navigator.of(context).pop(false),
-                                              style: OutlinedButton.styleFrom(
-                                                padding: EdgeInsets.symmetric(vertical: screenHeight * 0.018),
-                                                side: BorderSide(color: Colors.grey[300]!, width: 1),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(14),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                'Cancel',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: screenWidth * 0.038,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.grey[700],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(width: screenWidth * 0.04),
-                                          Expanded(
-                                            child: ElevatedButton(
-                                              onPressed: () => Navigator.of(context).pop(true),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                                foregroundColor: Colors.white,
-                                                padding: EdgeInsets.symmetric(vertical: screenHeight * 0.018),
-                                                elevation: 0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(14),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                'Clear All',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: screenWidth * 0.038,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                          if (confirmed == true) {
-                            context.read<RestaurantDetailsBloc>().add(const ClearCart());
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    const Icon(Icons.delete_forever_rounded, color: Colors.white),
-                                    const SizedBox(width: 12),
-                                    const Expanded(child: Text('Cart cleared successfully!')),
-                                  ],
-                                ),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                margin: const EdgeInsets.all(16),
-                                elevation: 6,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
+                        onPressed: () => _showClearCartDialog(context),
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
                         label: Text('Clear', style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600)),
                         style: OutlinedButton.styleFrom(
@@ -1275,5 +1114,136 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
         );
       },
     );
+  }
+
+  Future<void> _showClearCartDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
+          child: Container(
+            padding: EdgeInsets.all(screenWidth * 0.07),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.10),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: screenWidth * 0.15,
+                  height: screenWidth * 0.15,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.delete_forever_rounded, color: Colors.red, size: screenWidth * 0.09),
+                ),
+                SizedBox(height: screenHeight * 0.025),
+                Text(
+                  'Clear All Items?',
+                  style: GoogleFonts.poppins(
+                    fontSize: screenWidth * 0.052,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: screenHeight * 0.012),
+                Text(
+                  'Are you sure you want to remove all items from your cart? This action cannot be undone.',
+                  style: GoogleFonts.poppins(
+                    fontSize: screenWidth * 0.037,
+                    color: Colors.grey[600],
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: screenHeight * 0.04),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: screenHeight * 0.018),
+                          side: BorderSide(color: Colors.grey[300]!, width: 1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.poppins(
+                            fontSize: screenWidth * 0.038,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: screenWidth * 0.04),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: screenHeight * 0.018),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          'Clear All',
+                          style: GoogleFonts.poppins(
+                            fontSize: screenWidth * 0.038,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      context.read<RestaurantDetailsBloc>().add(const ClearCart());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.delete_forever_rounded, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(child: Text('Cart cleared successfully!')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: const EdgeInsets.all(16),
+          elevation: 6,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

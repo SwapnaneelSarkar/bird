@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../widgets/custom_button_large.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_card.dart';
-import '../../utils/currency_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -97,93 +95,56 @@ class _OrderConfirmationContent extends StatelessWidget {
           debugPrint('_OrderConfirmationContent: Building for state: ${state.runtimeType}');
           
           if (state is OrderConfirmationLoading) {
-            debugPrint('_OrderConfirmationContent: Showing loading view');
-            return _buildLoadingView(screenWidth, screenHeight);
-          } else if (state is OrderConfirmationLoaded) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          
+          if (state is OrderConfirmationError) {
+            return _buildErrorView(context, state.message, screenWidth, screenHeight);
+          }
+          
+          if (state is OrderConfirmationLoaded) {
             debugPrint('_OrderConfirmationContent: Showing loaded view with ${state.orderSummary.items.length} items');
             return _buildLoadedView(context, state, screenWidth, screenHeight);
-          } else if (state is OrderConfirmationProcessing) {
-            debugPrint('_OrderConfirmationContent: Showing processing view');
-            return _buildProcessingView(screenWidth, screenHeight);
-          } else if (state is OrderConfirmationError) {
-            debugPrint('_OrderConfirmationContent: Showing error view: ${state.message}');
-            return _buildErrorView(context, state, screenWidth, screenHeight);
-          } else {
-            debugPrint('_OrderConfirmationContent: Unknown state: ${state.runtimeType}, showing loading');
-            return _buildLoadingView(screenWidth, screenHeight);
           }
+          
+          if (state is PaymentMethodsLoaded) {
+            debugPrint('_OrderConfirmationContent: Showing loaded view with payment methods');
+            // Convert PaymentMethodsLoaded to OrderConfirmationLoaded for the view
+            final orderState = OrderConfirmationLoaded(
+              orderSummary: state.orderSummary,
+              cartMetadata: state.cartMetadata,
+              selectedPaymentMode: state.selectedPaymentMode,
+            );
+            return _buildLoadedView(context, orderState, screenWidth, screenHeight);
+          }
+          
+          if (state is OrderConfirmationProcessing) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Processing your order...'),
+                ],
+              ),
+            );
+          }
+          
+          return const Center(
+            child: Text('Something went wrong'),
+          );
         },
       ),
     );
   }
 
-  Widget _buildLoadingView(double screenWidth, double screenHeight) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(ColorManager.black),
-          ),
-          SizedBox(height: screenHeight * 0.02),
-          Text(
-            'Loading order details...',
-            style: TextStyle(
-              fontSize: screenWidth * 0.04,
-              fontWeight: FontWeightManager.regular,
-              fontFamily: FontFamily.Montserrat,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProcessingView(double screenWidth, double screenHeight) {
-    return Container(
-      color: Colors.black.withOpacity(0.3),
-      child: Center(
-        child: Container(
-          padding: EdgeInsets.all(screenWidth * 0.08),
-          margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(ColorManager.black),
-              ),
-              SizedBox(height: screenHeight * 0.02),
-              Text(
-                'Processing your order...',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.04,
-                  fontWeight: FontWeightManager.medium,
-                  fontFamily: FontFamily.Montserrat,
-                  color: ColorManager.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorView(
-    BuildContext context,
-    OrderConfirmationError state,
-    double screenWidth,
-    double screenHeight,
-  ) {
+  Widget _buildErrorView(BuildContext context, String message, double screenWidth, double screenHeight) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.08),
+        padding: EdgeInsets.all(screenWidth * 0.06),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -192,25 +153,33 @@ class _OrderConfirmationContent extends StatelessWidget {
               size: screenWidth * 0.2,
               color: Colors.red,
             ),
+            SizedBox(height: screenHeight * 0.03),
+            Text(
+              'Error',
+              style: TextStyle(
+                fontSize: screenWidth * 0.06,
+                fontWeight: FontWeightManager.bold,
+                fontFamily: FontFamily.Montserrat,
+                color: ColorManager.black,
+              ),
+            ),
             SizedBox(height: screenHeight * 0.02),
             Text(
-              state.message,
+              message,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: screenWidth * 0.04,
                 fontWeight: FontWeightManager.regular,
                 fontFamily: FontFamily.Montserrat,
-                color: Colors.red,
+                color: Colors.grey[600],
               ),
-              textAlign: TextAlign.center,
             ),
-            SizedBox(height: screenHeight * 0.03),
-            CustomLargeButton(
-              text: 'Retry',
+            SizedBox(height: screenHeight * 0.04),
+            ElevatedButton(
               onPressed: () {
-                context.read<OrderConfirmationBloc>().add(
-                  const LoadOrderConfirmationData(),
-                );
+                context.read<OrderConfirmationBloc>().add(LoadOrderConfirmationData());
               },
+              child: const Text('Try Again'),
             ),
           ],
         ),
@@ -224,73 +193,137 @@ class _OrderConfirmationContent extends StatelessWidget {
     double screenWidth,
     double screenHeight,
   ) {
-    return Column(
-      children: [
-        // Selected Items Section
-        Expanded(
-          child: SingleChildScrollView(
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(screenWidth * 0.04),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildRestaurantInfo(state, screenWidth, screenHeight),
+          SizedBox(height: screenHeight * 0.02),
+          _buildOrderItems(state, screenWidth, screenHeight),
+          SizedBox(height: screenHeight * 0.02),
+          _buildOrderSummary(state, screenWidth, screenHeight),
+          SizedBox(height: screenHeight * 0.04),
+          _buildPlaceOrderButton(context, state, screenWidth, screenHeight),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRestaurantInfo(
+    OrderConfirmationLoaded state,
+    double screenWidth,
+    double screenHeight,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth * 0.04),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            spreadRadius: 0,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: screenWidth * 0.15,
+            height: screenWidth * 0.15,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[100],
+            ),
+            child: Icon(
+              Icons.restaurant,
+              color: Colors.grey[400],
+              size: screenWidth * 0.08,
+            ),
+          ),
+          SizedBox(width: screenWidth * 0.04),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Section Title
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    screenWidth * 0.06, 
-                    screenWidth * 0.04, 
-                    screenWidth * 0.06, 
-                    screenWidth * 0.03
-                  ),
-                  child: Text(
-                    'Selected Items',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.05,
-                      fontWeight: FontWeightManager.bold,
-                      fontFamily: FontFamily.Montserrat,
-                      color: ColorManager.black,
-                    ),
+                Text(
+                  state.cartMetadata['restaurant_name'] ?? 'Restaurant',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.045,
+                    fontWeight: FontWeightManager.bold,
+                    fontFamily: FontFamily.Montserrat,
+                    color: ColorManager.black,
                   ),
                 ),
-
-                // Items List
-                ...state.orderSummary.items.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  
-                  debugPrint('OrderConfirmationView: Rendering item $index: ${item.name}, Price: ₹${item.price}, Qty: ${item.quantity}, Total: ₹${item.totalPrice}');
-                  
-                  return OrderItemCard(
-                    imageUrl: item.imageUrl,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.totalPrice,
-                    itemId: item.id,
-                    attributes: item.attributes,
-                    onQuantityChanged: (itemId, newQuantity) {
-                      debugPrint('OrderConfirmationView: Quantity changed for item $itemId to $newQuantity');
-                      context.read<OrderConfirmationBloc>().add(
-                        UpdateOrderQuantity(
-                          itemId: itemId,
-                          newQuantity: newQuantity,
-                        ),
-                      );
-                    },
-                  );
-                }).toList(),
-
-                SizedBox(height: screenHeight * 0.02),
-
-                // Order Summary
-                _buildOrderSummary(state, screenWidth, screenHeight),
-
-                SizedBox(height: screenHeight * 0.015),
+                SizedBox(height: screenHeight * 0.01),
+                Text(
+                  'Partner ID: ${state.cartMetadata['partner_id'] ?? 'N/A'}',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    fontWeight: FontWeightManager.regular,
+                    fontFamily: FontFamily.Montserrat,
+                    color: Colors.grey[600],
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
 
-        // Bottom Button
-        _buildBottomButton(context, state, screenWidth, screenHeight),
-      ],
+  Widget _buildOrderItems(
+    OrderConfirmationLoaded state,
+    double screenWidth,
+    double screenHeight,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth * 0.04),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            spreadRadius: 0,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Order Items',
+            style: TextStyle(
+              fontSize: screenWidth * 0.045,
+              fontWeight: FontWeightManager.bold,
+              fontFamily: FontFamily.Montserrat,
+              color: ColorManager.black,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.02),
+          ...state.orderSummary.items.map((item) {
+            debugPrint('OrderConfirmationView: Rendering item ${state.orderSummary.items.indexOf(item)}: ${item.name}, Price: ₹${item.price}, Qty: ${item.quantity}, Total: ₹${item.totalPrice}');
+            return OrderItemCard(
+              imageUrl: item.imageUrl,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.totalPrice,
+              itemId: item.id,
+              attributes: item.attributes,
+              onQuantityChanged: (itemId, newQuantity) {
+                // Handle quantity change
+              },
+            );
+          }).toList(),
+        ],
+      ),
     );
   }
 
@@ -300,17 +333,13 @@ class _OrderConfirmationContent extends StatelessWidget {
     double screenHeight,
   ) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
-      padding: EdgeInsets.symmetric(
-        horizontal: screenWidth * 0.05,
-        vertical: screenHeight * 0.02,
-      ),
+      padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 0,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -318,47 +347,30 @@ class _OrderConfirmationContent extends StatelessWidget {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Subtotal
-          FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-            builder: (context, snapshot) {
-              final currencySymbol = snapshot.data ?? '₹';
-              return _buildSummaryRow(
-                'Subtotal',
-                CurrencyUtils.formatPrice(state.orderSummary.subtotal, currencySymbol),
-                screenWidth,
-                isTotal: false,
-              );
-            },
+          Text(
+            'Order Summary',
+            style: TextStyle(
+              fontSize: screenWidth * 0.045,
+              fontWeight: FontWeightManager.bold,
+              fontFamily: FontFamily.Montserrat,
+              color: ColorManager.black,
+            ),
           ),
-          
-          SizedBox(height: screenHeight * 0.01),
-          
-          // (Delivery Fee row removed)
-          SizedBox(height: screenHeight * 0.015),
-          
-          // Divider
-          Divider(
-            color: Colors.grey[200],
-            thickness: 1,
-            height: 1,
-          ),
-          
-          SizedBox(height: screenHeight * 0.015),
-          
-          // Total
-          FutureBuilder<String>(
-            future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-            builder: (context, snapshot) {
-              final currencySymbol = snapshot.data ?? '₹';
-              return _buildSummaryRow(
-                'Total',
-                CurrencyUtils.formatPrice(state.orderSummary.total, currencySymbol),
-                screenWidth,
-                isTotal: true,
-              );
-            },
+          SizedBox(height: screenHeight * 0.02),
+          _buildSummaryRow('Subtotal', '₹${state.orderSummary.subtotal.toStringAsFixed(2)}', screenWidth),
+          _buildSummaryRow('Delivery Fee', '₹${state.orderSummary.deliveryFee.toStringAsFixed(2)}', screenWidth),
+          if (state.orderSummary.taxAmount > 0)
+            _buildSummaryRow('Tax', '₹${state.orderSummary.taxAmount.toStringAsFixed(2)}', screenWidth),
+          if (state.orderSummary.discountAmount > 0)
+            _buildSummaryRow('Discount', '-₹${state.orderSummary.discountAmount.toStringAsFixed(2)}', screenWidth),
+          Divider(height: screenHeight * 0.02),
+          _buildSummaryRow(
+            'Total',
+            '₹${state.orderSummary.total.toStringAsFixed(2)}',
+            screenWidth,
+            isTotal: true,
           ),
         ],
       ),
@@ -367,90 +379,65 @@ class _OrderConfirmationContent extends StatelessWidget {
 
   Widget _buildSummaryRow(
     String label,
-    String amount,
+    String value,
     double screenWidth, {
     bool isTotal = false,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
             label,
             style: TextStyle(
-              fontSize: isTotal ? screenWidth * 0.04 : screenWidth * 0.035,
+              fontSize: screenWidth * 0.04,
               fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.regular,
               fontFamily: FontFamily.Montserrat,
               color: isTotal ? ColorManager.black : Colors.grey[600],
             ),
           ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Text(
-            amount,
+          Text(
+            value,
             style: TextStyle(
-              fontSize: isTotal ? screenWidth * 0.042 : screenWidth * 0.035,
-              fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.semiBold,
+              fontSize: screenWidth * 0.04,
+              fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.medium,
               fontFamily: FontFamily.Montserrat,
-              color: isTotal ? const Color(0xFFD2691E) : ColorManager.black,
+              color: isTotal ? ColorManager.black : Colors.grey[800],
             ),
-            textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildBottomButton(
+  Widget _buildPlaceOrderButton(
     BuildContext context,
     OrderConfirmationLoaded state,
     double screenWidth,
     double screenHeight,
   ) {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        screenWidth * 0.06,
-        screenHeight * 0.015,
-        screenWidth * 0.06,
-        screenHeight * 0.015,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
-            spreadRadius: 0,
-            blurRadius: 12,
-            offset: const Offset(0, -4),
+      width: double.infinity,
+      height: screenHeight * 0.06,
+      child: ElevatedButton(
+        onPressed: () {
+          debugPrint('OrderConfirmationView: Place order button pressed');
+          _showPaymentModeDialog(context);
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: ColorManager.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
-          height: screenHeight * 0.065,
-          child: ElevatedButton(
-            onPressed: () => _showPaymentModeDialog(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD2691E),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Place Order  →',
-              style: TextStyle(
-                fontSize: screenWidth * 0.04,
-                fontWeight: FontWeightManager.semiBold,
-                fontFamily: FontFamily.Montserrat,
-                letterSpacing: 0.5,
-              ),
-            ),
+        ),
+        child: Text(
+          'Place Order',
+          style: TextStyle(
+            fontSize: screenWidth * 0.045,
+            fontWeight: FontWeightManager.bold,
+            fontFamily: FontFamily.Montserrat,
+            color: Colors.white,
           ),
         ),
       ),
@@ -458,10 +445,9 @@ class _OrderConfirmationContent extends StatelessWidget {
   }
 
   void _showPaymentModeDialog(BuildContext context) {
+    debugPrint('PaymentDialog: Opening payment mode dialog');
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    
-    // Store reference to the bloc before showing dialog
     final orderBloc = context.read<OrderConfirmationBloc>();
 
     showDialog(
@@ -470,96 +456,107 @@ class _OrderConfirmationContent extends StatelessWidget {
       builder: (BuildContext dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          child: Container(
-            padding: EdgeInsets.all(screenWidth * 0.06),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Title
-                Text(
-                  'Select Payment Mode',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.05,
-                    fontWeight: FontWeightManager.bold,
-                    fontFamily: FontFamily.Montserrat,
-                    color: ColorManager.black,
+          child: BlocProvider.value(
+            value: orderBloc,
+            child: BlocBuilder<OrderConfirmationBloc, OrderConfirmationState>(
+              builder: (context, state) {
+                debugPrint('PaymentDialog: Current state: ${state.runtimeType}');
+                
+                // Always trigger LoadPaymentMethods when dialog opens, unless already loaded
+                if (state is! PaymentMethodsLoaded) {
+                  debugPrint('PaymentDialog: Triggering LoadPaymentMethods');
+                  // Add a timeout to prevent infinite loading
+                  Future.delayed(const Duration(seconds: 10), () {
+                    if (context.mounted && state is! PaymentMethodsLoaded) {
+                      debugPrint('PaymentDialog: Timeout reached, using default payment method');
+                      Navigator.of(context).pop();
+                      orderBloc.add(const PlaceOrder(paymentMode: 'cash'));
+                    }
+                  });
+                  context.read<OrderConfirmationBloc>().add(LoadPaymentMethods());
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                // At this point, state is guaranteed to be PaymentMethodsLoaded
+                final paymentState = state as PaymentMethodsLoaded;
+                return Container(
+                  padding: EdgeInsets.all(screenWidth * 0.06),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ),
-                
-                SizedBox(height: screenHeight * 0.03),
-                
-                // Payment Options
-                _buildPaymentOption(
-                  context: dialogContext,
-                  orderBloc: orderBloc,
-                  icon: Icons.money,
-                  title: 'Cash on Delivery',
-                  subtitle: 'Pay when your order arrives',
-                  color: const Color(0xFF4CAF50),
-                  screenWidth: screenWidth,
-                  screenHeight: screenHeight,
-                ),
-                
-                SizedBox(height: screenHeight * 0.015),
-                
-                // UPI Payment option removed
-                // _buildPaymentOption(
-                //   context: dialogContext,
-                //   orderBloc: orderBloc,
-                //   icon: Icons.account_balance_wallet,
-                //   title: 'UPI Payment',
-                //   subtitle: 'Pay using UPI apps',
-                //   color: const Color(0xFF2196F3),
-                //   screenWidth: screenWidth,
-                //   screenHeight: screenHeight,
-                // ),
-                // 
-                // SizedBox(height: screenHeight * 0.015),
-                
-                _buildPaymentOption(
-                  context: dialogContext,
-                  orderBloc: orderBloc,
-                  icon: Icons.credit_card,
-                  title: 'Card Payment',
-                  subtitle: 'Pay using debit/credit card',
-                  color: const Color(0xFF9C27B0),
-                  screenWidth: screenWidth,
-                  screenHeight: screenHeight,
-                ),
-                
-                SizedBox(height: screenHeight * 0.02),
-                
-                // Cancel Button
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeightManager.medium,
-                      fontFamily: FontFamily.Montserrat,
-                      color: Colors.grey[600],
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Select Payment Mode',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.05,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.03),
+
+                      ...paymentState.methods.map((method) {
+                        final icon = _getPaymentIcon(method.id);
+                        final color = _getPaymentColor(method.id);
+                        return Column(
+                          children: [
+                            _buildPaymentOption(
+                              context: dialogContext,
+                              orderBloc: orderBloc,
+                              icon: icon,
+                              title: method.displayName,
+                              subtitle: method.description,
+                              color: color,
+                              screenWidth: screenWidth,
+                              screenHeight: screenHeight,
+                              paymentId: method.id,
+                            ),
+                            SizedBox(height: screenHeight * 0.015),
+                          ],
+                        );
+                      }).toList(),
+
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         );
       },
     );
+  }
+
+  IconData _getPaymentIcon(String id) {
+    switch (id) {
+      case 'cash':
+        return Icons.money;
+      case 'card':
+        return Icons.credit_card;
+      case 'upi':
+        return Icons.account_balance_wallet;
+      default:
+        return Icons.payment;
+    }
+  }
+
+  Color _getPaymentColor(String id) {
+    switch (id) {
+      case 'cash':
+        return const Color(0xFF4CAF50);
+      case 'card':
+        return const Color(0xFF9C27B0);
+      case 'upi':
+        return const Color(0xFF2196F3);
+      default:
+        return Colors.orange;
+    }
   }
 
   Widget _buildPaymentOption({
@@ -571,6 +568,7 @@ class _OrderConfirmationContent extends StatelessWidget {
     required Color color,
     required double screenWidth,
     required double screenHeight,
+    required String paymentId,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -583,45 +581,22 @@ class _OrderConfirmationContent extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
           onTap: () {
-            Navigator.of(context).pop(); // Close dialog
-            debugPrint('Payment mode selected: $title');
-            
-            // Map payment option titles to API values
-            String paymentMode;
-            switch (title) {
-              case 'Cash on Delivery':
-                paymentMode = 'cash';
-                break;
-              case 'UPI Payment':
-                paymentMode = 'upi';
-                break;
-              case 'Card Payment':
-                paymentMode = 'card';
-                break;
-              default:
-                paymentMode = 'cash';
-            }
-            
-            // Select payment mode and proceed to chat
-            orderBloc.add(SelectPaymentMode(paymentMode: paymentMode));
-            orderBloc.add(const ProceedToChat());
+            debugPrint('PaymentDialog: Selected payment method: $paymentId');
+            Navigator.of(context).pop();
+            orderBloc.add(PlaceOrder(paymentMode: paymentId));
           },
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.04,
-              vertical: screenHeight * 0.02,
-            ),
+            padding: EdgeInsets.all(screenWidth * 0.04),
             child: Row(
               children: [
-                // Icon Container
                 Container(
-                  padding: EdgeInsets.all(screenWidth * 0.025),
+                  width: screenWidth * 0.12,
+                  height: screenWidth * 0.12,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -630,10 +605,7 @@ class _OrderConfirmationContent extends StatelessWidget {
                     size: screenWidth * 0.06,
                   ),
                 ),
-                
                 SizedBox(width: screenWidth * 0.04),
-                
-                // Text Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -642,26 +614,21 @@ class _OrderConfirmationContent extends StatelessWidget {
                         title,
                         style: TextStyle(
                           fontSize: screenWidth * 0.04,
-                          fontWeight: FontWeightManager.semiBold,
-                          fontFamily: FontFamily.Montserrat,
+                          fontWeight: FontWeight.bold,
                           color: ColorManager.black,
                         ),
                       ),
-                      SizedBox(height: screenHeight * 0.003),
+                      SizedBox(height: screenHeight * 0.005),
                       Text(
                         subtitle,
                         style: TextStyle(
-                          fontSize: screenWidth * 0.03,
-                          fontWeight: FontWeightManager.regular,
-                          fontFamily: FontFamily.Montserrat,
+                          fontSize: screenWidth * 0.035,
                           color: Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
                 ),
-                
-                // Arrow Icon
                 Icon(
                   Icons.arrow_forward_ios,
                   color: Colors.grey[400],
@@ -674,4 +641,4 @@ class _OrderConfirmationContent extends StatelessWidget {
       ),
     );
   }
-}
+} 

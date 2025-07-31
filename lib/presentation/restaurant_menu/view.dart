@@ -11,6 +11,8 @@ import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import '../../utils/currency_utils.dart';
+import '../../utils/distance_util.dart';
+import '../../utils/delivery_time_util.dart';
 import '../../service/cart_service.dart';
 
 class RestaurantDetailsPage extends StatelessWidget {
@@ -30,7 +32,7 @@ class RestaurantDetailsPage extends StatelessWidget {
     if (restaurantData.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Restaurant Details'),
+                      title: const Text('Store Details'),
           leading: const BackButton(),
         ),
         body: Center(
@@ -39,10 +41,10 @@ class RestaurantDetailsPage extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              const Text('Restaurant data not available', 
+              const Text('Store data not available', 
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text('Please try selecting a restaurant again', 
+              Text('Please try selecting a store again', 
                 style: TextStyle(fontSize: 14, color: Colors.grey[600])),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -101,6 +103,64 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Calculate distance between user and restaurant
+  String _calculateDistance(Map<String, dynamic> restaurant) {
+    // Get user coordinates from the parent widget
+    final userLat = (context.findAncestorWidgetOfExactType<RestaurantDetailsPage>())?.userLatitude;
+    final userLng = (context.findAncestorWidgetOfExactType<RestaurantDetailsPage>())?.userLongitude;
+    final restaurantLat = restaurant['latitude'] != null 
+        ? double.tryParse(restaurant['latitude'].toString())
+        : null;
+    final restaurantLng = restaurant['longitude'] != null 
+        ? double.tryParse(restaurant['longitude'].toString())
+        : null;
+    
+    if (userLat != null && userLng != null && 
+        restaurantLat != null && restaurantLng != null) {
+      try {
+        final distance = DistanceUtil.calculateDistance(
+          userLat, userLng, restaurantLat, restaurantLng
+        );
+        return DistanceUtil.formatDistance(distance);
+      } catch (e) {
+        debugPrint('Error calculating distance: $e');
+        return 'Nearby';
+      }
+    }
+    
+    // Fallback to provided distance or default
+    return restaurant['calculatedDistance'] ?? 
+           restaurant['distance'] != null ? '${restaurant['distance']} km' : 'Nearby';
+  }
+
+  // Calculate delivery time based on distance
+  String _calculateDeliveryTime(Map<String, dynamic> restaurant) {
+    final userLat = (context.findAncestorWidgetOfExactType<RestaurantDetailsPage>())?.userLatitude;
+    final userLng = (context.findAncestorWidgetOfExactType<RestaurantDetailsPage>())?.userLongitude;
+    final restaurantLat = restaurant['latitude'] != null 
+        ? double.tryParse(restaurant['latitude'].toString())
+        : null;
+    final restaurantLng = restaurant['longitude'] != null 
+        ? double.tryParse(restaurant['longitude'].toString())
+        : null;
+    
+    if (userLat != null && userLng != null && 
+        restaurantLat != null && restaurantLng != null) {
+      try {
+        final distance = DistanceUtil.calculateDistance(
+          userLat, userLng, restaurantLat, restaurantLng
+        );
+        return DeliveryTimeUtil.calculateDeliveryTime(distance);
+      } catch (e) {
+        debugPrint('Error calculating delivery time: $e');
+        return '20-30 mins';
+      }
+    }
+    
+    // Fallback to default delivery time
+    return '20-30 mins';
   }
   
   void _onSearchChanged() {
@@ -422,7 +482,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.search, size: 64, color: Colors.grey[400]),
+                  Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     state.menu.isEmpty 
@@ -437,7 +497,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                   const SizedBox(height: 8),
                   Text(
                     state.menu.isEmpty
-                        ? 'This restaurant has not added any items yet'
+                        ? 'This store has not added any items yet'
                         : 'Try a different search term or clear filters',
                     style: TextStyle(
                       fontSize: 14,
@@ -674,7 +734,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                     Icon(Icons.info_outline, color: ColorManager.primary, size: 20),
                     const SizedBox(width: 12),
                     Text(
-                      'Restaurant Profile',
+                      'Store Profile',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -773,8 +833,8 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                  restaurant['veg_nonveg'] == 'veg' ||
                  (restaurant['veg_nonveg'] ?? '').toString().toLowerCase() == 'veg';
     
-    final distance = restaurant['calculatedDistance'] ?? '${restaurant['distance'] ?? 1.2} Kms';
-    final rating = restaurant['rating']?.toString() ?? '4.3';
+    final distance = _calculateDistance(restaurant);
+    final rating = restaurant['rating']?.toString() ?? '0.0';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -853,6 +913,37 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                   const SizedBox(width: 4),
                   Text(
                     distance,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: ColorManager.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Delivery Time
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.access_time, color: ColorManager.primary, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    _calculateDeliveryTime(restaurant),
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       color: ColorManager.primary,

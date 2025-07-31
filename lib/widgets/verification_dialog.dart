@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../constants/color/colorConstant.dart';
 import '../constants/font/fontManager.dart';
 import '../service/verification_service.dart';
+import '../service/email_verification_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class VerificationDialog extends StatefulWidget {
@@ -34,6 +35,7 @@ enum VerificationType { email, phone }
 class _VerificationDialogState extends State<VerificationDialog> {
   final TextEditingController _otpController = TextEditingController();
   final VerificationService _verificationService = VerificationService();
+  final EmailVerificationService _emailVerificationService = EmailVerificationService();
   
   Timer? _timer;
   int _countdown = 60;
@@ -67,12 +69,15 @@ class _VerificationDialogState extends State<VerificationDialog> {
       
       if (widget.type == VerificationType.phone) {
         result = await _verificationService.sendPhoneVerificationOtp(widget.value);
+        if (result['success'] == true) {
+          _verificationId = result['verificationId'];
+        }
       } else {
-        result = await _verificationService.sendEmailVerification(widget.value, phoneNumber: widget.phoneNumber);
+        // Use new email verification service for email verification
+        result = await _emailVerificationService.sendEmailOtp(widget.value);
       }
 
       if (result['success'] == true) {
-        _verificationId = result['verificationId'];
         _startTimer();
         _showSnackBar('Verification code sent successfully', false);
       } else {
@@ -131,7 +136,8 @@ class _VerificationDialogState extends State<VerificationDialog> {
           _verificationId ?? '',
         );
       } else {
-        result = await _verificationService.verifyEmail(
+        // Use new email verification service for email verification
+        result = await _emailVerificationService.verifyEmailOtp(
           widget.value,
           _otpController.text,
         );
@@ -153,6 +159,44 @@ class _VerificationDialogState extends State<VerificationDialog> {
     } finally {
       setState(() {
         _isVerifying = false;
+      });
+    }
+  }
+
+  Future<void> _resendVerificationCode() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      Map<String, dynamic> result;
+      
+      if (widget.type == VerificationType.phone) {
+        result = await _verificationService.sendPhoneVerificationOtp(widget.value);
+        if (result['success'] == true) {
+          _verificationId = result['verificationId'];
+        }
+      } else {
+        // Use new email verification service for email resend
+        result = await _emailVerificationService.resendEmailOtp(widget.value);
+      }
+
+      if (result['success'] == true) {
+        _startTimer();
+        _showSnackBar('Verification code resent successfully', false);
+      } else {
+        setState(() {
+          _errorMessage = result['error'] ?? 'Failed to resend verification code';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An error occurred. Please try again.';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
@@ -383,7 +427,7 @@ class _VerificationDialogState extends State<VerificationDialog> {
                 ),
                 if (_canResend)
                   TextButton(
-                    onPressed: _isLoading ? null : _sendVerificationCode,
+                    onPressed: _isLoading ? null : _resendVerificationCode,
                     child: _isLoading
                         ? SizedBox(
                             width: 16 * responsiveTextScale,

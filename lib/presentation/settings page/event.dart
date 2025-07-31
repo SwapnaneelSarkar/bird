@@ -33,3 +33,13 @@ class UpdateProfileImage extends SettingsEvent {
 }
 
 class DeleteAccount extends SettingsEvent {}
+
+class DeleteAccountWithOtp extends SettingsEvent {
+  final String otp;
+  final String verificationId;
+  
+  DeleteAccountWithOtp({
+    required this.otp,
+    required this.verificationId,
+  });
+}

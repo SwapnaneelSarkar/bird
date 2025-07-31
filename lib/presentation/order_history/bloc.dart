@@ -1,10 +1,7 @@
-// lib/presentation/order_history/bloc.dart - Updated to use order_id correctly
-import 'package:flutter/foundation.dart';
+// lib/presentation/order_history/bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../constants/api_constant.dart';
-import '../../service/token_service.dart';
+import 'package:equatable/equatable.dart';
+import '../../service/order_history_service.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -14,238 +11,184 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
     on<RefreshOrderHistory>(_onRefreshOrderHistory);
     on<FilterOrdersByStatus>(_onFilterOrdersByStatus);
     on<ViewOrderDetails>(_onViewOrderDetails);
-    on<OpenChatForOrder>(_onOpenChatForOrder);
+    on<LoadOrderAdditionalData>(_onLoadOrderAdditionalData); // ADDED: New event
   }
-  
-  Future<void> _onLoadOrderHistory(LoadOrderHistory event, Emitter<OrderHistoryState> emit) async {
+
+  Future<void> _onLoadOrderHistory(
+    LoadOrderHistory event,
+    Emitter<OrderHistoryState> emit,
+  ) async {
     emit(OrderHistoryLoading());
-    
-    try {
-      debugPrint('OrderHistoryBloc: Loading order history...');
-      
-      // Get token and user ID
-      final token = await TokenService.getToken();
-      final userId = await TokenService.getUserId();
-      
-      if (token == null || userId == null) {
-        emit(const OrderHistoryError('Please login again to view order history.'));
-        return;
-      }
-      
-      // Fetch order history from API
-      final orders = await _fetchOrderHistory(token, userId);
-      
-      const filterTabs = ['All Orders', 'Preparing', 'Completed', 'Cancelled'];
-      const selectedFilter = 'All Orders';
-      
-      emit(OrderHistoryLoaded(
-        allOrders: orders,
-        filteredOrders: orders, // Initially show all orders
-        selectedFilter: selectedFilter,
-        filterTabs: filterTabs,
-      ));
-      
-      debugPrint('OrderHistoryBloc: Order history loaded successfully with ${orders.length} orders');
-    } catch (e) {
-      debugPrint('OrderHistoryBloc: Error loading order history: $e');
-      emit(const OrderHistoryError('Failed to load order history. Please try again.'));
-    }
-  }
-  
-  Future<void> _onRefreshOrderHistory(RefreshOrderHistory event, Emitter<OrderHistoryState> emit) async {
-    try {
-      debugPrint('OrderHistoryBloc: Refreshing order history...');
-      
-      // Get token and user ID
-      final token = await TokenService.getToken();
-      final userId = await TokenService.getUserId();
-      
-      if (token == null || userId == null) {
-        emit(const OrderHistoryError('Please login again to view order history.'));
-        return;
-      }
-      
-      // Fetch fresh order history from API
-      final orders = await _fetchOrderHistory(token, userId);
-      
-      const filterTabs = ['All Orders', 'Preparing', 'Completed', 'Cancelled'];
-      const selectedFilter = 'All Orders';
-      
-      emit(OrderHistoryLoaded(
-        allOrders: orders,
-        filteredOrders: orders, // Initially show all orders
-        selectedFilter: selectedFilter,
-        filterTabs: filterTabs,
-      ));
-      
-      debugPrint('OrderHistoryBloc: Order history refreshed successfully with ${orders.length} orders');
-    } catch (e) {
-      debugPrint('OrderHistoryBloc: Error refreshing order history: $e');
-      emit(const OrderHistoryError('Failed to refresh order history. Please try again.'));
-    }
-  }
-  
-  Future<List<OrderItem>> _fetchOrderHistory(String token, String userId) async {
-    try {
-      debugPrint('OrderHistoryBloc: Fetching order history for user: $userId');
-      
-      final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/api/user/orders/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
 
-      debugPrint('OrderHistoryBloc: Order history response status: ${response.statusCode}');
-      debugPrint('OrderHistoryBloc: Order history response body: ${response.body}');
+    try {
+      final result = await OrderHistoryService.fetchOrderHistory();
 
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        if (responseData['status'] == true && responseData['data'] != null) {
-          final data = responseData['data'] as Map<String, dynamic>;
-          
-          // Combine all orders from different categories
-          List<Map<String, dynamic>> allOrdersData = [];
-          
-          if (data['Ongoing'] != null) {
-            final ongoingOrders = List<Map<String, dynamic>>.from(data['Ongoing']);
-            debugPrint('OrderHistoryBloc: Processing ${ongoingOrders.length} ongoing orders');
-            for (var order in ongoingOrders) {
-              // Preserve original status from API
-              debugPrint('OrderHistoryBloc: Ongoing order ID: ${order['order_id']}');
-            }
-            allOrdersData.addAll(ongoingOrders);
-          }
-          
-          if (data['Completed'] != null) {
-            final completedOrders = List<Map<String, dynamic>>.from(data['Completed']);
-            debugPrint('OrderHistoryBloc: Processing ${completedOrders.length} completed orders');
-            for (var order in completedOrders) {
-              // Preserve original status from API
-              debugPrint('OrderHistoryBloc: Completed order ID: ${order['order_id']}');
-            }
-            allOrdersData.addAll(completedOrders);
-          }
-          
-          if (data['Cancelled'] != null) {
-            final cancelledOrders = List<Map<String, dynamic>>.from(data['Cancelled']);
-            debugPrint('OrderHistoryBloc: Processing ${cancelledOrders.length} cancelled orders');
-            for (var order in cancelledOrders) {
-              // Preserve original status from API
-              debugPrint('OrderHistoryBloc: Cancelled order ID: ${order['order_id']}');
-            }
-            allOrdersData.addAll(cancelledOrders);
-          }
-          
-          // Convert to OrderItem objects
-          List<OrderItem> orders = allOrdersData
-              .map((orderData) {
-                final orderItem = OrderItem.fromJson(orderData);
-                debugPrint('OrderHistoryBloc: Created OrderItem with ID: ${orderItem.id}');
-                return orderItem;
-              })
-              .toList();
-          
-          // Sort by datetime (newest first)
-          orders.sort((a, b) => b.dateTime.compareTo(a.dateTime));
-          
-          debugPrint('OrderHistoryBloc: Found ${orders.length} orders');
-          
-          // Log all order IDs for debugging
-          for (var order in orders) {
-            debugPrint('OrderHistoryBloc: Final order - ID: ${order.id}, Restaurant: ${order.restaurantName}');
-          }
-          
-          return orders;
-        }
+      if (result['success']) {
+        final ordersData = result['data'] as List<Map<String, dynamic>>;
+        final orders = ordersData.map((json) => OrderItem.fromJson(json)).toList();
+
+        // Get unique filter tabs from order statuses
+        final statuses = orders.map((order) => order.status).toSet().toList();
+        final filterTabs = ['All', ...statuses];
+
+        emit(OrderHistoryLoaded(
+          allOrders: orders,
+          filteredOrders: orders,
+          selectedFilter: 'All',
+          filterTabs: filterTabs,
+        ));
+
+        // ADDED: Load additional data for each order
+        add(LoadOrderAdditionalData(orders: orders));
+      } else {
+        emit(OrderHistoryError(result['message'] ?? 'Failed to load order history'));
       }
-      
-      debugPrint('OrderHistoryBloc: Failed to fetch order history or no orders found');
-      return [];
     } catch (e) {
-      debugPrint('OrderHistoryBloc: Error fetching order history: $e');
-      return [];
+      emit(OrderHistoryError('An error occurred while loading order history'));
     }
   }
-  
-  Future<void> _onFilterOrdersByStatus(FilterOrdersByStatus event, Emitter<OrderHistoryState> emit) async {
+
+  Future<void> _onRefreshOrderHistory(
+    RefreshOrderHistory event,
+    Emitter<OrderHistoryState> emit,
+  ) async {
     if (state is OrderHistoryLoaded) {
       final currentState = state as OrderHistoryLoaded;
-      
-      try {
-        debugPrint('OrderHistoryBloc: Filtering orders by status: ${event.status}');
-        
-        List<OrderItem> filteredOrders;
-        
-        switch (event.status) {
-          case 'All Orders':
-            filteredOrders = currentState.allOrders;
-            break;
-          case 'Preparing':
-            filteredOrders = currentState.allOrders
-                .where((order) => 
-                    order.status.toLowerCase() == 'preparing' ||
-                    order.status.toLowerCase() == 'pending' ||
-                    order.status.toLowerCase() == 'ongoing' ||
-                    order.status.toLowerCase() == 'in_progress' ||
-                    order.status.toLowerCase() == 'processing')
-                .toList();
-            break;
-          case 'Completed':
-            filteredOrders = currentState.allOrders
-                .where((order) => 
-                    order.status.toLowerCase() == 'delivered' ||
-                    order.status.toLowerCase() == 'completed')
-                .toList();
-            break;
-          case 'Cancelled':
-            filteredOrders = currentState.allOrders
-                .where((order) => 
-                    order.status.toLowerCase() == 'cancelled' ||
-                    order.status.toLowerCase() == 'canceled')
-                .toList();
-            break;
-          default:
-            filteredOrders = currentState.allOrders;
-        }
-        
-        emit(currentState.copyWith(
-          filteredOrders: filteredOrders,
-          selectedFilter: event.status,
-        ));
-        
-        debugPrint('OrderHistoryBloc: Filtered to ${filteredOrders.length} orders');
-      } catch (e) {
-        debugPrint('OrderHistoryBloc: Error filtering orders: $e');
-        // Don't emit error, just keep current state
+      emit(OrderHistoryLoaded(
+        allOrders: currentState.allOrders,
+        filteredOrders: currentState.filteredOrders,
+        selectedFilter: currentState.selectedFilter,
+        filterTabs: currentState.filterTabs,
+      ));
+    }
+
+    add(const LoadOrderHistory());
+  }
+
+  void _onFilterOrdersByStatus(
+    FilterOrdersByStatus event,
+    Emitter<OrderHistoryState> emit,
+  ) {
+    if (state is OrderHistoryLoaded) {
+      final currentState = state as OrderHistoryLoaded;
+      final filteredOrders = event.status == 'All'
+          ? currentState.allOrders
+          : currentState.allOrders.where((order) => order.status == event.status).toList();
+
+      emit(currentState.copyWith(
+        filteredOrders: filteredOrders,
+        selectedFilter: event.status,
+      ));
+    }
+  }
+
+  void _onViewOrderDetails(
+    ViewOrderDetails event,
+    Emitter<OrderHistoryState> emit,
+  ) {
+    // This event is handled in the UI for navigation
+    // No state changes needed here
+  }
+
+  // Optimized: Load additional data (restaurant address and ratings) for orders
+  Future<void> _onLoadOrderAdditionalData(
+    LoadOrderAdditionalData event,
+    Emitter<OrderHistoryState> emit,
+  ) async {
+    if (state is OrderHistoryLoaded) {
+      final currentState = state as OrderHistoryLoaded;
+      final updatedOrders = List<OrderItem>.from(currentState.allOrders);
+
+      // Process orders concurrently for better performance
+      await Future.wait(
+        updatedOrders.asMap().entries.map((entry) async {
+          final index = entry.key;
+          final order = entry.value;
+          
+          if (order.restaurantId.isEmpty) return;
+
+          try {
+            // Fetch restaurant details and review data concurrently
+            final results = await Future.wait([
+              _fetchRestaurantDetails(order),
+              _fetchOrderReview(order),
+            ]);
+
+            final restaurantAddress = results[0] as String?;
+            final reviewData = results[1] as Map<String, dynamic>?;
+
+            if (restaurantAddress != null) {
+              updatedOrders[index] = order.copyWithRestaurantAddress(restaurantAddress);
+            }
+
+            if (reviewData != null) {
+              updatedOrders[index] = updatedOrders[index].copyWithRating(
+                reviewData['rating'],
+                reviewData['reviewText'],
+              );
+            }
+          } catch (e) {
+            // Log error but continue processing other orders
+            print('Failed to fetch additional data for order ${order.id}: $e');
+          }
+        }),
+      );
+
+      // Update state with enhanced order data
+      final filteredOrders = currentState.selectedFilter == 'All'
+          ? updatedOrders
+          : updatedOrders.where((order) => order.status == currentState.selectedFilter).toList();
+
+      emit(OrderHistoryLoaded(
+        allOrders: updatedOrders,
+        filteredOrders: filteredOrders,
+        selectedFilter: currentState.selectedFilter,
+        filterTabs: currentState.filterTabs,
+      ));
+    }
+  }
+
+  // Helper method to fetch restaurant details
+  Future<String?> _fetchRestaurantDetails(OrderItem order) async {
+    try {
+      final result = await OrderHistoryService.fetchRestaurantDetails(order.restaurantId);
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final address = data['address']?.toString();
+        return address?.isNotEmpty == true ? address : null;
       }
-    }
-  }
-  
-  Future<void> _onViewOrderDetails(ViewOrderDetails event, Emitter<OrderHistoryState> emit) async {
-    try {
-      debugPrint('OrderHistoryBloc: Viewing order details for: ${event.orderId}');
-      
-      // In a real app, you would navigate to order details page here
-      // For now, we'll just log the action
-      debugPrint('OrderHistoryBloc: Navigate to order details page for order ${event.orderId}');
-      
     } catch (e) {
-      debugPrint('OrderHistoryBloc: Error viewing order details: $e');
+      print('Failed to fetch restaurant details for order ${order.id}: $e');
     }
+    return null;
   }
-  
-  Future<void> _onOpenChatForOrder(OpenChatForOrder event, Emitter<OrderHistoryState> emit) async {
-    try {
-      debugPrint('OrderHistoryBloc: Opening chat for order: ${event.orderId}');
-      
-      // The navigation will be handled in the view layer
-      // This event can be used for any additional logic if needed
-      
-    } catch (e) {
-      debugPrint('OrderHistoryBloc: Error opening chat: $e');
-      emit(const OrderHistoryError('Failed to open chat. Please try again.'));
+
+  // Helper method to fetch order review
+  Future<Map<String, dynamic>?> _fetchOrderReview(OrderItem order) async {
+    if (order.status.toUpperCase() != 'DELIVERED' && order.status.toUpperCase() != 'COMPLETED') {
+      return null;
     }
+
+    try {
+      final result = await OrderHistoryService.fetchOrderReview(order.id, order.restaurantId);
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final rating = data['rating'];
+        final reviewText = data['review_text']?.toString();
+        
+        if (rating != null) {
+          final ratingValue = rating is int ? rating.toDouble() : double.tryParse(rating.toString());
+          if (ratingValue != null) {
+            return {
+              'rating': ratingValue,
+              'reviewText': reviewText,
+            };
+          }
+        }
+      }
+    } catch (e) {
+      print('Failed to fetch review for order ${order.id}: $e');
+    }
+    return null;
   }
 }

@@ -9,18 +9,21 @@ import 'package:http/http.dart' as http;
 import '../../service/profile_get_service.dart';
 import '../../service/token_service.dart';
 import '../../service/update_user_service.dart';
+import '../../service/verification_service.dart';
 import 'event.dart';
 import 'state.dart';
 
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final ProfileApiService _profileApiService = ProfileApiService();
   final UpdateUserService _updateUserService = UpdateUserService();
+  final VerificationService _verificationService = VerificationService();
 
   SettingsBloc() : super(SettingsInitial()) {
     on<LoadUserSettings>(_onLoadUserSettings);
     on<UpdateUserSettings>(_onUpdateUserSettings);
     on<UpdateProfileImage>(_onUpdateProfileImage);
     on<DeleteAccount>(_onDeleteAccount);
+    on<DeleteAccountWithOtp>(_onDeleteAccountWithOtp);
   }
 
   Future<void> _onLoadUserSettings(LoadUserSettings event, Emitter<SettingsState> emit) async {
@@ -211,6 +214,86 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       }
     } catch (e) {
       debugPrint('SettingsBloc: Error during account deletion: $e');
+      // Restore previous state
+      if (currentState is SettingsLoaded) {
+        emit(currentState);
+      }
+      emit(SettingsError(message: 'Account deletion failed'));
+    }
+  }
+
+  Future<void> _onDeleteAccountWithOtp(DeleteAccountWithOtp event, Emitter<SettingsState> emit) async {
+    // Store current state to restore if needed
+    final currentState = state;
+    emit(SettingsDeleting());
+    
+    try {
+      // Get token and user ID
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (token == null || userId == null) {
+        emit(SettingsError(message: 'Please login again'));
+        // Restore previous state
+        if (currentState is SettingsLoaded) {
+          emit(currentState);
+        }
+        return;
+      }
+      
+      debugPrint('SettingsBloc: Verifying OTP before account deletion');
+      
+      // First verify the OTP
+      final otpResult = await _verificationService.verifyPhoneOtp(
+        event.otp,
+        event.verificationId,
+      );
+      
+      if (otpResult['success'] != true) {
+        debugPrint('SettingsBloc: OTP verification failed: ${otpResult['error']}');
+        // Restore previous state
+        if (currentState is SettingsLoaded) {
+          emit(currentState);
+        }
+        emit(SettingsError(message: otpResult['error'] ?? 'OTP verification failed'));
+        return;
+      }
+      
+      debugPrint('SettingsBloc: OTP verified successfully, proceeding with account deletion');
+      
+      // Now proceed with account deletion
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/user/delete-user');
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+        }),
+      );
+      
+      debugPrint('SettingsBloc: Delete account response: ${response.body}');
+      
+      final result = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && (result['status'] == true || result['success'] == true)) {
+        // Clear all saved data
+        await TokenService.clearAll();
+        
+        debugPrint('SettingsBloc: Account deleted successfully after OTP verification');
+        emit(SettingsAccountDeleted());
+      } else {
+        debugPrint('SettingsBloc: Failed to delete account: ${result['message']}');
+        // Restore previous state
+        if (currentState is SettingsLoaded) {
+          emit(currentState);
+        }
+        emit(SettingsError(message: result['message'] ?? 'Failed to delete account'));
+      }
+    } catch (e) {
+      debugPrint('SettingsBloc: Error during account deletion with OTP: $e');
       // Restore previous state
       if (currentState is SettingsLoaded) {
         emit(currentState);

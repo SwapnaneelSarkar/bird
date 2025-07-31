@@ -14,6 +14,9 @@ class OrderDetails {
   final String? deliveryAddress;
   final String? partnerId; // Add this field
   final String? paymentMode; // Add payment mode field
+  final String? restaurantAddress; // ADDED: Restaurant address
+  final double? rating; // ADDED: Food rating
+  final String? reviewText; // ADDED: Review text
 
   OrderDetails({
     required this.orderId,
@@ -28,6 +31,9 @@ class OrderDetails {
     this.deliveryAddress,
     this.partnerId, // Add this parameter
     this.paymentMode, // Add payment mode parameter
+    this.restaurantAddress, // ADDED
+    this.rating, // ADDED
+    this.reviewText, // ADDED
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -55,6 +61,51 @@ class OrderDetails {
       deliveryAddress: json['delivery_address']?.toString(),
       partnerId: json['partner_id']?.toString() ?? json['restaurant_id']?.toString(), // Add this line
       paymentMode: json['payment_mode']?.toString(), // Add payment mode parsing
+      restaurantAddress: json['restaurant_address'], // ADDED
+      rating: json['rating'] != null ? double.tryParse(json['rating'].toString()) : null, // ADDED
+      reviewText: json['review_text']?.toString(), // ADDED
+    );
+  }
+
+  // ADDED: Method to update restaurant address
+  OrderDetails copyWithRestaurantAddress(String? address) {
+    return OrderDetails(
+      orderId: orderId,
+      userId: userId,
+      itemIds: itemIds,
+      items: items,
+      totalAmount: totalAmount,
+      deliveryFees: deliveryFees,
+      orderStatus: orderStatus,
+      createdAt: createdAt,
+      restaurantName: restaurantName,
+      deliveryAddress: deliveryAddress,
+      partnerId: partnerId,
+      paymentMode: paymentMode,
+      restaurantAddress: address,
+      rating: rating,
+      reviewText: reviewText,
+    );
+  }
+
+  // ADDED: Method to update rating and review
+  OrderDetails copyWithRating(double? rating, String? reviewText) {
+    return OrderDetails(
+      orderId: orderId,
+      userId: userId,
+      itemIds: itemIds,
+      items: items,
+      totalAmount: totalAmount,
+      deliveryFees: deliveryFees,
+      orderStatus: orderStatus,
+      createdAt: createdAt,
+      restaurantName: restaurantName,
+      deliveryAddress: deliveryAddress,
+      partnerId: partnerId,
+      paymentMode: paymentMode,
+      restaurantAddress: restaurantAddress,
+      rating: rating,
+      reviewText: reviewText,
     );
   }
 
@@ -93,6 +144,7 @@ class OrderDetailsItem {
   final double itemPrice;
   final String? itemName;
   final String? imageUrl;
+  final Map<String, dynamic>? attributes; // ADDED: Item attributes
 
   OrderDetailsItem({
     required this.menuId,
@@ -100,6 +152,7 @@ class OrderDetailsItem {
     required this.itemPrice,
     this.itemName,
     this.imageUrl,
+    this.attributes, // ADDED
   });
 
   factory OrderDetailsItem.fromJson(Map<String, dynamic> json) {
@@ -109,6 +162,7 @@ class OrderDetailsItem {
       itemPrice: double.tryParse(json['item_price']?.toString() ?? '0') ?? 0.0,
       itemName: json['item_name']?.toString(),
       imageUrl: json['image_url']?.toString(),
+      attributes: json['attributes'] != null ? Map<String, dynamic>.from(json['attributes']) : null, // ADDED
     );
   }
 

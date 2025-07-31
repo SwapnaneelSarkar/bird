@@ -1,5 +1,6 @@
 // lib/presentation/home page/state.dart - COMPLETELY FIXED VERSION
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/restaurant_model.dart';
 
 abstract class HomeState extends Equatable {
@@ -42,17 +43,24 @@ class HomeLoaded extends HomeState {
   List<Restaurant> get filteredRestaurants {
     var filtered = restaurants;
     
+    debugPrint('HomeState: Starting filtering with ${filtered.length} restaurants');
+    debugPrint('HomeState: Current filters - vegOnly: $vegOnly, selectedCategoryId: $selectedCategoryId, selectedFoodTypeId: $selectedFoodTypeId');
+    
     // Filter by veg only if enabled
     if (vegOnly) {
       filtered = filtered.where((restaurant) => restaurant.isVeg == true).toList();
+      debugPrint('HomeState: After veg filter: ${filtered.length} restaurants');
     }
     
     // Filter by category if selected
     if (selectedCategoryId != null) {
       filtered = filtered.where((restaurant) {
         // Match category id in availableCategories
-        return restaurant.availableCategories.contains(selectedCategoryId);
+        final contains = restaurant.availableCategories.contains(selectedCategoryId);
+        debugPrint('HomeState: Restaurant ${restaurant.name} - availableCategories: ${restaurant.availableCategories}, contains $selectedCategoryId: $contains');
+        return contains;
       }).toList();
+      debugPrint('HomeState: After category filter: ${filtered.length} restaurants');
     }
     
     // Filter by food type if selected
@@ -61,15 +69,22 @@ class HomeLoaded extends HomeState {
         // Check if restaurant has the selected food type
         if (restaurant.restaurantFoodType != null) {
           final foodTypeId = restaurant.restaurantFoodType!['restaurant_food_type_id']?.toString();
-          return foodTypeId == selectedFoodTypeId;
+          final matches = foodTypeId == selectedFoodTypeId;
+          debugPrint('HomeState: Restaurant ${restaurant.name} - foodTypeId: $foodTypeId, matches $selectedFoodTypeId: $matches');
+          return matches;
         }
+        debugPrint('HomeState: Restaurant ${restaurant.name} - no restaurantFoodType data');
         return false;
       }).toList();
+      debugPrint('HomeState: After food type filter: ${filtered.length} restaurants');
     }
     
+    debugPrint('HomeState: Final filtered results: ${filtered.length} restaurants');
     return filtered;
   }
   
+  static const _noValue = Object();
+
   // Copy with method for state updates
   HomeLoaded copyWith({
     List<Restaurant>? restaurants,
@@ -79,8 +94,8 @@ class HomeLoaded extends HomeState {
     double? userLatitude,
     double? userLongitude,
     bool? vegOnly,
-    String? selectedCategoryId,
-    String? selectedFoodTypeId,
+    Object? selectedCategoryId = _noValue,
+    Object? selectedFoodTypeId = _noValue,
     List<Map<String, dynamic>>? savedAddresses,
   }) {
     return HomeLoaded(
@@ -91,8 +106,8 @@ class HomeLoaded extends HomeState {
       userLatitude: userLatitude ?? this.userLatitude,
       userLongitude: userLongitude ?? this.userLongitude,
       vegOnly: vegOnly ?? this.vegOnly,
-      selectedCategoryId: selectedCategoryId, // <-- fix: do not use ??
-      selectedFoodTypeId: selectedFoodTypeId ?? this.selectedFoodTypeId,
+      selectedCategoryId: selectedCategoryId == _noValue ? this.selectedCategoryId : selectedCategoryId as String?,
+      selectedFoodTypeId: selectedFoodTypeId == _noValue ? this.selectedFoodTypeId : selectedFoodTypeId as String?,
       savedAddresses: savedAddresses ?? this.savedAddresses,
     );
   }

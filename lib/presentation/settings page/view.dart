@@ -15,6 +15,7 @@ import '../../widgets/shimmer_helper.dart';
 import '../address bottomSheet/view.dart';
 import '../../service/address_service.dart';
 import '../../widgets/verification_dialog.dart';
+import '../../widgets/account_deletion_verification_dialog.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({Key? key}) : super(key: key);
@@ -251,103 +252,35 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       });
   }
 
-  // Show confirmation dialog with improved animations
+  // Show OTP verification dialog for account deletion
   Future<void> _showDeleteConfirmation(double responsiveTextScale) async {
     HapticFeedback.heavyImpact(); // Strong haptic feedback for destructive action
     
-    showGeneralDialog(
+    // Get the current phone number from the state
+    String phoneNumber = '';
+    if (_settingsBloc.state is SettingsLoaded) {
+      final state = _settingsBloc.state as SettingsLoaded;
+      phoneNumber = state.userData['mobile']?.toString() ?? '';
+    }
+    
+    if (phoneNumber.isEmpty) {
+      _showSnackBar(message: 'Unable to get phone number. Please try again.', isError: true);
+      return;
+    }
+    
+    showDialog(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Delete Account Dialog',
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation1, animation2) => Container(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-        );
-        
-        return ScaleTransition(
-          scale: Tween<double>(begin: 0.8, end: 1.0).animate(curvedAnimation),
-          child: FadeTransition(
-            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(curvedAnimation),
-            child: AlertDialog(
-              title: Text(
-                'Delete Account',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeightManager.bold,
-                  fontSize: FontSize.s16 * responsiveTextScale,
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              content: Text(
-                'Are you sure you want to delete your account? This action cannot be undone.',
-                style: TextStyle(
-                  fontSize: FontSize.s14 * responsiveTextScale,
-                  fontFamily: FontFamily.Montserrat,
-                  height: 1.4,
-                ),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16 * responsiveTextScale),
-              ),
-              elevation: 4,
-              backgroundColor: Colors.white,
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16 * responsiveTextScale,
-                      vertical: 8 * responsiveTextScale,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8 * responsiveTextScale),
-                    ),
-                  ),
-                  child: Text(
-                    'CANCEL',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: FontSize.s14 * responsiveTextScale,
-                      fontFamily: FontFamily.Montserrat,
-                      fontWeight: FontWeightManager.medium,
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _settingsBloc.add(DeleteAccount());
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: ColorManager.textWhite,
-                    elevation: 0,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16 * responsiveTextScale,
-                      vertical: 8 * responsiveTextScale,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20 * responsiveTextScale),
-                    ),
-                  ),
-                  child: Text(
-                    'DELETE',
-                    style: TextStyle(
-                      fontSize: FontSize.s14 * responsiveTextScale,
-                      fontFamily: FontFamily.Montserrat,
-                      fontWeight: FontWeightManager.semiBold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      barrierDismissible: false,
+      builder: (context) => AccountDeletionVerificationDialog(
+        phoneNumber: phoneNumber,
+        onVerificationSuccess: (otp, verificationId) {
+          // Proceed with account deletion after OTP verification
+          _settingsBloc.add(DeleteAccountWithOtp(otp: otp, verificationId: verificationId));
+        },
+        onCancel: () {
+          Navigator.of(context).pop();
+        },
+      ),
     );
   }
 
@@ -954,10 +887,9 @@ children: [
       barrierDismissible: false,
       builder: (context) => VerificationDialog(
         title: 'Verify Email',
-        subtitle: 'Enter the 6-digit OTP sent to your phone\n${_phoneController.text}',
-        value: _emailController.text,
+        subtitle: 'Enter the 6-digit OTP sent to your email\n${_originalEmail}',
+        value: _originalEmail, // Use original email from profile
         type: VerificationType.email,
-        phoneNumber: _phoneController.text, // Pass the phone number for OTP
         onVerificationSuccess: () {
           setState(() {
             _isEmailVerified = true;

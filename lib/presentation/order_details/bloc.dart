@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../constants/api_constant.dart';
 import '../../service/token_service.dart';
+import '../../service/order_history_service.dart';
 import '../../models/order_details_model.dart';
 import '../../models/menu_model.dart';
 import 'event.dart';
@@ -46,6 +47,11 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
           if (item.menuId != null && item.menuId!.isNotEmpty) {
             add(LoadMenuItemDetails(item.menuId!));
           }
+        }
+        
+        // Fetch additional data (restaurant details and rating) if we have partner ID
+        if (orderDetails.partnerId != null && orderDetails.partnerId!.isNotEmpty) {
+          _fetchAdditionalData(orderDetails.partnerId!, orderDetails.orderId, orderDetails.orderStatus);
         }
       } else {
         debugPrint('OrderDetailsBloc: Failed to load order details');
@@ -345,6 +351,54 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
         'success': false,
         'message': 'Network error occurred. Please check your connection.',
       };
+    }
+  }
+
+  // ADDED: Fetch additional data (restaurant details and rating)
+  Future<void> _fetchAdditionalData(String partnerId, String orderId, String orderStatus) async {
+    try {
+      debugPrint('OrderDetailsBloc: Fetching additional data for partner: $partnerId, order: $orderId');
+      
+      // Fetch restaurant details
+      final restaurantResult = await OrderHistoryService.fetchRestaurantDetails(partnerId);
+      if (restaurantResult['success']) {
+        final restaurantData = restaurantResult['data'] as Map<String, dynamic>;
+        final address = restaurantData['address']?.toString();
+        
+        if (address != null && address.isNotEmpty) {
+          // Update the current state with restaurant address
+          if (state is OrderDetailsLoaded) {
+            final currentState = state as OrderDetailsLoaded;
+            final updatedOrderDetails = currentState.orderDetails.copyWithRestaurantAddress(address);
+            emit(OrderDetailsLoaded(updatedOrderDetails, currentState.menuItems));
+          }
+        }
+      }
+      
+      // Fetch order review/rating if order is completed/delivered
+      if (orderStatus.toUpperCase() == 'DELIVERED' || orderStatus.toUpperCase() == 'COMPLETED') {
+        final reviewResult = await OrderHistoryService.fetchOrderReview(orderId, partnerId);
+        if (reviewResult['success']) {
+          final reviewData = reviewResult['data'] as Map<String, dynamic>;
+          final rating = reviewData['rating'];
+          final reviewText = reviewData['review_text']?.toString();
+          
+          if (rating != null) {
+            final ratingValue = rating is int ? rating.toDouble() : double.tryParse(rating.toString());
+            if (ratingValue != null) {
+              // Update the current state with rating
+              if (state is OrderDetailsLoaded) {
+                final currentState = state as OrderDetailsLoaded;
+                final updatedOrderDetails = currentState.orderDetails.copyWithRating(ratingValue, reviewText);
+                emit(OrderDetailsLoaded(updatedOrderDetails, currentState.menuItems));
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('OrderDetailsBloc: Error fetching additional data: $e');
+      // Don't emit error state, just log the error
     }
   }
 }

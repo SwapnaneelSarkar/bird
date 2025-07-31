@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import '../constants/color/colorConstant.dart';
 import '../utils/distance_util.dart';
+import '../utils/delivery_time_util.dart';
 import 'responsive_text.dart';
 
 class RestaurantCard extends StatelessWidget {
@@ -10,7 +11,6 @@ class RestaurantCard extends StatelessWidget {
   final String imageUrl;
   final String cuisine;
   final dynamic rating;
-  final String deliveryTime;
   final bool isVeg;
   final VoidCallback onTap;
   final double? restaurantLatitude;
@@ -26,7 +26,6 @@ class RestaurantCard extends StatelessWidget {
     required this.imageUrl,
     required this.cuisine,
     required this.rating,
-    required this.deliveryTime,
     this.isVeg = false,
     required this.onTap,
     this.restaurantLatitude,
@@ -270,7 +269,7 @@ class RestaurantCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(screenWidth * 0.018),
                           ),
                           child: ResponsiveText(
-                            text: deliveryTime,
+                            text: _getDeliveryTimeText(),
                             style: GoogleFonts.poppins(
                               color: isNotAcceptingOrders ? Colors.grey[500] : Colors.grey[500],
                               fontWeight: FontWeight.w500,
@@ -423,6 +422,34 @@ class RestaurantCard extends StatelessWidget {
     // If any of the required coordinates is missing, fall back to "Nearby"
     debugPrint('RestaurantCard: Missing coordinates for $name, using "Nearby"');
     return "Nearby";
+  }
+
+  // Calculate and display delivery time based on distance
+  String _getDeliveryTimeText() {
+    if (userLatitude != null && userLongitude != null &&
+        restaurantLatitude != null && restaurantLongitude != null) {
+      try {
+        // Calculate distance using the Haversine formula
+        final distance = DistanceUtil.calculateDistance(
+          userLatitude!,
+          userLongitude!,
+          restaurantLatitude!,
+          restaurantLongitude!
+        );
+        
+        // Calculate delivery time based on distance
+        final deliveryTime = DeliveryTimeUtil.calculateDeliveryTime(distance);
+        debugPrint('RestaurantCard: Delivery time for $name: $deliveryTime (distance: ${distance.toStringAsFixed(2)} km)');
+        return deliveryTime;
+      } catch (e) {
+        debugPrint('RestaurantCard: Error calculating delivery time: $e');
+        return "20-30 mins";
+      }
+    }
+    
+    // If any of the required coordinates is missing, fall back to default
+    debugPrint('RestaurantCard: Missing coordinates for $name, using default delivery time');
+    return "20-30 mins";
   }
 
   Widget _buildYellowRatingBadge(double ratingValue, double screenWidth) {

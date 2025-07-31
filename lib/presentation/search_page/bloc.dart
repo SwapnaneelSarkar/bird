@@ -81,7 +81,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       final token = await TokenService.getToken();
       if (token == null) {
         debugPrint('SearchBloc: No authentication token available');
-        emit(SearchErrorState(error: 'Please login to search restaurants'));
+        emit(SearchErrorState(error: 'Please login to search stores'));
         return;
       }
       

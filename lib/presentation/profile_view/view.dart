@@ -2,24 +2,20 @@ import 'package:bird/presentation/order_history/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:intl/intl.dart';
 import '../../constants/api_constant.dart';
 import '../../constants/router/router.dart';
-import '../../widgets/profile_tile.dart';
 import '../privacy_policy/view.dart';
 import '../terms_conditions/view.dart';
 import '../address bottomSheet/view.dart';
 import '../address bottomSheet/bloc.dart';
 import '../address bottomSheet/state.dart';
 import '../address bottomSheet/event.dart';
+import '../order_details/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../constants/color/colorConstant.dart';
-import '../../constants/font/fontManager.dart';
-import '../../service/profile_get_service.dart';
 import '../../utils/timezone_utils.dart';
 
 const List<BoxShadow> softBoxShadow = [
@@ -40,7 +36,6 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin {
   late TabController _tabController;
-  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -48,7 +43,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {
-        _currentIndex = _tabController.index;
+        // Tab index changed
       });
     });
   }
@@ -388,6 +383,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                     itemBuilder: (context, index) {
                       final order = orderHistory[index];
                       return _OrderTile(
+                        orderId: order['order_id'] ?? '',
                         image: order['restaurant_picture'],
                         title: order['restaurant_name'] ?? 'Unknown Restaurant',
                         date: _formatDate(order['datetime']),
@@ -861,6 +857,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
 }
 
 class _OrderTile extends StatelessWidget {
+  final String orderId;
   final String? image;
   final String title;
   final String date;
@@ -868,6 +865,7 @@ class _OrderTile extends StatelessWidget {
   final String? status;
 
   const _OrderTile({
+    required this.orderId,
     required this.image,
     required this.title,
     required this.date,
@@ -877,87 +875,99 @@ class _OrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        children: [
-          // Restaurant image
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey[300],
+    return GestureDetector(
+      onTap: () {
+        if (orderId.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OrderDetailsView(orderId: orderId),
             ),
-            child: image != null && image!.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      _getFullImageUrl(image!),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.restaurant, color: Colors.grey);
-                      },
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            // Restaurant image
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey[300],
+              ),
+              child: image != null && image!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        _getFullImageUrl(image!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.restaurant, color: Colors.grey);
+                        },
+                      ),
+                    )
+                  : const Icon(Icons.restaurant, color: Colors.grey),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
-                  )
-                : const Icon(Icons.restaurant, color: Colors.grey),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  date,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
+                  const SizedBox(height: 4),
+                  Text(
+                    date,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹$price',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE67E22),
-                    fontSize: 14,
+                  const SizedBox(height: 4),
+                  Text(
+                    '₹$price',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE67E22),
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _getStatusColor().withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              _getStatusText(),
-              style: TextStyle(
-                color: _getStatusColor(),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                ],
               ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getStatusColor().withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _getStatusText(),
+                style: TextStyle(
+                  color: _getStatusColor(),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

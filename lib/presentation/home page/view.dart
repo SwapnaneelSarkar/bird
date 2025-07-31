@@ -84,6 +84,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   String? previousAddress;
   String? get selectedSupercategoryId => context.read<HomeBloc>().selectedSupercategoryId;
   
+  // Add debounce mechanism to prevent double-taps
+  DateTime? _lastFilterTap;
+  static const Duration _filterDebounceTime = Duration(milliseconds: 300);
+  
   @override
   void initState() {
     super.initState();
@@ -156,11 +160,14 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               builder: (context, state) {
                 debugPrint('HomePage: BlocBuilder received state: \\${state.runtimeType}');
                 if (state is HomeLoaded) {
-                  debugPrint('HomePage: BlocBuilder - selectedCategoryId: \\${state.selectedCategoryId}');
-                  debugPrint('HomePage: BlocBuilder - vegOnly: \\${state.vegOnly}');
-                  debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: \\${state.selectedFoodTypeId}');
-                  debugPrint('HomePage: BlocBuilder - restaurants count: \\${state.restaurants.length}');
-                  debugPrint('HomePage: BlocBuilder - filtered restaurants count: \\${state.filteredRestaurants.length}');
+                          debugPrint('HomePage: BlocBuilder - selectedCategoryId: \\${state.selectedCategoryId}');
+        debugPrint('HomePage: BlocBuilder - vegOnly: \\${state.vegOnly}');
+        debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: \\${state.selectedFoodTypeId}');
+        debugPrint('HomePage: BlocBuilder - restaurants count: \\${state.restaurants.length}');
+        debugPrint('HomePage: BlocBuilder - filtered restaurants count: \\${state.filteredRestaurants.length}');
+        
+        // Additional debugging for state consistency
+        debugPrint('HomePage: State consistency check - selectedCategoryId: ${state.selectedCategoryId}, selectedFoodTypeId: ${state.selectedFoodTypeId}');
                 }
                 if (state is HomeLoading) {
                   return _buildLoadingWithTimeout(context);
@@ -459,7 +466,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               Expanded(
                 child: TextField(
                   readOnly: true,
-                  decoration: InputDecoration.collapsed(hintText: isStore ? 'Search stores...' : 'Search restaurants or dishes...'),
+                  decoration: InputDecoration.collapsed(hintText: isStore ? 'Search stores...' : 'Search stores or dishes...'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -685,15 +692,21 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
       final color = iconAndColor['color'] ?? category['color'] ?? 'orange';
       if (imagePath != null && imagePath.isNotEmpty) {
         return _buildCategoryItem(categoryDisplayName, imagePath, color, isSelected: isSelected, onTap: () {
-          final newCategoryId = isSelected ? null : categoryId;
-          debugPrint('HomePage: Category tapped: $categoryDisplayName (id: $categoryId), currently selected: $isSelected, setting newCategoryId: $newCategoryId');
-          context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
+          // Prevent double-tap issues with debounce
+          if (mounted && _shouldProcessFilterTap()) {
+            final newCategoryId = isSelected ? null : categoryId;
+            debugPrint('Category filter: $categoryDisplayName (id: $categoryId) - wasSelected: $isSelected, newCategoryId: $newCategoryId');
+            context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
+          }
         }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       } else {
         return _buildCategoryItemWithIcon(categoryDisplayName, _getIconData(icon), _getCategoryColor(color), isSelected: isSelected, onTap: () {
-          final newCategoryId = isSelected ? null : categoryId;
-          debugPrint('HomePage: Category tapped: $categoryDisplayName (id: $categoryId), currently selected: $isSelected, setting newCategoryId: $newCategoryId');
-          context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
+          // Prevent double-tap issues with debounce
+          if (mounted && _shouldProcessFilterTap()) {
+            final newCategoryId = isSelected ? null : categoryId;
+            debugPrint('Category filter: $categoryDisplayName (id: $categoryId) - wasSelected: $isSelected, newCategoryId: $newCategoryId');
+            context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
+          }
         }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       }
     }).toList();
@@ -714,11 +727,12 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
         foodTypeId,
         isSelected: isSelected,
         onTap: () {
-          debugPrint('HomePage: Food type tapped: $foodTypeName, currently selected: $isSelected');
-          // Toggle behavior: if selected, turn off; if not selected, turn on
-          final newFoodTypeId = isSelected ? null : foodTypeId;
-          debugPrint('HomePage: Setting new food type ID to: $newFoodTypeId');
-          context.read<HomeBloc>().add(FilterByFoodType(newFoodTypeId));
+          // Prevent double-tap issues with debounce
+          if (mounted && _shouldProcessFilterTap()) {
+            final newFoodTypeId = isSelected ? null : foodTypeId;
+            debugPrint('Food type filter: $foodTypeName (id: $foodTypeId) - wasSelected: $isSelected, newFoodTypeId: $newFoodTypeId');
+            context.read<HomeBloc>().add(FilterByFoodType(newFoodTypeId));
+          }
         },
         scale: scale,
         itemHeight: itemHeight,
@@ -1130,7 +1144,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
       debugPrint('Final Position $i: ${restaurant.name} - Rating: $rating, Type: $type, Veg: ${restaurant.isVeg}');
     }
     
-    String title = isStore ? 'All Stores' : 'All Restaurants';
+          String title = isStore ? 'All Stores' : 'All Stores';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1178,7 +1192,6 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
         imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
         cuisine: restaurant.cuisine,
         rating: restaurant.rating ?? 0.0,
-        deliveryTime: '20-30 mins',
         isVeg: restaurant.isVeg,
         restaurantLatitude: restaurant.latitude,
         restaurantLongitude: restaurant.longitude,
@@ -1207,7 +1220,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
           ),
           const SizedBox(height: 24),
           Text(
-            'No Restaurants Found',
+            'No Stores Found',
             style: GoogleFonts.poppins(
               fontSize: getResponsiveFontSize(context, 24),
               fontWeight: FontWeight.bold,
@@ -1228,9 +1241,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
           ElevatedButton.icon(
             onPressed: () {
               // Clear all filters
-              context.read<HomeBloc>().add(const FilterByCategory(null));
-              context.read<HomeBloc>().add(const FilterByFoodType(null));
-              context.read<HomeBloc>().add(const ToggleVegOnly(false));
+              context.read<HomeBloc>().add(const ResetFilters());
             },
             icon: const Icon(Icons.clear_all, color: Colors.white),
             label: Text(
@@ -1563,16 +1574,8 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                                 child: OutlinedButton(
                                   onPressed: () {
                                     debugPrint('HomePage: Resetting all filters');
-                                    
-                                    setStateDialog(() {
-                                      tempFilters = FilterOptions();
-                                    });
-                                    
-                                    setState(() {
-                                      filterOptions = FilterOptions();
-                                    });
-                                    
-                                    blocContext.read<HomeBloc>().add(const ToggleVegOnly(false));
+                                    tempFilters = FilterOptions(); // local dialog state
+                                    blocContext.read<HomeBloc>().add(const ResetFilters());
                                   },
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1596,27 +1599,15 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                                 flex: 2,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    debugPrint('HomePage: Applying filters - vegOnly: \\${tempFilters.vegOnly}, priceLowToHigh: \\${tempFilters.priceLowToHigh}, priceHighToLow: \\${tempFilters.priceHighToLow}, ratingHighToLow: \\${tempFilters.ratingHighToLow}, ratingLowToHigh: \\${tempFilters.ratingLowToHigh}, timeSort: \\${tempFilters.timeSort}');
+                                    debugPrint('HomePage: Applying filters - vegOnly: ${tempFilters.vegOnly}, priceLowToHigh: ${tempFilters.priceLowToHigh}, priceHighToLow: ${tempFilters.priceHighToLow}, ratingHighToLow: ${tempFilters.ratingHighToLow}, ratingLowToHigh: ${tempFilters.ratingLowToHigh}, timeSort: ${tempFilters.timeSort}');
                                     final allCleared = !tempFilters.vegOnly && !tempFilters.priceLowToHigh && !tempFilters.priceHighToLow && !tempFilters.ratingHighToLow && !tempFilters.ratingLowToHigh && !tempFilters.timeSort;
                                     if (allCleared) {
-                                      setState(() {
-                                        filterOptions = FilterOptions();
-                                      });
                                       blocContext.read<HomeBloc>().add(const ResetFilters());
                                       blocContext.read<HomeBloc>().add(const LoadHomeData());
                                     } else {
-                                      setState(() {
-                                        filterOptions = FilterOptions(
-                                          vegOnly: tempFilters.vegOnly,
-                                          priceLowToHigh: tempFilters.priceLowToHigh,
-                                          priceHighToLow: tempFilters.priceHighToLow,
-                                          ratingHighToLow: tempFilters.ratingHighToLow,
-                                          ratingLowToHigh: tempFilters.ratingLowToHigh,
-                                          timeSort: tempFilters.timeSort,
-                                        );
-                                      });
-                                      // Apply veg filter through bloc
+                                      // Only dispatch veg filter for now (as before)
                                       blocContext.read<HomeBloc>().add(ToggleVegOnly(tempFilters.vegOnly));
+                                      // If you want to support other filters, add events here
                                     }
                                     Navigator.pop(dialogContext);
                                   },
@@ -1810,6 +1801,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
               value: tempFilters.vegOnly,
               color: Colors.green,
               onChanged: (value) {
+                debugPrint('Veg Only filter: wasSelected: ${tempFilters.vegOnly}, newVegOnly: $value');
                 setStateDialog(() {
                   tempFilters.vegOnly = value;
                 });
@@ -2023,6 +2015,17 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
   }
 
 
+
+  // Helper method to prevent double-tap on filters
+  bool _shouldProcessFilterTap() {
+    final now = DateTime.now();
+    if (_lastFilterTap != null && now.difference(_lastFilterTap!) < _filterDebounceTime) {
+      debugPrint('HomePage: Filter tap debounced - too soon after last tap');
+      return false;
+    }
+    _lastFilterTap = now;
+    return true;
+  }
 
   // Smart category icon and color selector based on category name
   Map<String, String> _getSmartCategoryIconAndColor(String categoryName) {

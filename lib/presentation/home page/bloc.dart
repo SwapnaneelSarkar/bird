@@ -39,9 +39,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<SaveNewAddress>(_onSaveNewAddress);
     on<SelectSavedAddress>(_onSelectSavedAddress);
     on<ResetFilters>((event, emit) {
+      debugPrint('HomeBloc: ResetFilters event received');
       final currentState = state;
       if (currentState is HomeLoaded) {
+        debugPrint('HomeBloc: Resetting all filters - vegOnly: false, selectedCategoryId: null, selectedFoodTypeId: null');
         emit(currentState.copyWith(vegOnly: false, selectedCategoryId: null, selectedFoodTypeId: null));
+        debugPrint('HomeBloc: All filters reset successfully');
+      } else {
+        debugPrint('HomeBloc: Current state is not HomeLoaded, cannot reset filters');
       }
     });
   }
@@ -325,9 +330,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   Future<void> _onToggleVegOnly(ToggleVegOnly event, Emitter<HomeState> emit) async {
+    debugPrint('HomeBloc: ToggleVegOnly event received with value: ${event.value}');
     final currentState = state;
     if (currentState is HomeLoaded) {
+      debugPrint('HomeBloc: Previous vegOnly: ${currentState.vegOnly}, new vegOnly: ${event.value}');
       emit(currentState.copyWith(vegOnly: event.value));
+      debugPrint('HomeBloc: VegOnly state updated');
+    } else {
+      debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update vegOnly');
     }
   }
 
@@ -337,8 +347,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (currentState is HomeLoaded) {
       debugPrint('HomeBloc: Previous selectedCategoryId: ${currentState.selectedCategoryId}');
       debugPrint('HomeBloc: New selectedCategoryId to set: ${event.categoryId}');
-      emit(currentState.copyWith(selectedCategoryId: event.categoryId));
-      debugPrint('HomeBloc: State updated with new selectedCategoryId');
+      
+      // Create new state with updated category
+      final newState = currentState.copyWith(selectedCategoryId: event.categoryId);
+      debugPrint('HomeBloc: New state selectedCategoryId: ${newState.selectedCategoryId}');
+      debugPrint('HomeBloc: New state selectedFoodTypeId: ${newState.selectedFoodTypeId}');
+      debugPrint('HomeBloc: New state vegOnly: ${newState.vegOnly}');
+      
+      emit(newState);
+      debugPrint('HomeBloc: Category filter state updated');
     } else {
       debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update category');
     }
@@ -348,10 +365,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     debugPrint('HomeBloc: FilterByFoodType event received with foodTypeId: ${event.foodTypeId}');
     final currentState = state;
     if (currentState is HomeLoaded) {
-      debugPrint('HomeBloc: Current selectedFoodTypeId: ${currentState.selectedFoodTypeId}');
-      debugPrint('HomeBloc: Setting new selectedFoodTypeId to: ${event.foodTypeId}');
-      emit(currentState.copyWith(selectedFoodTypeId: event.foodTypeId));
-      debugPrint('HomeBloc: State updated with new selectedFoodTypeId');
+      debugPrint('HomeBloc: Previous selectedFoodTypeId: ${currentState.selectedFoodTypeId}');
+      debugPrint('HomeBloc: New selectedFoodTypeId to set: ${event.foodTypeId}');
+      
+      // Create new state with updated food type
+      final newState = currentState.copyWith(selectedFoodTypeId: event.foodTypeId);
+      debugPrint('HomeBloc: New state selectedFoodTypeId: ${newState.selectedFoodTypeId}');
+      debugPrint('HomeBloc: New state selectedCategoryId: ${newState.selectedCategoryId}');
+      debugPrint('HomeBloc: New state vegOnly: ${newState.vegOnly}');
+      
+      emit(newState);
+      debugPrint('HomeBloc: Food type filter state updated');
     } else {
       debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update food type');
     }

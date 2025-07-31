@@ -50,9 +50,7 @@ class OrderHistoryService {
           // Process Ongoing orders
           if (data['Ongoing'] != null) {
             final ongoingOrders = List<Map<String, dynamic>>.from(data['Ongoing']);
-            for (var order in ongoingOrders) {
-              order['status'] = 'Preparing';
-            }
+            // Keep original status from API
             allOrders.addAll(ongoingOrders);
             debugPrint('OrderHistoryService: Found ${ongoingOrders.length} ongoing orders');
           }
@@ -60,9 +58,7 @@ class OrderHistoryService {
           // Process Completed orders
           if (data['Completed'] != null) {
             final completedOrders = List<Map<String, dynamic>>.from(data['Completed']);
-            for (var order in completedOrders) {
-              order['status'] = 'Delivered';
-            }
+            // Keep original status from API
             allOrders.addAll(completedOrders);
             debugPrint('OrderHistoryService: Found ${completedOrders.length} completed orders');
           }
@@ -70,9 +66,7 @@ class OrderHistoryService {
           // Process Cancelled orders
           if (data['Cancelled'] != null) {
             final cancelledOrders = List<Map<String, dynamic>>.from(data['Cancelled']);
-            for (var order in cancelledOrders) {
-              order['status'] = 'Cancelled';
-            }
+            // Keep original status from API
             allOrders.addAll(cancelledOrders);
             debugPrint('OrderHistoryService: Found ${cancelledOrders.length} cancelled orders');
           }
@@ -118,6 +112,157 @@ class OrderHistoryService {
       }
     } catch (e) {
       debugPrint('OrderHistoryService: Exception: $e');
+      return {
+        'success': false,
+        'message': 'Network error occurred. Please check your connection.',
+      };
+    }
+  }
+
+  // ADDED: Fetch restaurant details by partner ID
+  static Future<Map<String, dynamic>> fetchRestaurantDetails(String partnerId) async {
+    try {
+      debugPrint('OrderHistoryService: Fetching restaurant details for partner: $partnerId');
+      
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login again.',
+        };
+      }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurant/$partnerId');
+      
+      debugPrint('OrderHistoryService: Restaurant details URL: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint('OrderHistoryService: Restaurant details response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final data = responseData['data'] as Map<String, dynamic>;
+          
+          return {
+            'success': true,
+            'data': {
+              'address': data['address'] ?? '',
+              'rating': data['rating'] ?? '0.0',
+            },
+            'message': 'Restaurant details fetched successfully',
+          };
+        } else {
+          return {
+            'success': false,
+            'message': responseData['message'] ?? 'Failed to fetch restaurant details',
+          };
+        }
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': 'Restaurant not found',
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Session expired. Please login again.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Server error occurred. Please try again.',
+        };
+      }
+    } catch (e) {
+      debugPrint('OrderHistoryService: Exception in restaurant details: $e');
+      return {
+        'success': false,
+        'message': 'Network error occurred. Please check your connection.',
+      };
+    }
+  }
+
+  // ADDED: Fetch order review/rating
+  static Future<Map<String, dynamic>> fetchOrderReview(String orderId, String partnerId) async {
+    try {
+      debugPrint('OrderHistoryService: Fetching review for order: $orderId, partner: $partnerId');
+      
+      final token = await TokenService.getToken();
+      
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login again.',
+        };
+      }
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/reviews/order/$orderId?partner_id=$partnerId');
+      
+      debugPrint('OrderHistoryService: Review URL: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint('OrderHistoryService: Review response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final data = responseData['data'] as Map<String, dynamic>;
+          
+          return {
+            'success': true,
+            'data': {
+              'rating': data['rating'] ?? 0,
+              'review_text': data['review_text'] ?? '',
+            },
+            'message': 'Review fetched successfully',
+          };
+        } else {
+          return {
+            'success': false,
+            'message': responseData['message'] ?? 'Failed to fetch review',
+          };
+        }
+      } else if (response.statusCode == 404) {
+        // No review found for this order
+        return {
+          'success': true,
+          'data': {
+            'rating': null,
+            'review_text': null,
+          },
+          'message': 'No review found for this order',
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Session expired. Please login again.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Server error occurred. Please try again.',
+        };
+      }
+    } catch (e) {
+      debugPrint('OrderHistoryService: Exception in review fetch: $e');
       return {
         'success': false,
         'message': 'Network error occurred. Please check your connection.',

@@ -66,6 +66,10 @@ class OrderItem extends Equatable {
   final DateTime dateTime;
   final String restaurantId;
   final List<Map<String, dynamic>> items;
+  final String? restaurantAddress; // ADDED: Restaurant address
+  final String? deliveryAddress; // ADDED: Delivery address
+  final double? rating; // ADDED: Food rating
+  final String? reviewText; // ADDED: Review text
 
   const OrderItem({
     required this.id,
@@ -78,6 +82,10 @@ class OrderItem extends Equatable {
     required this.dateTime,
     this.restaurantId = '',
     this.items = const [],
+    this.restaurantAddress, // ADDED
+    this.deliveryAddress, // ADDED
+    this.rating, // ADDED
+    this.reviewText, // ADDED
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
@@ -101,8 +109,52 @@ class OrderItem extends Equatable {
       status: _mapStatus(json['order_status'] ?? json['status']), // FIXED: Use order_status
       imageUrl: _getFullImageUrl(json['restaurant_picture'] ?? ''),
       dateTime: TimezoneUtils.parseToIST(json['datetime'] ?? ''),
-      restaurantId: json['restaurant_id'] ?? '',
+      restaurantId: json['restaurant_id'] ?? json['partner_id'] ?? '', // ADDED: Use partner_id as fallback
       items: List<Map<String, dynamic>>.from(json['items'] ?? []),
+      restaurantAddress: json['restaurant_address'], // ADDED: Will be populated later
+      deliveryAddress: json['delivery_address'], // ADDED: From API response
+      rating: null, // ADDED: Will be populated later from reviews API
+      reviewText: null, // ADDED: Will be populated later from reviews API
+    );
+  }
+
+  // ADDED: Method to update restaurant address
+  OrderItem copyWithRestaurantAddress(String? address) {
+    return OrderItem(
+      id: id,
+      name: name,
+      restaurantName: restaurantName,
+      date: date,
+      price: price,
+      status: status,
+      imageUrl: imageUrl,
+      dateTime: dateTime,
+      restaurantId: restaurantId,
+      items: items,
+      restaurantAddress: address,
+      deliveryAddress: deliveryAddress,
+      rating: rating,
+      reviewText: reviewText,
+    );
+  }
+
+  // ADDED: Method to update rating and review
+  OrderItem copyWithRating(double? rating, String? reviewText) {
+    return OrderItem(
+      id: id,
+      name: name,
+      restaurantName: restaurantName,
+      date: date,
+      price: price,
+      status: status,
+      imageUrl: imageUrl,
+      dateTime: dateTime,
+      restaurantId: restaurantId,
+      items: items,
+      restaurantAddress: restaurantAddress,
+      deliveryAddress: deliveryAddress,
+      rating: rating,
+      reviewText: reviewText,
     );
   }
 
@@ -144,5 +196,5 @@ class OrderItem extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, name, restaurantName, date, price, status, imageUrl, dateTime];
+  List<Object?> get props => [id, name, restaurantName, date, price, status, imageUrl, dateTime, restaurantAddress, deliveryAddress, rating, reviewText];
 }

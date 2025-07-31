@@ -537,7 +537,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   ResponsiveText(
                     text: state.query.isEmpty 
                       ? 'Start typing or speak to search'
-                      : 'No restaurants found',
+                      : 'No stores found',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w500,
                       color: Colors.grey[700],
@@ -588,7 +588,6 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'cuisine': categoryString,
         'category': categoryString,
         'rating': restaurant.rating,
-        'deliveryTime': '20-30 min',
         'isVegetarian': false,
         'isVeg': false,
         'veg_nonveg': 'non-veg',
@@ -623,7 +622,6 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'cuisine': r.cuisineType,
         'category': r.cuisineType,
         'rating': r.rating,
-        'deliveryTime': '20-30 min',
         'isVegetarian': false,
         'isVeg': false,
         'veg_nonveg': 'non-veg',
@@ -669,7 +667,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               ),
               SizedBox(height: screenHeight * 0.02),
               ResponsiveText(
-                text: 'No restaurants found',
+                                    text: 'No stores found',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   color: Colors.grey[700],
@@ -722,7 +720,6 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
             cuisine: restaurant['cuisine'],
             rating: restaurant['rating'] ?? 0.0,
-            deliveryTime: restaurant['deliveryTime'] ?? '30 min',
             isVeg: restaurant['isVegetarian'] as bool? ?? false,
             restaurantLatitude: restaurantLat,
             restaurantLongitude: restaurantLng,

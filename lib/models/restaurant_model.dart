@@ -393,7 +393,6 @@ class Restaurant {
       'category': cuisine, // For compatibility
       'rating': rating ?? 0.0,
               'price': '200 for two', // Default value as API doesn't provide this
-      'deliveryTime': '20-30 mins', // Default value as API doesn't provide this
       'isVegetarian': isVeg,
       'isVeg': isVeg, // For compatibility
       'veg_nonveg': isVeg ? 'veg' : 'non-veg', // For compatibility

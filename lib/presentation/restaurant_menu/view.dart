@@ -835,6 +835,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     
     final distance = _calculateDistance(restaurant);
     final rating = restaurant['rating']?.toString() ?? '0.0';
+    final address = restaurant['address']?.toString() ?? '';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -854,6 +855,33 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
             ],
           ),
         ),
+        
+        // Restaurant address
+        if (address.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                color: Colors.white.withOpacity(0.9),
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  address,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
         
         const SizedBox(height: 16),
         

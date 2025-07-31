@@ -85,17 +85,39 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         return;
       }
       
+      // Construct query parameters
+      final queryParams = {
+        'latitude': event.latitude?.toString() ?? '0',
+        'longitude': event.longitude?.toString() ?? '0',
+        'searchQuery': event.query.trim(),
+        'radius': event.radius.toString(),
+      };
+      
+      // Add supercategory parameter if provided
+      if (event.supercategoryId != null && event.supercategoryId!.isNotEmpty) {
+        queryParams['supercategory'] = event.supercategoryId!;
+        debugPrint('SearchBloc: Adding supercategory parameter: ${event.supercategoryId}');
+      }
+      
       // Construct the API URL - using the working endpoint
       final uri = Uri.parse('${ApiConstants.baseUrl}/api/user/search').replace(
-        queryParameters: {
-          'latitude': event.latitude?.toString() ?? '0',
-          'longitude': event.longitude?.toString() ?? '0',
-          'searchQuery': event.query.trim(),
-          'radius': event.radius.toString(),
-        },
+        queryParameters: queryParams,
       );
 
       debugPrint('SearchBloc: API URL - $uri');
+
+      // Prepare request body
+      final requestBody = {
+        'latitude': event.latitude?.toString() ?? '0',
+        'longitude': event.longitude?.toString() ?? '0',
+        'searchQuery': event.query.trim(),
+        'radius': event.radius.toString(),
+      };
+      
+      // Add supercategory to request body if provided
+      if (event.supercategoryId != null && event.supercategoryId!.isNotEmpty) {
+        requestBody['supercategory'] = event.supercategoryId!;
+      }
 
       // Make API call with auth token - using POST since you mentioned it's a POST API
       final response = await http.post(
@@ -104,12 +126,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'latitude': event.latitude?.toString() ?? '0',
-          'longitude': event.longitude?.toString() ?? '0',
-          'searchQuery': event.query.trim(),
-          'radius': event.radius.toString(),
-        }),
+        body: jsonEncode(requestBody),
       );
 
       debugPrint('SearchBloc: API Response Status Code - ${response.statusCode}');
@@ -217,6 +234,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         longitude: restaurantInfo.longitude,
         restaurantPhotos: restaurantInfo.restaurantPhotos,
         distance: restaurantInfo.distance,
+        supercategoryId: restaurantInfo.supercategoryId,
+        supercategoryName: restaurantInfo.supercategoryName,
       );
       
       uniqueRestaurants[partnerId] = restaurantFromMenuItem;

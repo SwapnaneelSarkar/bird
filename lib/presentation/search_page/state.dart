@@ -58,7 +58,8 @@ class SearchRestaurant extends Equatable {
   final double longitude;
   final List<String> restaurantPhotos;
   final double distance;
-  final String? supercategory;
+  final String? supercategoryId;
+  final String? supercategoryName;
 
   const SearchRestaurant({
     required this.partnerId,
@@ -70,7 +71,8 @@ class SearchRestaurant extends Equatable {
     required this.longitude,
     required this.restaurantPhotos,
     required this.distance,
-    this.supercategory,
+    this.supercategoryId,
+    this.supercategoryName,
   });
 
   factory SearchRestaurant.fromJson(Map<String, dynamic> json) {
@@ -141,6 +143,19 @@ class SearchRestaurant extends Equatable {
       }
     }
 
+    // Parse supercategory object
+    String? supercategoryId;
+    String? supercategoryName;
+    if (json['supercategory'] != null) {
+      if (json['supercategory'] is Map<String, dynamic>) {
+        final supercategoryData = json['supercategory'] as Map<String, dynamic>;
+        supercategoryId = supercategoryData['id']?.toString();
+        supercategoryName = supercategoryData['name']?.toString();
+      } else if (json['supercategory'] is String) {
+        supercategoryId = json['supercategory'].toString();
+      }
+    }
+
     return SearchRestaurant(
       partnerId: json['partner_id'] ?? '',
       restaurantName: json['restaurant_name'] ?? '',
@@ -151,7 +166,8 @@ class SearchRestaurant extends Equatable {
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       restaurantPhotos: photos,
       distance: double.tryParse(json['distance'].toString()) ?? 0.0,
-      supercategory: json['supercategory']?.toString(),
+      supercategoryId: supercategoryId,
+      supercategoryName: supercategoryName,
     );
   }
 
@@ -166,7 +182,8 @@ class SearchRestaurant extends Equatable {
     longitude,
     restaurantPhotos,
     distance,
-    supercategory,
+    supercategoryId,
+    supercategoryName,
   ];
 }
 
@@ -176,6 +193,8 @@ class SearchMenuItem extends Equatable {
   final double price;
   final String? imageUrl;
   final List<String> categories;
+  final String? supercategoryId;
+  final String? supercategoryName;
   final SearchRestaurantInfo restaurant;
 
   const SearchMenuItem({
@@ -184,6 +203,8 @@ class SearchMenuItem extends Equatable {
     required this.price,
     this.imageUrl,
     required this.categories,
+    this.supercategoryId,
+    this.supercategoryName,
     required this.restaurant,
   });
 
@@ -216,18 +237,33 @@ class SearchMenuItem extends Equatable {
       }
     }
 
+    // Parse supercategory object for menu item
+    String? supercategoryId;
+    String? supercategoryName;
+    if (json['supercategory'] != null) {
+      if (json['supercategory'] is Map<String, dynamic>) {
+        final supercategoryData = json['supercategory'] as Map<String, dynamic>;
+        supercategoryId = supercategoryData['id']?.toString();
+        supercategoryName = supercategoryData['name']?.toString();
+      } else if (json['supercategory'] is String) {
+        supercategoryId = json['supercategory'].toString();
+      }
+    }
+
     return SearchMenuItem(
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       price: double.tryParse(json['price'].toString()) ?? 0.0,
       imageUrl: json['image_url'],
       categories: parsedCategories,
+      supercategoryId: supercategoryId,
+      supercategoryName: supercategoryName,
       restaurant: SearchRestaurantInfo.fromJson(json['restaurant'] ?? {}),
     );
   }
 
   @override
-  List<Object?> get props => [name, description, price, imageUrl, categories, restaurant];
+  List<Object?> get props => [name, description, price, imageUrl, categories, supercategoryId, supercategoryName, restaurant];
 }
 
 class SearchRestaurantInfo extends Equatable {
@@ -240,7 +276,8 @@ class SearchRestaurantInfo extends Equatable {
   final double longitude;
   final List<String> restaurantPhotos;
   final double distance;
-  final String? supercategory;
+  final String? supercategoryId;
+  final String? supercategoryName;
 
   const SearchRestaurantInfo({
     required this.id,
@@ -252,7 +289,8 @@ class SearchRestaurantInfo extends Equatable {
     required this.longitude,
     required this.restaurantPhotos,
     required this.distance,
-    this.supercategory,
+    this.supercategoryId,
+    this.supercategoryName,
   });
 
   factory SearchRestaurantInfo.fromJson(Map<String, dynamic> json) {
@@ -312,6 +350,19 @@ class SearchRestaurantInfo extends Equatable {
       }
     }
 
+    // Parse supercategory object for restaurant info
+    String? supercategoryId;
+    String? supercategoryName;
+    if (json['supercategory'] != null) {
+      if (json['supercategory'] is Map<String, dynamic>) {
+        final supercategoryData = json['supercategory'] as Map<String, dynamic>;
+        supercategoryId = supercategoryData['id']?.toString();
+        supercategoryName = supercategoryData['name']?.toString();
+      } else if (json['supercategory'] is String) {
+        supercategoryId = json['supercategory'].toString();
+      }
+    }
+
     return SearchRestaurantInfo(
       id: partnerId,
       name: json['name'] ?? '',
@@ -322,7 +373,8 @@ class SearchRestaurantInfo extends Equatable {
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       restaurantPhotos: photos,
       distance: double.tryParse(json['distance'].toString()) ?? 0.0,
-      supercategory: json['supercategory']?.toString(),
+      supercategoryId: supercategoryId,
+      supercategoryName: supercategoryName,
     );
   }
 
@@ -337,6 +389,7 @@ class SearchRestaurantInfo extends Equatable {
     longitude,
     restaurantPhotos,
     distance,
-    supercategory,
+    supercategoryId,
+    supercategoryName,
   ];
 }

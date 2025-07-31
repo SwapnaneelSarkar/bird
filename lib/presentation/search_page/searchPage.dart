@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../constants/color/colorConstant.dart';
 import '../../../widgets/restaurant_card.dart';
 import '../../../widgets/responsive_text.dart';
+import '../restaurant_menu/view.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -199,6 +200,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       query: query,
       latitude: widget.userLatitude,
       longitude: widget.userLongitude,
+      supercategoryId: widget.supercategoryId, // Add supercategoryId parameter
     ));
   }
   
@@ -600,7 +602,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'owner_name': '',
         'restaurant_type': '',
         'isAcceptingOrder': 1,
-        'supercategory': restaurant.supercategory ?? '', // Use the new field
+        'supercategory': restaurant.supercategoryId ?? '', // Use the new field
       };
     }).toList();
 
@@ -634,7 +636,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         'owner_name': '',
         'restaurant_type': '',
         'isAcceptingOrder': 1,
-        'supercategory': r.supercategory ?? '', // Use the new field
+        'supercategory': r.supercategoryId ?? '', // Use the new field
       };
     }
     final List<Map<String, dynamic>> menuRestaurants = menuRestaurantsMap.values.toList();
@@ -727,7 +729,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             userLongitude: widget.userLongitude,
             restaurantType: restaurant['restaurant_type'],
             isAcceptingOrder: restaurant['isAcceptingOrder'],
-            onTap: () => Navigator.pop(context, restaurant),
+            onTap: () => _navigateToRestaurantDetails(context, restaurant),
           ).animate(controller: _animationController)
             .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
             .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
@@ -745,5 +747,57 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         .replaceAll(RegExp(r'[^a-z0-9\s]'), '') // Remove special characters
         .replaceAll(RegExp(r'\s+'), '_') // Replace spaces with underscores
         .trim();
+  }
+
+  void _navigateToRestaurantDetails(BuildContext context, Map<String, dynamic> restaurant) {
+    debugPrint('SearchPage: Navigating to restaurant details');
+    
+    // Convert restaurant data to the expected Map format for RestaurantDetailsPage
+    final restaurantData = <String, dynamic>{
+      'id': restaurant['partner_id'],
+      'partner_id': restaurant['partner_id'],
+      'name': restaurant['name'],
+      'restaurant_name': restaurant['name'],
+      'imageUrl': restaurant['imageUrl'],
+      'cuisine': restaurant['cuisine'],
+      'category': restaurant['cuisine'],
+      'rating': restaurant['rating'],
+      'isVegetarian': restaurant['isVegetarian'],
+      'isVeg': restaurant['isVegetarian'],
+      'veg_nonveg': restaurant['isVegetarian'] ? 'veg' : 'non-veg',
+      'address': restaurant['address'],
+      'latitude': restaurant['latitude'],
+      'longitude': restaurant['longitude'],
+      'restaurantType': restaurant['restaurant_type'],
+      'restaurant_type': restaurant['restaurant_type'],
+      'description': restaurant['description'],
+      'openTimings': restaurant['open_timings'],
+      'open_timings': restaurant['open_timings'],
+      'ownerName': restaurant['owner_name'],
+      'owner_name': restaurant['owner_name'],
+      'availableCategories': restaurant['availableCategories'],
+      'isAcceptingOrder': restaurant['isAcceptingOrder'],
+    };
+    
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => RestaurantDetailsPage(
+          restaurantData: restaurantData,
+          userLatitude: widget.userLatitude,
+          userLongitude: widget.userLongitude,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutQuart;
+          
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+          
+          return SlideTransition(position: offsetAnimation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+    );
   }
 }

@@ -763,19 +763,285 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
   }
 
   void _showEditAddressDialog(BuildContext context, SavedAddress address) {
-    // This would open the address picker in edit mode
-    // For now, we'll show a simple dialog
+    final addressNameController = TextEditingController(text: address.addressLine2);
+    final addressLineController = TextEditingController(text: address.addressLine1);
+    final cityController = TextEditingController(text: address.city);
+    final stateController = TextEditingController(text: address.state);
+    final postalCodeController = TextEditingController(text: address.postalCode);
+    final countryController = TextEditingController(text: address.country);
+    bool isDefault = address.isDefault;
+    final latitude = address.latitude;
+    final longitude = address.longitude;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Address'),
-        content: const Text('Address editing functionality will be implemented here.'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            'Edit Address',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: ColorManager.primary,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Address Name',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: addressNameController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Home, Office',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Address Line 1',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: addressLineController,
+                  decoration: InputDecoration(
+                    hintText: 'Street address',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'City',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: cityController,
+                            decoration: InputDecoration(
+                              hintText: 'City',
+                              filled: true,
+                              fillColor: ColorManager.otpField,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'State',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: stateController,
+                            decoration: InputDecoration(
+                              hintText: 'State',
+                              filled: true,
+                              fillColor: ColorManager.otpField,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Postal Code',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: postalCodeController,
+                            decoration: InputDecoration(
+                              hintText: 'Postal Code',
+                              filled: true,
+                              fillColor: ColorManager.otpField,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Country',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: ColorManager.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: countryController,
+                            decoration: InputDecoration(
+                              hintText: 'Country',
+                              filled: true,
+                              fillColor: ColorManager.otpField,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isDefault,
+                      onChanged: (value) {
+                        setState(() {
+                          isDefault = value ?? false;
+                        });
+                      },
+                      activeColor: ColorManager.primary,
+                    ),
+                    const Text('Set as default address'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: ColorManager.primary,
+              ),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final addressName = addressNameController.text.trim();
+                final addressLine = addressLineController.text.trim();
+                final city = cityController.text.trim();
+                final state = stateController.text.trim();
+                final postalCode = postalCodeController.text.trim();
+                final country = countryController.text.trim();
+
+                // Only require address line 1 and state as essential fields
+                if (addressLine.isEmpty || state.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in address line and state.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.of(dialogContext).pop();
+                // Use the AddressPickerBloc from context
+                context.read<AddressPickerBloc>().add(
+                  UpdateAddressEvent(
+                    addressId: address.addressId,
+                    addressLine1: addressLine,
+                    addressLine2: addressName,
+                    city: city,
+                    state: state,
+                    postalCode: postalCode,
+                    country: country,
+                    latitude: latitude,
+                    longitude: longitude,
+                    isDefault: isDefault,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Update'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -783,17 +1049,37 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
   void _showDeleteAddressDialog(BuildContext context, SavedAddress address) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Address'),
-        content: Text('Are you sure you want to delete "${address.displayName}"?'),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          'Delete Address',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${address.displayName}"? This action cannot be undone.',
+          style: TextStyle(
+            fontSize: 14,
+            color: ColorManager.black,
+          ),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: ColorManager.primary,
+            ),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               context.read<AddressPickerBloc>().add(
                 DeleteSavedAddressEvent(addressId: address.addressId),
               );
@@ -801,6 +1087,9 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Delete'),
           ),

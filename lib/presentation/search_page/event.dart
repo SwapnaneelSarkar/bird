@@ -26,16 +26,18 @@ class SearchQueryChangedEvent extends SearchEvent {
   final double? latitude;
   final double? longitude;
   final double radius;
+  final String? supercategoryId; // Add supercategoryId parameter
 
   const SearchQueryChangedEvent({
     required this.query,
     this.latitude,
     this.longitude,
     this.radius = 25.0,
+    this.supercategoryId, // Add supercategoryId parameter
   });
 
   @override
-  List<Object?> get props => [query, latitude, longitude, radius];
+  List<Object?> get props => [query, latitude, longitude, radius, supercategoryId];
 }
 
 class SearchClearEvent extends SearchEvent {}

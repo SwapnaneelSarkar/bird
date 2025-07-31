@@ -122,35 +122,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final categories = results[1] as List<Map<String, dynamic>>;
       final foodTypes = results[2] as List<Map<String, dynamic>>;
       
-      // FILTER RESTAURANTS BY SUPERCATEGORY IF SELECTED
+      // Use all restaurants since filtering is now handled by the API
       List<Restaurant> filteredRestaurants = allRestaurants;
-      if (_selectedSupercategoryId != null && _selectedSupercategoryId!.isNotEmpty) {
-        debugPrint('HomeBloc: Starting supercategory filtering with ID: $_selectedSupercategoryId');
-        
-        filteredRestaurants = allRestaurants.where((restaurant) {
-          final restaurantSupercategory = restaurant.supercategory?.toString() ?? '';
-          debugPrint('HomeBloc: Restaurant ${restaurant.name} supercategory: "$restaurantSupercategory", filtering by: "$_selectedSupercategoryId"');
-          final matches = restaurantSupercategory == _selectedSupercategoryId;
-          debugPrint('HomeBloc: Restaurant ${restaurant.name} matches filter: $matches');
-          return matches;
-        }).toList();
-        
-        debugPrint('HomeBloc: Filtered ${allRestaurants.length} restaurants down to ${filteredRestaurants.length} for supercategory $_selectedSupercategoryId');
-        
-        // Log all restaurant supercategories for debugging
-        debugPrint('HomeBloc: All restaurant supercategories:');
-        for (var restaurant in allRestaurants) {
-          debugPrint('  - ${restaurant.name}: ${restaurant.supercategory}');
-        }
-        
-        if (filteredRestaurants.isEmpty) {
-          debugPrint('HomeBloc: No restaurants found for supercategory $_selectedSupercategoryId');
-        }
-      } else {
-        debugPrint('HomeBloc: No supercategory filter applied, showing all ${allRestaurants.length} restaurants');
-      }
-      
-      debugPrint('HomeBloc: Fetched ${allRestaurants.length} total restaurants, showing ${filteredRestaurants.length} after supercategory filter');
+      debugPrint('HomeBloc: Fetched ${allRestaurants.length} restaurants from API');
       debugPrint('HomeBloc: Fetched ${categories.length} categories, and ${foodTypes.length} food types');
       
       emit(HomeLoaded(
@@ -368,14 +342,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       debugPrint('HomeBloc: Previous selectedFoodTypeId: ${currentState.selectedFoodTypeId}');
       debugPrint('HomeBloc: New selectedFoodTypeId to set: ${event.foodTypeId}');
       
-      // Create new state with updated food type
+      // Create new state with updated food type filter
       final newState = currentState.copyWith(selectedFoodTypeId: event.foodTypeId);
       debugPrint('HomeBloc: New state selectedFoodTypeId: ${newState.selectedFoodTypeId}');
-      debugPrint('HomeBloc: New state selectedCategoryId: ${newState.selectedCategoryId}');
-      debugPrint('HomeBloc: New state vegOnly: ${newState.vegOnly}');
       
       emit(newState);
-      debugPrint('HomeBloc: Food type filter state updated');
+      debugPrint('HomeBloc: Food type filter state updated - filtering will be applied by state logic');
     } else {
       debugPrint('HomeBloc: Current state is not HomeLoaded, cannot update food type');
     }
@@ -391,8 +363,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return [];
       }
 
-      // Use the specific endpoint with radius parameter
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/partner/restaurants?latitude=$latitude&longitude=$longitude&radius=30');
+      // Build URL with supercategory filter only
+      String urlString = '${ApiConstants.baseUrl}/api/partner/restaurants?latitude=$latitude&longitude=$longitude&radius=30';
+      if (_selectedSupercategoryId != null && _selectedSupercategoryId!.isNotEmpty) {
+        urlString += '&supercategory=$_selectedSupercategoryId';
+      }
+      final url = Uri.parse(urlString);
       debugPrint('HomeBloc: Trying restaurant endpoint: $url');
       
       final response = await http.get(

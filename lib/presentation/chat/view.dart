@@ -540,82 +540,9 @@ class _ChatViewState extends State<ChatView> {
       child: Column(
         children: [
           _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
-          // Show order details as chat bubble if available
-          Builder(
-            builder: (context) {
-              debugPrint('ChatView: 🔍 Order details in state: ${state.orderDetails != null ? 'Available' : 'Not available'}');
-              if (state.orderDetails != null) {
-                debugPrint('ChatView: 📋 Order ID: ${state.orderDetails!.orderId}');
-                debugPrint('ChatView: 📋 Restaurant: ${state.orderDetails!.restaurantName}');
-                debugPrint('ChatView: 📋 Items count: ${state.orderDetails!.items.length}');
-                
-                return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.035),
-                  child: ChatOrderDetailsBubble(
-                    orderDetails: state.orderDetails!,
-                    menuItemDetails: state.menuItemDetails,
-                    isFromCurrentUser: true, // Order details are always shown as from user
-                    currentUserId: state.currentUserId,
-                    onCancelOrder: () {
-                      showCancelOrderBottomSheet(
-                        context: context,
-                        orderId: orderId,
-                        onCancel: _handleCancelOrder,
-                      );
-                    },
-                  ),
-                );
-              } else {
-                debugPrint('ChatView: ❌ No order details available to display');
-                // Show a simple placeholder for testing
-                return Container(
-                  margin: EdgeInsets.all(screenWidth * 0.035),
-                  padding: EdgeInsets.all(screenWidth * 0.04),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(screenWidth * 0.03),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Order Details Not Available',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.04,
-                          fontWeight: FontWeightManager.bold,
-                          color: Colors.orange[700],
-                          fontFamily: FontFamily.Montserrat,
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.01),
-                      Text(
-                        'Order ID: $orderId',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.035,
-                          fontWeight: FontWeightManager.medium,
-                          color: Colors.grey[600],
-                          fontFamily: FontFamily.Montserrat,
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.005),
-                      Text(
-                        'Debug: Order details could not be loaded',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.03,
-                          fontWeight: FontWeightManager.regular,
-                          color: Colors.grey[500],
-                          fontFamily: FontFamily.Montserrat,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            },
-          ),
+          SizedBox(height: screenHeight * 0.012), // Add space between topbar and order details
           Expanded(
-            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight, state.orderDetails),
+            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight, state.orderDetails, state.menuItemDetails, orderId),
           ),
           _buildMessageInput(context, state.isSendingMessage, screenWidth, screenHeight),
         ],
@@ -710,7 +637,7 @@ class _ChatViewState extends State<ChatView> {
 
 
 
-  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails) {
+  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails, Map<String, Map<String, dynamic>> menuItemDetails, String orderId) {
     if (messages.isEmpty && !isSending) {
       return Center(
         child: Column(
@@ -759,9 +686,28 @@ class _ChatViewState extends State<ChatView> {
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(screenWidth * 0.035),
-      itemCount: messages.length,
+      itemCount: (orderDetails != null ? 1 : 0) + messages.length,
       itemBuilder: (context, index) {
-        final message = messages[index];
+        // Show order details as first item if available
+        if (orderDetails != null && index == 0) {
+          return ChatOrderDetailsBubble(
+            orderDetails: orderDetails,
+            menuItemDetails: menuItemDetails,
+            isFromCurrentUser: true, // Order details are always shown as from user
+            currentUserId: currentUserId,
+            onCancelOrder: () {
+              showCancelOrderBottomSheet(
+                context: context,
+                orderId: orderId,
+                onCancel: _handleCancelOrder,
+              );
+            },
+          );
+        }
+        
+        // Show regular messages
+        final messageIndex = orderDetails != null ? index - 1 : index;
+        final message = messages[messageIndex];
         final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
         final isOptimistic = message.id.startsWith('temp_');
         
@@ -1024,13 +970,13 @@ class _ChatViewState extends State<ChatView> {
             width: screenWidth * 0.11,
             height: screenWidth * 0.11,
             decoration: BoxDecoration(
-              color: (isSending || _messageController.text.isEmpty)
+              color: isSending
                   ? Colors.grey.shade300 
                   : ColorManager.primary,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isSending || _messageController.text.isEmpty) 
+                  color: isSending
                       ? Colors.transparent
                       : ColorManager.primary.withOpacity(0.3),
                   blurRadius: 4,
@@ -1042,7 +988,7 @@ class _ChatViewState extends State<ChatView> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(screenWidth * 0.055),
-                onTap: (isSending || _messageController.text.isEmpty) 
+                onTap: isSending
                     ? null 
                     : () {
                         _sendMessage(context);
@@ -1052,7 +998,7 @@ class _ChatViewState extends State<ChatView> {
                 child: Center(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 150),
-                    opacity: (isSending || _messageController.text.isEmpty) ? 0.6 : 1.0,
+                    opacity: isSending ? 0.6 : 1.0,
                     child: Icon(
                       Icons.send,
                       color: Colors.white,

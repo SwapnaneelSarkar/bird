@@ -21,6 +21,7 @@ class Restaurant {
   final String? restaurantType;
   final List<String> photos;
   final List<String> availableCategories;
+  final List<String> availableFoodTypes; // ADD AVAILABLE FOOD TYPES FIELD
   final int? isAcceptingOrder;
   final Map<String, dynamic>? restaurantFoodType;
   final String? supercategory; // ADD SUPERCATEGORY FIELD
@@ -43,6 +44,7 @@ class Restaurant {
     this.restaurantType,
     this.photos = const [],
     this.availableCategories = const [],
+    this.availableFoodTypes = const [], // ADD AVAILABLE FOOD TYPES PARAMETER
     this.isAcceptingOrder,
     this.restaurantFoodType,
     this.supercategory, // ADD SUPERCATEGORY PARAMETER
@@ -51,6 +53,7 @@ class Restaurant {
   factory Restaurant.fromJson(Map<String, dynamic> json) {
     try {
       debugPrint('Restaurant.fromJson: Parsing restaurant data with keys: ${json.keys}');
+      debugPrint('Restaurant.fromJson: Full JSON data: $json');
       
       // CRITICAL FIX: Handle restaurant_photos properly
       List<String> photos = [];
@@ -158,6 +161,57 @@ class Restaurant {
         availableCategories = [];
       }
 
+      // Parse availableFoodTypes field
+      List<String> availableFoodTypes = [];
+      try {
+        final availableFoodTypesField = json['availableFoodTypes'];
+        debugPrint('Restaurant: Raw availableFoodTypes field: $availableFoodTypesField (type: ${availableFoodTypesField.runtimeType})');
+        
+        if (availableFoodTypesField != null) {
+          if (availableFoodTypesField is List) {
+            availableFoodTypes = List<String>.from(availableFoodTypesField.where((e) => e != null && e.toString().isNotEmpty));
+            debugPrint('Restaurant: Parsed availableFoodTypes from List: $availableFoodTypes');
+          } else if (availableFoodTypesField is String) {
+            // Handle string representation like "[\"foodtype1\", \"foodtype2\"]" or just "foodtype"
+            String foodTypesString = availableFoodTypesField.toString().trim();
+            debugPrint('Restaurant: Parsing availableFoodTypes from String: "$foodTypesString"');
+            if (foodTypesString.startsWith('[') && foodTypesString.endsWith(']')) {
+              // Remove brackets and parse
+              foodTypesString = foodTypesString.substring(1, foodTypesString.length - 1);
+              if (foodTypesString.isNotEmpty) {
+                availableFoodTypes = foodTypesString
+                    .split(',')
+                    .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
+                    .where((e) => e.isNotEmpty && e != 'null')
+                    .toList();
+              }
+            } else if (foodTypesString.isNotEmpty && !foodTypesString.startsWith('[') && foodTypesString != 'null') {
+              // Single food type as string
+              availableFoodTypes = [foodTypesString];
+            }
+            debugPrint('Restaurant: Parsed availableFoodTypes from String: $availableFoodTypes');
+          }
+        } else {
+          debugPrint('Restaurant: availableFoodTypes field is null or empty');
+          
+          // Fallback: Try to derive food types from other fields
+          final vegNonVeg = json['veg_nonveg']?.toString().toLowerCase();
+          if (vegNonVeg != null && vegNonVeg.isNotEmpty) {
+            if (vegNonVeg == 'veg' || vegNonVeg == 'vegetarian') {
+              availableFoodTypes = ['9e436ef0212145ba8b376b8e8']; // vegetarian food type ID
+            } else if (vegNonVeg == 'non-veg' || vegNonVeg == 'non-vegetarian') {
+              availableFoodTypes = ['d1e265a3724a4925960fede1e']; // non-vegetarian food type ID
+            } else if (vegNonVeg == 'both' || vegNonVeg == 'veg & non-veg') {
+              availableFoodTypes = ['9e436ef0212145ba8b376b8e8', 'd1e265a3724a4925960fede1e']; // both IDs
+            }
+            debugPrint('Restaurant: Derived availableFoodTypes from veg_nonveg: $availableFoodTypes');
+          }
+        }
+      } catch (e) {
+        debugPrint('Restaurant: Error parsing availableFoodTypes: $e');
+        availableFoodTypes = [];
+      }
+
       // Parse isAcceptingOrder field
       final isAcceptingOrder = json['isAcceptingOrder']?.toInt();
 
@@ -193,6 +247,7 @@ class Restaurant {
         restaurantType: restaurantType,
         photos: photos,
         availableCategories: availableCategories,
+        availableFoodTypes: availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO CONSTRUCTOR
         isAcceptingOrder: isAcceptingOrder,
         restaurantFoodType: restaurantFoodType,
         supercategory: supercategory, // ADD SUPERCATEGORY TO CONSTRUCTOR
@@ -392,11 +447,10 @@ class Restaurant {
       'cuisine': cuisine,
       'category': cuisine, // For compatibility
       'rating': rating ?? 0.0,
-              'price': '200 for two', // Default value as API doesn't provide this
+      'price': '200 for two', // Default value as API doesn't provide this
       'isVegetarian': isVeg,
       'isVeg': isVeg, // For compatibility
       'veg_nonveg': isVeg ? 'veg' : 'non-veg', // For compatibility
-      'address': address,
       'latitude': latitude,
       'longitude': longitude,
       'openTimings': openTimings,
@@ -406,8 +460,8 @@ class Restaurant {
       'photos': photos, // For compatibility
       'openNow': openNow,
       'closesAt': closesAt,
-      'description': description,
       'isAcceptingOrder': isAcceptingOrder,
+      'availableFoodTypes': availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO MAP
       'supercategory': supercategory, // ADD SUPERCATEGORY TO MAP
     };
   }
@@ -447,6 +501,7 @@ class Restaurant {
     String? restaurantType,
     List<String>? photos,
     List<String>? availableCategories,
+    List<String>? availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO COPYWITH
     int? isAcceptingOrder,
     String? supercategory, // ADD SUPERCATEGORY TO COPYWITH
   }) {
@@ -468,6 +523,7 @@ class Restaurant {
       restaurantType: restaurantType ?? this.restaurantType,
       photos: photos ?? this.photos,
       availableCategories: availableCategories ?? this.availableCategories,
+      availableFoodTypes: availableFoodTypes ?? this.availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO COPYWITH
       isAcceptingOrder: isAcceptingOrder ?? this.isAcceptingOrder,
       supercategory: supercategory ?? this.supercategory, // ADD SUPERCATEGORY TO COPYWITH
     );

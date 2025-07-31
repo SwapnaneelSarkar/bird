@@ -62,11 +62,14 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: screenWidth * 0.75,
                   ),
-                  padding: EdgeInsets.all(screenWidth * 0.035),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.045, // Match chat bubble padding
+                    vertical: screenHeight * 0.014,  // Match chat bubble padding
+                  ),
                   decoration: BoxDecoration(
                     color: isFromCurrentUser 
                         ? ColorManager.primary
-                        : Colors.grey.shade100,
+                        : Colors.grey.shade200, // Match chat bubble color for received
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(screenWidth * 0.035),
                       topRight: Radius.circular(screenWidth * 0.035),
@@ -79,8 +82,8 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 3,
+                        color: Colors.black.withOpacity(0.03), // Softer shadow
+                        blurRadius: 2,
                         offset: const Offset(0, 1),
                       ),
                     ],
@@ -88,21 +91,21 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Order Header
+                      // Order Header (smaller, more subtle)
                       Row(
                         children: [
                           Icon(
                             Icons.receipt_long,
                             color: isFromCurrentUser ? Colors.white70 : ColorManager.primary,
-                            size: screenWidth * 0.04,
+                            size: screenWidth * 0.032, // Smaller icon
                           ),
-                          SizedBox(width: screenWidth * 0.02),
+                          SizedBox(width: screenWidth * 0.012),
                           Expanded(
                             child: Text(
                               'Order #${orderDetails.orderId}',
                               style: TextStyle(
-                                fontSize: screenWidth * 0.035,
-                                fontWeight: FontWeightManager.bold,
+                                fontSize: screenWidth * 0.031, // Slightly smaller
+                                fontWeight: FontWeightManager.semiBold,
                                 color: isFromCurrentUser ? Colors.white : ColorManager.black,
                                 fontFamily: FontFamily.Montserrat,
                               ),
@@ -111,23 +114,19 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                           _buildStatusChip(orderDetails.orderStatus, screenWidth, isFromCurrentUser),
                         ],
                       ),
-                      
-                      SizedBox(height: screenHeight * 0.008),
-                      
-                      // Restaurant Name
+                      SizedBox(height: screenHeight * 0.006),
+                      // Restaurant Name (subtle)
                       Text(
                         orderDetails.restaurantName ?? 'Restaurant',
                         style: TextStyle(
-                          fontSize: screenWidth * 0.032,
-                          fontWeight: FontWeightManager.medium,
+                          fontSize: screenWidth * 0.027,
+                          fontWeight: FontWeightManager.regular,
                           color: isFromCurrentUser ? Colors.white70 : Colors.grey[600],
                           fontFamily: FontFamily.Montserrat,
                         ),
                       ),
-                      
-                      SizedBox(height: screenHeight * 0.012),
-                      
-                      // Order Items (Compact)
+                      SizedBox(height: screenHeight * 0.008),
+                      // Order Items (compact, no divider)
                       ...orderDetails.items.take(3).map((item) => _buildCompactOrderItem(
                         item, 
                         screenWidth, 
@@ -135,14 +134,12 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                         menuItemDetails[item.menuId ?? ''] ?? <String, dynamic>{},
                         isFromCurrentUser,
                       )).toList(),
-                      
-                      // Show "and X more items" if there are more than 3 items
                       if (orderDetails.items.length > 3) ...[
-                        SizedBox(height: screenHeight * 0.005),
+                        SizedBox(height: screenHeight * 0.003),
                         Text(
                           'and ${orderDetails.items.length - 3} more items',
                           style: TextStyle(
-                            fontSize: screenWidth * 0.028,
+                            fontSize: screenWidth * 0.025,
                             fontWeight: FontWeightManager.regular,
                             color: isFromCurrentUser ? Colors.white70 : Colors.grey[500],
                             fontFamily: FontFamily.Montserrat,
@@ -150,22 +147,15 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                           ),
                         ),
                       ],
-                      
-                      SizedBox(height: screenHeight * 0.012),
-                      Divider(
-                        color: isFromCurrentUser ? Colors.white24 : Colors.grey[300], 
-                        height: 1
-                      ),
-                      SizedBox(height: screenHeight * 0.012),
-                      
-                      // Total Amount
+                      SizedBox(height: screenHeight * 0.008),
+                      // Total Amount (inline, no divider)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'Total',
                             style: TextStyle(
-                              fontSize: screenWidth * 0.032,
+                              fontSize: screenWidth * 0.027,
                               fontWeight: FontWeightManager.bold,
                               color: isFromCurrentUser ? Colors.white : ColorManager.black,
                               fontFamily: FontFamily.Montserrat,
@@ -178,7 +168,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                               return Text(
                                 CurrencyUtils.formatPrice(orderDetails.grandTotal, currencySymbol),
                                 style: TextStyle(
-                                  fontSize: screenWidth * 0.032,
+                                  fontSize: screenWidth * 0.027,
                                   fontWeight: FontWeightManager.bold,
                                   color: isFromCurrentUser ? Colors.white : ColorManager.black,
                                   fontFamily: FontFamily.Montserrat,
@@ -188,26 +178,25 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                           ),
                         ],
                       ),
-                      
-                      // Payment Mode if available
+                      // Payment Mode (subtle, inline)
                       if (orderDetails.paymentMode != null && orderDetails.paymentMode!.isNotEmpty) ...[
-                        SizedBox(height: screenHeight * 0.008),
+                        SizedBox(height: screenHeight * 0.004),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               'Payment',
                               style: TextStyle(
-                                fontSize: screenWidth * 0.028,
-                                fontWeight: FontWeightManager.medium,
+                                fontSize: screenWidth * 0.022,
+                                fontWeight: FontWeightManager.regular,
                                 color: isFromCurrentUser ? Colors.white70 : Colors.grey[600],
                                 fontFamily: FontFamily.Montserrat,
                               ),
                             ),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: screenWidth * 0.015,
-                                vertical: screenWidth * 0.008,
+                                horizontal: screenWidth * 0.012,
+                                vertical: screenWidth * 0.005,
                               ),
                               decoration: BoxDecoration(
                                 color: isFromCurrentUser 
@@ -218,7 +207,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                               child: Text(
                                 orderDetails.paymentMode!.toUpperCase(),
                                 style: TextStyle(
-                                  fontSize: screenWidth * 0.024,
+                                  fontSize: screenWidth * 0.019,
                                   fontWeight: FontWeightManager.medium,
                                   color: isFromCurrentUser ? Colors.white : ColorManager.primary,
                                   fontFamily: FontFamily.Montserrat,
@@ -228,10 +217,9 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                           ],
                         ),
                       ],
-                      
                       // Cancel Order Button (if order can be cancelled)
                       if (orderDetails.canBeCancelled && onCancelOrder != null) ...[
-                        SizedBox(height: screenHeight * 0.012),
+                        SizedBox(height: screenHeight * 0.008),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -248,7 +236,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                             child: Text(
                               'Cancel Order',
                               style: TextStyle(
-                                fontSize: screenWidth * 0.028,
+                                fontSize: screenWidth * 0.022,
                                 fontWeight: FontWeightManager.semiBold,
                                 fontFamily: FontFamily.Montserrat,
                               ),
@@ -259,18 +247,18 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                     ],
                   ),
                 ),
-                
-                // Time indicator
-                SizedBox(height: screenHeight * 0.004),
-                Text(
-                  'Order Details',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.025,
-                    fontWeight: FontWeightManager.regular,
-                    color: Colors.grey.shade500,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
+                // Remove or make the time indicator very subtle
+                SizedBox(height: screenHeight * 0.002),
+                // Optionally, remove the "Order Details" label or make it very subtle
+                // Text(
+                //   'Order Details',
+                //   style: TextStyle(
+                //     fontSize: screenWidth * 0.021,
+                //     fontWeight: FontWeightManager.regular,
+                //     color: Colors.grey.shade400,
+                //     fontFamily: FontFamily.Montserrat,
+                //   ),
+                // ),
               ],
             ),
           ),

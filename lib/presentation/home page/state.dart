@@ -66,14 +66,18 @@ class HomeLoaded extends HomeState {
     // Filter by food type if selected
     if (selectedFoodTypeId != null) {
       filtered = filtered.where((restaurant) {
-        // Check if restaurant has the selected food type
-        if (restaurant.restaurantFoodType != null) {
-          final foodTypeId = restaurant.restaurantFoodType!['restaurant_food_type_id']?.toString();
-          final matches = foodTypeId == selectedFoodTypeId;
-          debugPrint('HomeState: Restaurant ${restaurant.name} - foodTypeId: $foodTypeId, matches $selectedFoodTypeId: $matches');
-          return matches;
+        // Check if restaurant has the selected food type in availableFoodTypes
+        final hasFoodType = restaurant.availableFoodTypes.contains(selectedFoodTypeId);
+        debugPrint('HomeState: Restaurant ${restaurant.name} - availableFoodTypes: ${restaurant.availableFoodTypes}, contains $selectedFoodTypeId: $hasFoodType');
+        
+        // Only show restaurants that have the selected food type
+        if (hasFoodType) {
+          debugPrint('HomeState: Restaurant ${restaurant.name} has the selected food type, showing it');
+          return true;
         }
-        debugPrint('HomeState: Restaurant ${restaurant.name} - no restaurantFoodType data');
+        
+        // If restaurant doesn't have the selected food type, don't show it
+        debugPrint('HomeState: Restaurant ${restaurant.name} does not have the selected food type, hiding it');
         return false;
       }).toList();
       debugPrint('HomeState: After food type filter: ${filtered.length} restaurants');

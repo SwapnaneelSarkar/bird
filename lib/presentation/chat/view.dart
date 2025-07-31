@@ -1024,13 +1024,13 @@ class _ChatViewState extends State<ChatView> {
             width: screenWidth * 0.11,
             height: screenWidth * 0.11,
             decoration: BoxDecoration(
-              color: (isSending || !_messageController.text.trim().isNotEmpty)
+              color: (isSending || _messageController.text.isEmpty)
                   ? Colors.grey.shade300 
                   : ColorManager.primary,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isSending || !_messageController.text.trim().isNotEmpty) 
+                  color: (isSending || _messageController.text.isEmpty) 
                       ? Colors.transparent
                       : ColorManager.primary.withOpacity(0.3),
                   blurRadius: 4,
@@ -1042,7 +1042,7 @@ class _ChatViewState extends State<ChatView> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(screenWidth * 0.055),
-                onTap: (isSending || !_messageController.text.trim().isNotEmpty) 
+                onTap: (isSending || _messageController.text.isEmpty) 
                     ? null 
                     : () {
                         _sendMessage(context);
@@ -1052,7 +1052,7 @@ class _ChatViewState extends State<ChatView> {
                 child: Center(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 150),
-                    opacity: (isSending || !_messageController.text.trim().isNotEmpty) ? 0.6 : 1.0,
+                    opacity: (isSending || _messageController.text.isEmpty) ? 0.6 : 1.0,
                     child: Icon(
                       Icons.send,
                       color: Colors.white,

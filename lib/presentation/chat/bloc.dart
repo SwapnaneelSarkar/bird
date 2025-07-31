@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:equatable/equatable.dart';
+
 import '../../models/chat_models.dart';
 import '../../models/order_details_model.dart';
 import '../../service/chat_service.dart';
@@ -250,9 +250,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
       
       debugPrint('ChatBloc: Loading chat data for order: ${event.orderId}');
-      debugPrint('ChatBloc: Event orderId is null: ${event.orderId == null}');
-      debugPrint('ChatBloc: Event orderId is empty: ${event.orderId.isEmpty}');
-      debugPrint('ChatBloc: Event orderId equals default: ${event.orderId == 'default_order'}');
       debugPrint('ChatBloc: Current user ID: $_currentUserId');
       
       // Create or get chat room
@@ -271,27 +268,35 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _clearProcessedMessages();
       
       debugPrint('ChatBloc: Chat room loaded: ${chatRoom.roomId}');
-      debugPrint('ChatBloc: 📋 Chat room orderId: ${chatRoom.orderId}');
-      debugPrint('ChatBloc: 📋 Chat room participants: ${chatRoom.participants.length}');
-      debugPrint('ChatBloc: 📋 Chat room data: ${roomResult['data']}');
-      debugPrint('ChatBloc: 📋 Chat room orderId is null: ${chatRoom.orderId == null}');
-      debugPrint('ChatBloc: 📋 Chat room orderId is empty: ${chatRoom.orderId.isEmpty}');
-      debugPrint('ChatBloc: 🚀 ABOUT TO START SOCKET CONNECTION');
       
-      // Connect to socket and join room
-      final connected = await _socketService.connect();
-      if (connected && _currentRoomId != null) {
-        _socketService.joinRoom(_currentRoomId!);
-        debugPrint('ChatBloc: Socket connected and joined room');
-      } else {
-        debugPrint('ChatBloc: Failed to connect to socket or roomId is null');
-      }
+      // Start parallel operations for better performance
+      final orderId = chatRoom.orderId != null && chatRoom.orderId!.isNotEmpty 
+          ? chatRoom.orderId! 
+          : (event.orderId.isNotEmpty && event.orderId != 'default_order' ? event.orderId : null);
       
-      debugPrint('ChatBloc: 🚀 ABOUT TO GET CHAT HISTORY');
+      // Parallel operations: socket connection, chat history, and order details
+      final results = await Future.wait([
+        // Socket connection
+        _socketService.connect().then((connected) {
+          if (connected && _currentRoomId != null) {
+            _socketService.joinRoom(_currentRoomId!);
+            debugPrint('ChatBloc: Socket connected and joined room');
+          }
+          return connected;
+        }),
+        
+        // Chat history
+        ChatService.getChatHistory(chatRoom.roomId),
+        
+        // Order details (if orderId is available)
+        orderId != null ? OrderHistoryService.getOrderDetails(orderId) : Future.value({'success': false}),
+      ]);
       
-      // Get initial chat history
-      final historyResult = await ChatService.getChatHistory(chatRoom.roomId);
+      final socketConnected = results[0] as bool;
+      final historyResult = results[1] as Map<String, dynamic>;
+      final orderResult = results[2] as Map<String, dynamic>;
       
+      // Process chat history
       List<ChatMessage> messages = [];
       if (historyResult['success'] == true) {
         final historyData = historyResult['data'] as List<dynamic>;
@@ -303,100 +308,40 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
         debugPrint('ChatBloc: Loaded ${messages.length} messages');
-      } else {
-        debugPrint('ChatBloc: Failed to load chat history: ${historyResult['message']}');
       }
       
-      debugPrint('ChatBloc: 🚀 ABOUT TO START ORDER DETAILS FETCHING');
-      
-      // Fetch order details
-      debugPrint('ChatBloc: 🚀 STARTING ORDER DETAILS FETCHING');
-      debugPrint('ChatBloc: 🚀 OrderHistoryService import test - this should appear');
+      // Process order details
       OrderDetails? orderDetails;
-      try {
-        debugPrint('ChatBloc: 🔍 Fetching order details for order: ${event.orderId}');
-        
-        // Try to get order details from chat room first (if available)
-        debugPrint('ChatBloc: 🔍 Chat room orderId: "${chatRoom.orderId}"');
-        debugPrint('ChatBloc: 🔍 Event orderId: "${event.orderId}"');
-        if (chatRoom.orderId != null && chatRoom.orderId!.isNotEmpty) {
-          debugPrint('ChatBloc: 🔍 Using order ID from chat room: ${chatRoom.orderId}');
-          debugPrint('ChatBloc: 🔍 ABOUT TO CALL OrderHistoryService.getOrderDetails');
-          final orderResult = await OrderHistoryService.getOrderDetails(chatRoom.orderId!);
-          
-          debugPrint('ChatBloc: 🔍 Order result: $orderResult');
-          
-          // Check for both "SUCCESS" string and true boolean status (like order details page)
-          if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
-            orderDetails = OrderDetails.fromJson(orderResult['data']);
-            debugPrint('ChatBloc: ✅ Order details loaded successfully');
-            debugPrint('ChatBloc: 📋 Order ID: ${orderDetails.orderId}');
-            debugPrint('ChatBloc: 📋 Order status: ${orderDetails.orderStatus}');
-            debugPrint('ChatBloc: 📋 Total items: ${orderDetails.items.length}');
-            debugPrint('ChatBloc: 📋 Restaurant name: ${orderDetails.restaurantName}');
-            debugPrint('ChatBloc: 📋 Total amount: ${orderDetails.totalAmount}');
-            debugPrint('ChatBloc: 📋 Delivery fees: ${orderDetails.deliveryFees}');
-            debugPrint('ChatBloc: 📋 Grand total: ${orderDetails.grandTotal}');
-          } else {
-            debugPrint('ChatBloc: ❌ Failed to load order details: ${orderResult['message']}');
-            debugPrint('ChatBloc: ❌ Order result success: ${orderResult['success']}');
-            debugPrint('ChatBloc: ❌ Order result data: ${orderResult['data']}');
-          }
-        } else {
-          debugPrint('ChatBloc: ⚠️ No order ID available in chat room, trying event orderId: ${event.orderId}');
-          // Fallback to event orderId
-          if (event.orderId.isNotEmpty && event.orderId != 'default_order') {
-            final orderResult = await OrderHistoryService.getOrderDetails(event.orderId);
-            
-            debugPrint('ChatBloc: 🔍 Fallback order result: $orderResult');
-            
-            // Check for both "SUCCESS" string and true boolean status (like order details page)
-            if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
-              orderDetails = OrderDetails.fromJson(orderResult['data']);
-              debugPrint('ChatBloc: ✅ Order details loaded successfully via fallback');
-              debugPrint('ChatBloc: 📋 Order ID: ${orderDetails.orderId}');
-              debugPrint('ChatBloc: 📋 Order status: ${orderDetails.orderStatus}');
-              debugPrint('ChatBloc: 📋 Total items: ${orderDetails.items.length}');
-              debugPrint('ChatBloc: 📋 Restaurant name: ${orderDetails.restaurantName}');
-              debugPrint('ChatBloc: 📋 Total amount: ${orderDetails.totalAmount}');
-              debugPrint('ChatBloc: 📋 Delivery fees: ${orderDetails.deliveryFees}');
-              debugPrint('ChatBloc: 📋 Grand total: ${orderDetails.grandTotal}');
-            } else {
-              debugPrint('ChatBloc: ❌ Fallback failed to load order details: ${orderResult['message']}');
-            }
-          } else {
-            debugPrint('ChatBloc: ⚠️ Event orderId is empty or default');
-          }
-        }
-      } catch (e, stackTrace) {
-        debugPrint('ChatBloc: ❌ Error fetching order details: $e');
-        debugPrint('ChatBloc: ❌ Stack trace: $stackTrace');
-      }
-      
-      debugPrint('ChatBloc: ✅ ORDER DETAILS FETCHING COMPLETED - orderDetails: ${orderDetails != null ? 'Available' : 'Not available'}');
-      
-      // Fetch menu item details for each order item if order details are available
       Map<String, Map<String, dynamic>> menuItemDetails = {};
-      if (orderDetails != null) {
-        debugPrint('ChatBloc: 🔍 Fetching menu item details for ${orderDetails!.items.length} items');
-        for (var item in orderDetails!.items) {
-          if (item.menuId != null && item.menuId!.isNotEmpty) {
-            try {
-              debugPrint('ChatBloc: 🔍 Fetching menu item details for menuId: ${item.menuId}');
-              final menuResult = await MenuItemService.getMenuItemDetails(item.menuId!);
-              
-              if (menuResult['success'] == true && menuResult['data'] != null) {
-                menuItemDetails[item.menuId!] = menuResult['data'];
-                debugPrint('ChatBloc: ✅ Menu item details loaded for ${item.menuId}: ${menuResult['data']['name']}');
-              } else {
-                debugPrint('ChatBloc: ❌ Failed to load menu item details for ${item.menuId}: ${menuResult['message']}');
-              }
-            } catch (e) {
-              debugPrint('ChatBloc: ❌ Error fetching menu item details for ${item.menuId}: $e');
-            }
-          }
+      
+      if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
+        orderDetails = OrderDetails.fromJson(orderResult['data']);
+        debugPrint('ChatBloc: ✅ Order details loaded successfully');
+        
+        // Fetch menu item details in parallel for better performance
+        if (orderDetails.items.isNotEmpty) {
+                     final menuItemFutures = orderDetails.items
+               .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
+               .map((item) async {
+                 try {
+                   final menuResult = await MenuItemService.getMenuItemDetails(item.menuId!);
+                   if (menuResult['success'] == true && menuResult['data'] != null) {
+                     return {item.menuId!: menuResult['data'] as Map<String, dynamic>};
+                   }
+                 } catch (e) {
+                   debugPrint('ChatBloc: ❌ Error fetching menu item details for ${item.menuId}: $e');
+                 }
+                 return <String, Map<String, dynamic>>{};
+               })
+               .toList();
+           
+           final menuResults = await Future.wait(menuItemFutures);
+           for (final result in menuResults) {
+             menuItemDetails.addAll(result);
+           }
+          
+          debugPrint('ChatBloc: ✅ Menu item details loaded for ${menuItemDetails.length} items');
         }
-        debugPrint('ChatBloc: ✅ Menu item details fetching completed - loaded ${menuItemDetails.length} items');
       }
       
       emit(ChatLoaded(

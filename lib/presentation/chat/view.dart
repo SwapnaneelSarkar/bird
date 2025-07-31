@@ -3,7 +3,8 @@ import 'package:bird/service/chat_service.dart';
 import 'package:bird/service/socket_service.dart';
 import 'package:bird/utils/snackbar_utils.dart';
 import 'package:bird/widgets/cancel_order_bottom_sheet.dart';
-import 'package:bird/widgets/chat_order_details_widget.dart';
+
+import 'package:bird/widgets/chat_order_details_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
@@ -18,7 +19,8 @@ import 'package:bird/service/restaurant_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
+
+
 
 class ChatView extends StatefulWidget {
   final String? orderId;
@@ -40,13 +42,14 @@ class _ChatViewState extends State<ChatView> {
   bool _isTyping = false;
   ChatBloc? _chatBloc; // Store reference to avoid provider issues
   
-  // Add this to track message input state
-  bool _hasText = false;
+  // Message input state is now computed dynamically
   
   // Add flag to track if page opened event has been emitted
   bool _pageOpenedEventEmitted = false;
   String? _partnerPhoneNumber;
   bool _isFetchingPhone = false;
+  
+  // Flag to toggle order details sender type (for testing) - moved to state management
 
   @override
   void initState() {
@@ -81,11 +84,6 @@ class _ChatViewState extends State<ChatView> {
 
   void _onTextChanged() {
     final hasText = _messageController.text.trim().isNotEmpty;
-    if (hasText != _hasText) {
-      setState(() {
-        _hasText = hasText;
-      });
-    }
     
     // Add debug prints to see if typing events are being triggered
     debugPrint('ChatView: ⌨️ Text changed - hasText: $hasText, isTyping: $_isTyping');
@@ -542,7 +540,7 @@ class _ChatViewState extends State<ChatView> {
       child: Column(
         children: [
           _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
-          // Show order details if available
+          // Show order details as chat bubble if available
           Builder(
             builder: (context) {
               debugPrint('ChatView: 🔍 Order details in state: ${state.orderDetails != null ? 'Available' : 'Not available'}');
@@ -550,17 +548,23 @@ class _ChatViewState extends State<ChatView> {
                 debugPrint('ChatView: 📋 Order ID: ${state.orderDetails!.orderId}');
                 debugPrint('ChatView: 📋 Restaurant: ${state.orderDetails!.restaurantName}');
                 debugPrint('ChatView: 📋 Items count: ${state.orderDetails!.items.length}');
-                                 return ChatOrderDetailsWidget(
-                   orderDetails: state.orderDetails!,
-                   menuItemDetails: state.menuItemDetails,
-                   onCancelOrder: () {
-                     showCancelOrderBottomSheet(
-                       context: context,
-                       orderId: orderId,
-                       onCancel: _handleCancelOrder,
-                     );
-                   },
-                 );
+                
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.035),
+                  child: ChatOrderDetailsBubble(
+                    orderDetails: state.orderDetails!,
+                    menuItemDetails: state.menuItemDetails,
+                    isFromCurrentUser: true, // Order details are always shown as from user
+                    currentUserId: state.currentUserId,
+                    onCancelOrder: () {
+                      showCancelOrderBottomSheet(
+                        context: context,
+                        orderId: orderId,
+                        onCancel: _handleCancelOrder,
+                      );
+                    },
+                  ),
+                );
               } else {
                 debugPrint('ChatView: ❌ No order details available to display');
                 // Show a simple placeholder for testing
@@ -682,15 +686,6 @@ class _ChatViewState extends State<ChatView> {
           ),
           Row(
             children: [
-              Container(
-                width: screenWidth * 0.025,
-                height: screenWidth * 0.025,
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              SizedBox(width: screenWidth * 0.02),
               // Call icon
               _isFetchingPhone
                   ? SizedBox(
@@ -746,7 +741,7 @@ class _ChatViewState extends State<ChatView> {
             SizedBox(height: screenHeight * 0.01),
             Text(
               orderDetails != null 
-                ? 'Your order details are shown above. Send a message to get help with your order.'
+                ? 'Your order details are shown as a chat bubble above. Send a message to get help with your order.'
                 : 'Send a message to get help with your order',
               style: TextStyle(
                 fontSize: screenWidth * 0.035,
@@ -1029,13 +1024,13 @@ class _ChatViewState extends State<ChatView> {
             width: screenWidth * 0.11,
             height: screenWidth * 0.11,
             decoration: BoxDecoration(
-              color: (isSending || !_hasText)
+              color: (isSending || !_messageController.text.trim().isNotEmpty)
                   ? Colors.grey.shade300 
                   : ColorManager.primary,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isSending || !_hasText) 
+                  color: (isSending || !_messageController.text.trim().isNotEmpty) 
                       ? Colors.transparent
                       : ColorManager.primary.withOpacity(0.3),
                   blurRadius: 4,
@@ -1047,7 +1042,7 @@ class _ChatViewState extends State<ChatView> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(screenWidth * 0.055),
-                onTap: (isSending || !_hasText) 
+                onTap: (isSending || !_messageController.text.trim().isNotEmpty) 
                     ? null 
                     : () {
                         _sendMessage(context);
@@ -1057,7 +1052,7 @@ class _ChatViewState extends State<ChatView> {
                 child: Center(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 150),
-                    opacity: (isSending || !_hasText) ? 0.6 : 1.0,
+                    opacity: (isSending || !_messageController.text.trim().isNotEmpty) ? 0.6 : 1.0,
                     child: Icon(
                       Icons.send,
                       color: Colors.white,
@@ -1217,4 +1212,6 @@ class _ChatViewState extends State<ChatView> {
       return false;
     }
   }
+
+
 }

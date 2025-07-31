@@ -463,76 +463,65 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           paymentMode: paymentMode, // Add payment mode to API request
         );
         
-        debugPrint('OrderPlacement: Order result received:');
-        debugPrint('  - Success: ${orderResult['success']}');
-        debugPrint('  - Message: ${orderResult['message']}');
-        debugPrint('  - Data: ${orderResult['data']}');
-        
         if (orderResult['success'] == true) {
           final orderData = orderResult['data'];
           final orderId = orderData['order_id'].toString();
           
-          debugPrint('OrderPlacement: Order placed successfully - Order ID: $orderId');
+          debugPrint('OrderPlacement: ✅ Order placed successfully - Order ID: $orderId');
           
           // Create chat room
-          debugPrint('OrderPlacement: Creating chat room for order: $orderId');
+          debugPrint('OrderPlacement: 🔗 Creating chat room for order: $orderId');
           final chatResult = await OrderService.createChatRoom(orderId);
-          
-          debugPrint('OrderPlacement: Chat room creation result:');
-          debugPrint('  - Success: ${chatResult['success']}');
-          debugPrint('  - Message: ${chatResult['message']}');
-          debugPrint('  - Data: ${chatResult['data']}');
           
           if (chatResult['success'] == true) {
             final chatData = chatResult['data'];
             final roomId = chatData['roomId'].toString();
             
-            debugPrint('OrderPlacement: Chat room created - Room ID: $roomId');
-            
-            // Clear cart after successful order
-            debugPrint('OrderPlacement: Clearing cart after successful order...');
-            await CartService.clearCart();
-            debugPrint('OrderPlacement: Cart cleared successfully');
-            
-            debugPrint('OrderPlacement: Emitting ChatRoomCreated state');
-            emit(ChatRoomCreated(orderId, roomId));
+            debugPrint('OrderPlacement: ✅ Chat room created - Room ID: $roomId');
+          
+          // Clear cart after successful order
+          debugPrint('OrderPlacement: 🛒 Clearing cart...');
+          await CartService.clearCart();
+          
+          // Add delay to ensure order is properly saved in database
+          debugPrint('OrderPlacement: ⏳ Waiting for order to be saved...');
+          await Future.delayed(const Duration(seconds: 3));
+          
+          debugPrint('OrderPlacement: 🚀 Navigating to chat with orderId: $orderId');
+          emit(ChatRoomCreated(orderId, roomId));
           } else {
-            debugPrint('OrderPlacement: Chat room creation failed: ${chatResult['message']}');
+            debugPrint('OrderPlacement: ⚠️ Chat room creation failed: ${chatResult['message']}');
             // Even if chat room creation fails, order was placed successfully
-            debugPrint('OrderPlacement: Clearing cart despite chat room failure...');
+            debugPrint('OrderPlacement: 🛒 Clearing cart despite chat room failure...');
             await CartService.clearCart();
-            debugPrint('OrderPlacement: Emitting OrderConfirmationSuccess state');
+            
+            // Add delay to ensure order is properly saved in database
+            debugPrint('OrderPlacement: ⏳ Waiting for order to be saved...');
+            await Future.delayed(const Duration(seconds: 3));
+            
+            debugPrint('OrderPlacement: 🚀 Navigating to chat with orderId: $orderId');
             emit(OrderConfirmationSuccess(
               'Order placed successfully! Order ID: $orderId',
               orderId,
             ));
           }
         } else {
-          debugPrint('OrderPlacement: Order placement failed: ${orderResult['message']}');
-          debugPrint('OrderPlacement: Emitting OrderConfirmationError state');
+          debugPrint('OrderPlacement: ❌ Order placement failed: ${orderResult['message']}');
           emit(OrderConfirmationError(orderResult['message'] ?? 'Failed to place order. Please try again.'));
-          
-          // Return to loaded state on error
-          debugPrint('OrderPlacement: Returning to loaded state after error');
           emit(orderData);
         }
         
       } catch (e, stackTrace) {
-        debugPrint('OrderPlacement: Exception during order placement: $e');
-        debugPrint('OrderPlacement: Stack trace: $stackTrace');
-        debugPrint('OrderPlacement: Emitting OrderConfirmationError state');
+        debugPrint('OrderPlacement: ❌ Exception during order placement: $e');
         emit(const OrderConfirmationError('An error occurred while placing your order. Please try again.'));
         
-        // Return to loaded state on error
-        debugPrint('OrderPlacement: Returning to loaded state after exception');
         if (state is OrderConfirmationLoaded) {
           emit(state as OrderConfirmationLoaded);
         }
       }
     } else {
-      debugPrint('OrderPlacement: Current state is not OrderConfirmationLoaded: ${state.runtimeType}');
+      debugPrint('OrderPlacement: ⚠️ Current state is not OrderConfirmationLoaded: ${state.runtimeType}');
     }
-    debugPrint('=== ORDER PLACEMENT BLOC: END ===');
   }
 
   Future<void> _onSelectPaymentMode(

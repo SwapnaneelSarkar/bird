@@ -8,6 +8,7 @@ import '../../service/token_service.dart';
 import '../../service/order_history_service.dart';
 import '../../models/order_details_model.dart';
 import '../../models/menu_model.dart';
+import '../../utils/performance_monitor.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -26,6 +27,7 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
     LoadOrderDetails event,
     Emitter<OrderDetailsState> emit,
   ) async {
+    PerformanceMonitor.startTimer('OrderDetailsLoading');
     emit(OrderDetailsLoading());
     
     try {
@@ -40,25 +42,49 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
         debugPrint('OrderDetailsBloc: Total Amount: ${orderDetails.totalAmount}');
         debugPrint('OrderDetailsBloc: Items Count: ${orderDetails.items.length}');
         
-        emit(OrderDetailsLoaded(orderDetails, {}));
+        // Fetch menu items in parallel for better performance
+        Map<String, MenuItem> menuItems = {};
+        final uniqueMenuIds = orderDetails.items
+            .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
+            .map((item) => item.menuId!)
+            .toSet()
+            .toList();
         
-        // Fetch menu item details for each item that has a menuId
-        for (var item in orderDetails.items) {
-          if (item.menuId != null && item.menuId!.isNotEmpty) {
-            add(LoadMenuItemDetails(item.menuId!));
+        if (uniqueMenuIds.isNotEmpty) {
+          debugPrint('OrderDetailsBloc: Fetching menu details for ${uniqueMenuIds.length} unique items in parallel');
+          
+          // Fetch all menu items in parallel
+          final menuItemFutures = uniqueMenuIds.map((menuId) => _fetchMenuItemDetails(menuId)).toList();
+          final menuItemResults = await Future.wait(menuItemFutures);
+          
+          for (int i = 0; i < uniqueMenuIds.length; i++) {
+            final menuItem = menuItemResults[i];
+            if (menuItem != null) {
+              menuItems[uniqueMenuIds[i]] = menuItem;
+            }
           }
+          
+          debugPrint('OrderDetailsBloc: Successfully loaded ${menuItems.length} menu items');
         }
+        
+        emit(OrderDetailsLoaded(orderDetails, menuItems));
         
         // Fetch additional data (restaurant details and rating) if we have partner ID
         if (orderDetails.partnerId != null && orderDetails.partnerId!.isNotEmpty) {
           _fetchAdditionalData(orderDetails.partnerId!, orderDetails.orderId, orderDetails.orderStatus);
         }
+        
+        // Log performance statistics
+        PerformanceMonitor.endTimer('OrderDetailsLoading');
+        PerformanceMonitor.logAllStatistics();
       } else {
         debugPrint('OrderDetailsBloc: Failed to load order details');
+        PerformanceMonitor.endTimer('OrderDetailsLoading');
         emit(const OrderDetailsError('Failed to load order details. Please try again.'));
       }
     } catch (e) {
       debugPrint('OrderDetailsBloc: Error loading order details: $e');
+      PerformanceMonitor.endTimer('OrderDetailsLoading');
       emit(const OrderDetailsError('An error occurred while loading order details.'));
     }
   }
@@ -275,6 +301,67 @@ class OrderDetailsBloc extends Bloc<OrderDetailsEvent, OrderDetailsState> {
       }
     } catch (e) {
       debugPrint('OrderDetailsBloc: Exception in order details fetch: $e');
+      return null;
+    }
+  }
+
+  Future<MenuItem?> _fetchMenuItemDetails(String menuId) async {
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        debugPrint('OrderDetailsBloc: No auth token available for menu item fetch');
+        return null;
+      }
+      
+      debugPrint('OrderDetailsBloc: Fetching menu item details for menuId: $menuId');
+      
+      final url = '${ApiConstants.baseUrl}/api/partner/menu_item/$menuId';
+      debugPrint('OrderDetailsBloc: Menu item API URL: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      debugPrint('OrderDetailsBloc: Menu item API response status: ${response.statusCode}');
+      debugPrint('OrderDetailsBloc: Menu item API response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
+          final menuItemData = responseData['data'];
+          final menuItem = MenuItem.fromJson({
+            'menu_id': menuId,
+            'name': menuItemData['name'],
+            'price': menuItemData['price'],
+            'description': menuItemData['description'],
+            'available': true,
+            'category': '',
+            'isVeg': false,
+            'isTaxIncluded': true,
+            'isCancellable': true,
+            'tags': [],
+          });
+          
+          debugPrint('OrderDetailsBloc: Menu item loaded successfully: ${menuItem.name}');
+          debugPrint('OrderDetailsBloc: Current menu item price: ₹${menuItem.price}');
+          debugPrint('OrderDetailsBloc: Note: This is the current price, which may differ from the order price');
+          
+          return menuItem;
+        } else {
+          debugPrint('OrderDetailsBloc: Failed to load menu item: ${responseData['message']}');
+          return null;
+        }
+      } else {
+        debugPrint('OrderDetailsBloc: Failed to fetch menu item. Status: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('OrderDetailsBloc: Error loading menu item details: $e');
       return null;
     }
   }

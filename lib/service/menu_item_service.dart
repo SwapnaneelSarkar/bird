@@ -5,7 +5,26 @@ import '../constants/api_constant.dart';
 import '../service/token_service.dart';
 
 class MenuItemService {
+  // Cache for menu item details to improve performance
+  static final Map<String, Map<String, dynamic>> _menuItemCache = {};
+  static const Duration _cacheDuration = Duration(minutes: 10);
+  static final Map<String, DateTime> _cacheTimestamps = {};
+  
   static Future<Map<String, dynamic>> getMenuItemDetails(String menuId) async {
+    // Check cache first
+    if (_menuItemCache.containsKey(menuId)) {
+      final timestamp = _cacheTimestamps[menuId];
+      if (timestamp != null && DateTime.now().difference(timestamp) < _cacheDuration) {
+        debugPrint('MenuItemService: ✅ Returning cached menu item details for: $menuId');
+        return _menuItemCache[menuId]!;
+      } else {
+        // Cache expired, remove it
+        _menuItemCache.remove(menuId);
+        _cacheTimestamps.remove(menuId);
+        debugPrint('MenuItemService: 🗑️ Removed expired cache for: $menuId');
+      }
+    }
+    
     try {
       debugPrint('MenuItemService: 🔍 Fetching menu item details for: $menuId');
       
@@ -46,11 +65,18 @@ class MenuItemService {
           debugPrint('MenuItemService: ✅ Menu item details fetched successfully');
           debugPrint('MenuItemService: 📋 Menu item data: ${responseData['data']}');
           
-          return {
+          final result = {
             'success': true,
             'data': responseData['data'],
             'message': 'Menu item details fetched successfully',
           };
+          
+          // Cache the successful result
+          _menuItemCache[menuId] = result;
+          _cacheTimestamps[menuId] = DateTime.now();
+          debugPrint('MenuItemService: 💾 Cached menu item details for: $menuId');
+          
+          return result;
         } else {
           debugPrint('MenuItemService: ❌ Invalid menu item response');
           debugPrint('MenuItemService: ❌ Response status: ${responseData['status']}');
@@ -87,5 +113,19 @@ class MenuItemService {
         'message': 'Network error occurred. Please check your connection.',
       };
     }
+  }
+  
+  // Clear menu item cache
+  static void clearMenuItemCache() {
+    _menuItemCache.clear();
+    _cacheTimestamps.clear();
+    debugPrint('MenuItemService: 🗑️ Cleared all menu item cache');
+  }
+  
+  // Clear cache for specific menu item
+  static void clearMenuItemCacheForItem(String menuId) {
+    _menuItemCache.remove(menuId);
+    _cacheTimestamps.remove(menuId);
+    debugPrint('MenuItemService: 🗑️ Cleared cache for menu item: $menuId');
   }
 } 

@@ -76,10 +76,14 @@ class _OrderConfirmationContent extends StatelessWidget {
               ),
             );
             
-            debugPrint('OrderConfirmationView: Navigating to chat for order: ${state.orderId}');
+            debugPrint('🚨🚨🚨 ORDER CONFIRMATION: Navigating to chat for order: ${state.orderId} 🚨🚨🚨');
+            print('🚨🚨🚨 ORDER CONFIRMATION: Navigating to chat for order: ${state.orderId} 🚨🚨🚨');
             Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
           } else if (state is ChatRoomCreated) {
-            debugPrint('OrderConfirmationView: Chat room created, navigating to chat...');
+            debugPrint('🚨🚨🚨 ORDER CONFIRMATION: Chat room created, navigating to chat... 🚨🚨🚨');
+            print('🚨🚨🚨 ORDER CONFIRMATION: Chat room created, navigating to chat... 🚨🚨🚨');
+            debugPrint('🚨🚨🚨 ORDER CONFIRMATION: Order ID being passed: ${state.orderId} 🚨🚨🚨');
+            print('🚨🚨🚨 ORDER CONFIRMATION: Order ID being passed: ${state.orderId} 🚨🚨🚨');
             Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
           } else if (state is OrderConfirmationError) {
             ScaffoldMessenger.of(context).showSnackBar(

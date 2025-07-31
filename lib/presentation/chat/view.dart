@@ -21,14 +21,18 @@ import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 
 
-
 class ChatView extends StatefulWidget {
   final String? orderId;
+  final bool isNewlyPlacedOrder; // Flag to indicate if this is a newly placed order
   
-  const ChatView({
+  ChatView({
     Key? key,
     this.orderId,
-  }) : super(key: key);
+    this.isNewlyPlacedOrder = false, // Default to false
+  }) : super(key: key) {
+    debugPrint('🚨🚨🚨 CHAT VIEW CONSTRUCTOR CALLED with orderId: $orderId, isNewlyPlacedOrder: $isNewlyPlacedOrder 🚨🚨🚨');
+    print('🚨🚨🚨 CHAT VIEW CONSTRUCTOR PRINT with orderId: $orderId, isNewlyPlacedOrder: $isNewlyPlacedOrder 🚨🚨🚨');
+  }
 
   @override
   State<ChatView> createState() => _ChatViewState();
@@ -54,6 +58,8 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
+    debugPrint('🚨🚨🚨 CHAT VIEW INIT STATE CALLED with orderId: ${widget.orderId} 🚨🚨🚨');
+    print('🚨🚨🚨 CHAT VIEW INIT STATE PRINT with orderId: ${widget.orderId} 🚨🚨🚨');
     // Listen to text changes to update send button state and typing indicators
     _messageController.addListener(_onTextChanged);
     
@@ -443,33 +449,43 @@ class _ChatViewState extends State<ChatView> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the orderId from widget or route arguments
+    final String orderId = widget.orderId ??
+        (ModalRoute.of(context)?.settings.arguments as String?) ??
+        'default_order';
+
     // Get responsive dimensions
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     
-    // Get orderId from route arguments if not provided directly
-    final String orderId = widget.orderId ?? 
-        (ModalRoute.of(context)?.settings.arguments as String?) ?? 
-        'default_order';
-        
-    debugPrint('ChatView: 🏗️ Building with order ID: $orderId');
-    debugPrint('ChatView: 🏗️ Widget orderId: ${widget.orderId}');
-    debugPrint('ChatView: 🏗️ Route arguments: ${ModalRoute.of(context)?.settings.arguments}');
-    
     return BlocProvider(
       create: (context) {
+        debugPrint('ChatView: 🔧 Creating ChatBloc with orderId: $orderId');
+        debugPrint('ChatView: 🔧 Widget orderId: ${widget.orderId}');
+        debugPrint('ChatView: 🔧 Widget isNewlyPlacedOrder: ${widget.isNewlyPlacedOrder}');
         _chatBloc = ChatBloc(
           chatService: ChatService(),
           socketService: SocketService(),
-        )..add(LoadChatData(orderId));
+        );
+        debugPrint('ChatView: 🔧 ChatBloc created, adding LoadChatData event');
+        _chatBloc!.add(LoadChatData(orderId));
+        debugPrint('ChatView: 🔧 LoadChatData event added with orderId: $orderId');
         return _chatBloc!;
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        resizeToAvoidBottomInset: true, // This is important for keyboard handling
+        resizeToAvoidBottomInset: true,
         body: BlocConsumer<ChatBloc, ChatState>(
           listener: (context, state) {
             if (state is ChatLoaded) {
+              debugPrint('ChatView: 📡 Received ChatLoaded state with orderDetails: ${state.orderDetails != null}');
+              if (state.orderDetails != null) {
+                debugPrint('ChatView: 📡 Order details orderId: ${state.orderDetails!.orderId}');
+                debugPrint('ChatView: 📡 Order details status: ${state.orderDetails!.orderStatus}');
+              }
+              
+              // Order details are now loaded immediately, no need for forced rebuild
+              
               // Scroll to bottom when new messages arrive
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _scrollToBottom();
@@ -477,26 +493,24 @@ class _ChatViewState extends State<ChatView> {
               
               // Emit page opened event when chat is loaded (only once)
               if (_chatBloc != null && !_pageOpenedEventEmitted) {
-                // Use a post frame callback to ensure this runs after the initial build
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
-                    debugPrint('ChatView: 🚀 EMITTING ChatPageOpened event');
                     _chatBloc!.add(const ChatPageOpened());
                     _pageOpenedEventEmitted = true;
-                    debugPrint('ChatView: ✅ ChatPageOpened event emitted successfully');
-                  } else {
-                    debugPrint('ChatView: ⚠️ Widget not mounted, skipping ChatPageOpened event');
                   }
                 });
-              } else {
-                debugPrint('ChatView: ⚠️ Cannot emit ChatPageOpened - chatBloc: ${_chatBloc != null}, already emitted: $_pageOpenedEventEmitted');
               }
             }
           },
           builder: (context, state) {
+            debugPrint('ChatView: 🎨 Building UI for state: ${state.runtimeType}');
             if (state is ChatLoading) {
               return _buildLoadingState(screenWidth, screenHeight);
             } else if (state is ChatLoaded) {
+              debugPrint('ChatView: 🎨 Building ChatLoaded state with orderDetails: ${state.orderDetails != null}');
+              if (state.orderDetails != null) {
+                debugPrint('ChatView: 🎨 Order details available in builder - orderId: ${state.orderDetails!.orderId}');
+              }
               return _buildChatContent(context, state, screenWidth, screenHeight, orderId);
             } else if (state is ChatError) {
               return _buildErrorState(context, state, screenWidth, screenHeight);
@@ -536,6 +550,12 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildChatContent(BuildContext context, ChatLoaded state, double screenWidth, double screenHeight, String orderId) {
+    debugPrint('ChatView: 🏗️ _buildChatContent called');
+    debugPrint('ChatView: 🏗️ Order details in _buildChatContent: ${state.orderDetails != null}');
+    if (state.orderDetails != null) {
+      debugPrint('ChatView: 🏗️ Order details orderId: ${state.orderDetails!.orderId}');
+      debugPrint('ChatView: 🏗️ Order details restaurant: ${state.orderDetails!.restaurantName}');
+    }
     return SafeArea(
       child: Column(
         children: [
@@ -613,6 +633,20 @@ class _ChatViewState extends State<ChatView> {
           ),
           Row(
             children: [
+              // Refresh button for testing
+              IconButton(
+                icon: Icon(Icons.refresh, color: ColorManager.primary, size: screenWidth * 0.06),
+                tooltip: 'Refresh Order Details',
+                onPressed: () {
+                  debugPrint('ChatView: 🔄 Refresh button pressed!');
+                  if (_chatBloc != null) {
+                    final orderId = widget.orderId ??
+                        (ModalRoute.of(context)?.settings.arguments as String?) ??
+                        'default_order';
+                    _chatBloc!.add(LoadChatData(orderId));
+                  }
+                },
+              ),
               // Call icon
               _isFetchingPhone
                   ? SizedBox(
@@ -638,58 +672,49 @@ class _ChatViewState extends State<ChatView> {
 
 
   Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails, Map<String, Map<String, dynamic>> menuItemDetails, String orderId) {
+    debugPrint('ChatView: 📋 Building messages list - Messages:  [33m${messages.length} [0m, Order details:  [33m${orderDetails != null} [0m');
+    
+    // If there are no messages and not sending, but order details exist, show only the order details bubble
     if (messages.isEmpty && !isSending) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      if (orderDetails != null) {
+        debugPrint('ChatView: 📋 No messages, but order details available - showing only order details bubble');
+        return ListView(
+          controller: _scrollController,
+          padding: EdgeInsets.all(screenWidth * 0.035),
           children: [
-            Container(
-              padding: EdgeInsets.all(screenWidth * 0.08),
-              decoration: BoxDecoration(
-                color: ColorManager.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.chat_bubble_outline,
-                size: screenWidth * 0.12,
-                color: ColorManager.primary,
-              ),
-            ),
-            SizedBox(height: screenHeight * 0.02),
-            Text(
-              orderDetails != null ? 'Order Details Available' : 'Start a conversation',
-              style: TextStyle(
-                fontSize: screenWidth * 0.045,
-                fontWeight: FontWeightManager.semiBold,
-                color: Colors.grey.shade700,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-            SizedBox(height: screenHeight * 0.01),
-            Text(
-              orderDetails != null 
-                ? 'Your order details are shown as a chat bubble above. Send a message to get help with your order.'
-                : 'Send a message to get help with your order',
-              style: TextStyle(
-                fontSize: screenWidth * 0.035,
-                fontWeight: FontWeightManager.regular,
-                color: Colors.grey.shade500,
-                fontFamily: FontFamily.Montserrat,
-              ),
-              textAlign: TextAlign.center,
+            ChatOrderDetailsBubble(
+              orderDetails: orderDetails,
+              menuItemDetails: menuItemDetails,
+              isFromCurrentUser: true, // Order details are always shown as from user
+              currentUserId: currentUserId,
+              onCancelOrder: () {
+                showCancelOrderBottomSheet(
+                  context: context,
+                  orderId: orderId,
+                  onCancel: _handleCancelOrder,
+                );
+              },
             ),
           ],
-        ),
-      );
+        );
+      } else {
+        debugPrint('ChatView: 📋 No messages and no order details - showing empty state');
+        return _buildEmptyState(screenWidth, screenHeight);
+      }
     }
 
+    debugPrint('ChatView: 📋 Building ListView with orderDetails: ${orderDetails != null}, messages: ${messages.length}');
+    debugPrint('ChatView: 📋 ItemCount: ${(orderDetails != null ? 1 : 0) + messages.length}');
+    
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(screenWidth * 0.035),
       itemCount: (orderDetails != null ? 1 : 0) + messages.length,
       itemBuilder: (context, index) {
+        debugPrint('ChatView: 📋 Building item at index: $index');
         // Show order details as first item if available
         if (orderDetails != null && index == 0) {
+          debugPrint('ChatView: 📋 Rendering order details bubble for order: ${orderDetails.orderId}');
           return ChatOrderDetailsBubble(
             orderDetails: orderDetails,
             menuItemDetails: menuItemDetails,
@@ -817,13 +842,19 @@ class _ChatViewState extends State<ChatView> {
                     // Show read ticks only for USER messages (sent by current user)
                     if (isFromCurrentUser && !isOptimistic) ...[
                       SizedBox(width: screenWidth * 0.01),
-                      Icon(
-                        Icons.done_all,
-                        size: screenWidth * 0.03,
-                        // BLUE tick if read by both users, GREY tick if not read yet
-                        color: _shouldShowBlueTick(message, currentUserId)
-                            ? Colors.blue               // BLUE = Read by both users
-                            : Colors.grey.shade500,    // GREY = Not read by both yet
+                      Builder(
+                        builder: (context) {
+                          final shouldShowBlue = _shouldShowBlueTick(message, currentUserId);
+                          debugPrint('ChatView: 🎨 Building blue tick for message: ${message.content} - Should show blue: $shouldShowBlue');
+                          return Icon(
+                            Icons.done_all,
+                            size: screenWidth * 0.03,
+                            // BLUE tick if read by both users, GREY tick if not read yet
+                            color: shouldShowBlue
+                                ? Colors.blue               // BLUE = Read by both users
+                                : Colors.grey.shade500,    // GREY = Not read by both yet
+                          );
+                        },
                       ),
                     ],
                     // Show subtle indicator for optimistic messages
@@ -862,12 +893,21 @@ class _ChatViewState extends State<ChatView> {
       debugPrint('ChatView: Partner IDs: $partnerUserIds');
       debugPrint('ChatView: ReadBy entries: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
       
-      // Filter out test users from readBy entries
+      // Filter out test users and auto-marked entries from readBy entries
+      final currentTime = DateTime.now();
+      final cutoffTime = currentTime.subtract(const Duration(seconds: 5));
+      debugPrint('ChatView: Current time: $currentTime');
+      debugPrint('ChatView: Cutoff time (5 seconds ago): $cutoffTime');
+      
       final realReadByEntries = message.readBy
-          .where((entry) => !entry.userId.startsWith('test_user_'))
+          .where((entry) => 
+            !entry.userId.startsWith('test_user_') &&
+            // Only count entries that are not auto-marked (check if readAt is not the current time)
+            entry.readAt.isBefore(cutoffTime)
+          )
           .toList();
       
-      debugPrint('ChatView: Real ReadBy entries (excluding test users): ${realReadByEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      debugPrint('ChatView: Real ReadBy entries (excluding auto-marked): ${realReadByEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
       
       // Check if message is read by both current user and at least one real partner
       bool shouldShowBlue = false;
@@ -1115,34 +1155,6 @@ class _ChatViewState extends State<ChatView> {
     }
   }
 
-  // Test method for debugging call functionality
-  Future<void> _testCallWithHardcodedNumber() async {
-    debugPrint('ChatView: 📞 Testing call with hardcoded number');
-    
-    try {
-      const testPhoneNumber = '+1234567890'; // Replace with a test number
-      debugPrint('ChatView: 📞 Test phone number: $testPhoneNumber');
-      
-      final uri = Uri(scheme: 'tel', path: testPhoneNumber);
-      debugPrint('ChatView: 📞 Test URI: $uri');
-      
-      final canLaunchResult = await canLaunchUrl(uri);
-      debugPrint('ChatView: 📞 Can launch test URL: $canLaunchResult');
-      
-      if (canLaunchResult) {
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-        debugPrint('ChatView: 📞 Test call launched: $launched');
-      } else {
-        debugPrint('ChatView: 📞 Cannot launch test URL');
-      }
-    } catch (e) {
-      debugPrint('ChatView: 📞 Error in test call: $e');
-    }
-  }
-
   // Check if running on emulator (simplified version)
   Future<bool> _isEmulator() async {
     try {
@@ -1157,6 +1169,42 @@ class _ChatViewState extends State<ChatView> {
       debugPrint('ChatView: 📞 Error checking if emulator: $e');
       return false;
     }
+  }
+
+  Widget _buildEmptyState(double screenWidth, double screenHeight) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: screenWidth * 0.12,
+            color: ColorManager.primary,
+          ),
+          SizedBox(height: screenHeight * 0.02),
+          Text(
+            'No messages yet',
+            style: TextStyle(
+              fontSize: screenWidth * 0.045,
+              fontWeight: FontWeightManager.semiBold,
+              color: Colors.grey.shade700,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.01),
+          Text(
+            'Send a message to get help with your order',
+            style: TextStyle(
+              fontSize: screenWidth * 0.035,
+              fontWeight: FontWeightManager.regular,
+              color: Colors.grey.shade500,
+              fontFamily: FontFamily.Montserrat,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 
 

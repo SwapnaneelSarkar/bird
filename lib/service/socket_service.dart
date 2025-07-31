@@ -53,6 +53,21 @@ class SocketService {
     try {
       debugPrint('SocketService: Attempting to connect...');
       
+      // Prevent multiple connections
+      if (_socket != null && _isConnected) {
+        debugPrint('SocketService: Already connected, skipping connection attempt');
+        return true;
+      }
+      
+      // Disconnect existing socket if any
+      if (_socket != null) {
+        debugPrint('SocketService: Disconnecting existing socket');
+        _socket!.disconnect();
+        _socket!.dispose();
+        _socket = null;
+        _isConnected = false;
+      }
+      
       // Get authentication token
       final token = await TokenService.getToken();
       final userId = await TokenService.getUserId();
@@ -69,16 +84,13 @@ class SocketService {
       debugPrint('SocketService: Token retrieved: ${token.isNotEmpty ? 'Found' : 'Empty'}');
       debugPrint('SocketService: User ID retrieved: $userId');
       
-      // Create socket connection with auth
+      // Create socket connection with auth (disable auto-reconnection to prevent loops)
       _socket = IO.io(
         wsUrl,
         IO.OptionBuilder()
             .setTransports(['websocket'])
             .enableAutoConnect()
-            .enableReconnection()
-            .setReconnectionAttempts(_maxReconnectAttempts)
-            .setReconnectionDelay(1000)
-            .setReconnectionDelayMax(5000)
+            .disableReconnection() // Disable auto-reconnection to prevent loops
             .setTimeout(20000)
             .setQuery({
               'token': token,
@@ -103,9 +115,9 @@ class SocketService {
       bool connected = false;
       Timer? timeoutTimer;
       
-      timeoutTimer = Timer(const Duration(seconds: 10), () {
+      timeoutTimer = Timer(const Duration(seconds: 5), () {
         if (!connected) {
-          debugPrint('SocketService: Connection timeout after 10 seconds');
+          debugPrint('SocketService: Connection timeout after 5 seconds');
           _errorStreamController.add('Connection timeout');
         }
       });
@@ -117,8 +129,8 @@ class SocketService {
         debugPrint('SocketService: Connection established successfully');
       });
       
-      // Wait a bit for connection
-      await Future.delayed(const Duration(seconds: 2));
+      // Reduced wait time for faster loading
+      await Future.delayed(const Duration(milliseconds: 500));
       
       return _isConnected;
         
@@ -150,14 +162,14 @@ class SocketService {
       debugPrint('Socket disconnected');
       _isConnected = false;
       _connectionStreamController.add(false);
-      _handleReconnection();
+      // Don't auto-reconnect to prevent loops
     });
 
     _socket!.onConnectError((error) {
       debugPrint('Socket connection error: $error');
       _isConnected = false;
       _connectionStreamController.add(false);
-      _handleReconnection();
+      // Don't auto-reconnect to prevent loops
     });
 
     _socket!.onError((error) {
@@ -311,13 +323,15 @@ class SocketService {
       debugPrint('SocketService: Current user ID: $_currentUserId');
       debugPrint('SocketService: Message sender ID: ${safeMessageData['senderId']}');
       
-      // Skip own messages to avoid duplicates
-      if (safeMessageData['senderId'] == _currentUserId) {
-        debugPrint('SocketService: Skipping own message to avoid duplicates');
-        return;
-      }
+      // Check if this is our own message
+      final isOwnMessage = safeMessageData['senderId'] == _currentUserId;
+      debugPrint('SocketService: Message is from current user: $isOwnMessage');
       
-      debugPrint('SocketService: Message is from other user, processing...');
+      if (isOwnMessage) {
+        debugPrint('SocketService: Processing own message for delivery confirmation');
+      } else {
+        debugPrint('SocketService: Message is from other user, processing...');
+      }
       
       // Create a hash for duplicate detection - use content, sender, and time window
       final messageTime = safeMessageData['createdAt'] as DateTime;
@@ -345,12 +359,19 @@ class SocketService {
       // CRITICAL: Emit message_seen immediately when message is received (Same as partner app)
       if (_currentRoomId != null && _currentUserId != null) {
         debugPrint('SocketService: Emitting message_seen immediately for received message');
+        debugPrint('SocketService: Message ID: ${safeMessageData['_id']}');
+        debugPrint('SocketService: Message content: ${safeMessageData['content']}');
+        debugPrint('SocketService: Message sender: ${safeMessageData['senderId']}');
+        
         emitMessageSeen(
           roomId: _currentRoomId!,
           messageId: safeMessageData['_id'] as String,
           content: safeMessageData['content'],
           senderId: safeMessageData['senderId'],
         );
+      } else {
+        debugPrint('SocketService: ⚠️ Cannot emit message_seen - missing room ID or user ID');
+        debugPrint('SocketService: ⚠️ Room ID: $_currentRoomId, User ID: $_currentUserId');
       }
       
       // Auto mark as read for incoming messages
@@ -583,7 +604,11 @@ class SocketService {
     required String content,
     String messageType = 'text',
   }) {
-    if (_socket != null && _isConnected) {
+    debugPrint('SocketService: 📤 SEND MESSAGE called for room: $roomId');
+    debugPrint('SocketService: 📤 Message content: $content');
+    debugPrint('SocketService: 📤 Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
+    
+    if (_socket != null && _isConnected && _currentUserId != null) {
       try {
         final messageData = {
           'roomId': roomId,
@@ -593,15 +618,16 @@ class SocketService {
           'messageType': messageType,
         };
         
+        debugPrint('SocketService: 📤 Message data to send: $messageData');
         _socket!.emit('send_message', messageData);
-        debugPrint('SocketService: Sending message via socket: $content');
+        debugPrint('SocketService: ✅ Message sent via socket successfully: $content');
         return true;
       } catch (e) {
-        debugPrint('SocketService: Error sending message: $e');
+        debugPrint('SocketService: ❌ Error sending message via socket: $e');
         return false;
       }
     } else {
-      debugPrint('SocketService: Socket not available for sending message');
+      debugPrint('SocketService: ❌ Cannot send message - Socket null: ${_socket == null}, Connected: $_isConnected, User ID: $_currentUserId');
       return false;
     }
   }

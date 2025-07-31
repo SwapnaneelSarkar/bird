@@ -176,9 +176,37 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => const OrderConfirmationView());
 
       case Routes.chat:
-        final orderId = routeSettings.arguments as String?;
+        String? orderId;
+        bool isNewlyPlacedOrder = false;
+        
+        debugPrint('Router: 🚨 Chat route called with arguments: ${routeSettings.arguments}');
+        debugPrint('Router: 🚨 Arguments type: ${routeSettings.arguments.runtimeType}');
+        
+        if (routeSettings.arguments is String) {
+          // For navigation from order history (old format)
+          orderId = routeSettings.arguments as String;
+          debugPrint('Router: Chat route called with String orderId: $orderId');
+        } else if (routeSettings.arguments is Map<String, dynamic>) {
+          // For navigation from order confirmation (new format)
+          final args = routeSettings.arguments as Map<String, dynamic>;
+          orderId = args['orderId'] as String?;
+          isNewlyPlacedOrder = args['isNewlyPlacedOrder'] as bool? ?? false;
+          debugPrint('Router: Chat route called with Map - orderId: $orderId, isNewlyPlacedOrder: $isNewlyPlacedOrder');
+        } else {
+          debugPrint('Router: ⚠️ Chat route called with unexpected arguments type: ${routeSettings.arguments.runtimeType}');
+        }
+        
         return MaterialPageRoute(
-          builder: (_) => ChatView(orderId: orderId),
+          builder: (_) {
+                    debugPrint('Router: Creating ChatView with orderId: $orderId, isNewlyPlacedOrder: $isNewlyPlacedOrder');
+        if (orderId == null || orderId.isEmpty) {
+          debugPrint('Router: ⚠️ WARNING - orderId is null or empty!');
+        }
+        return ChatView(
+          orderId: orderId,
+          isNewlyPlacedOrder: isNewlyPlacedOrder,
+        );
+          },
         );
 
       case Routes.orderHistory:

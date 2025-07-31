@@ -4,8 +4,19 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_constant.dart';
 import '../service/token_service.dart';
+import '../utils/custom_cache_manager.dart';
 
 class OrderHistoryService {
+  // Cache for order details to improve performance
+  static final Map<String, Map<String, dynamic>> _orderDetailsCache = {};
+  static const Duration _cacheDuration = Duration(minutes: 5);
+  static final Map<String, DateTime> _cacheTimestamps = {};
+  
+  // Cache for restaurant details to improve performance
+  static final Map<String, Map<String, dynamic>> _restaurantDetailsCache = {};
+  static const Duration _restaurantCacheDuration = Duration(minutes: 15);
+  static final Map<String, DateTime> _restaurantCacheTimestamps = {};
+  
   // Fetch order history for a user
   static Future<Map<String, dynamic>> fetchOrderHistory() async {
     try {
@@ -121,6 +132,20 @@ class OrderHistoryService {
 
   // ADDED: Fetch restaurant details by partner ID
   static Future<Map<String, dynamic>> fetchRestaurantDetails(String partnerId) async {
+    // Check cache first
+    if (_restaurantDetailsCache.containsKey(partnerId)) {
+      final timestamp = _restaurantCacheTimestamps[partnerId];
+      if (timestamp != null && DateTime.now().difference(timestamp) < _restaurantCacheDuration) {
+        debugPrint('OrderHistoryService: ✅ Returning cached restaurant details for: $partnerId');
+        return _restaurantDetailsCache[partnerId]!;
+      } else {
+        // Cache expired, remove it
+        _restaurantDetailsCache.remove(partnerId);
+        _restaurantCacheTimestamps.remove(partnerId);
+        debugPrint('OrderHistoryService: 🗑️ Removed expired restaurant cache for: $partnerId');
+      }
+    }
+    
     try {
       debugPrint('OrderHistoryService: Fetching restaurant details for partner: $partnerId');
       
@@ -153,7 +178,7 @@ class OrderHistoryService {
         if (responseData['status'] == 'SUCCESS' && responseData['data'] != null) {
           final data = responseData['data'] as Map<String, dynamic>;
           
-          return {
+          final result = {
             'success': true,
             'data': {
               'address': data['address'] ?? '',
@@ -161,6 +186,13 @@ class OrderHistoryService {
             },
             'message': 'Restaurant details fetched successfully',
           };
+          
+          // Cache the successful result
+          _restaurantDetailsCache[partnerId] = result;
+          _restaurantCacheTimestamps[partnerId] = DateTime.now();
+          debugPrint('OrderHistoryService: 💾 Cached restaurant details for: $partnerId');
+          
+          return result;
         } else {
           return {
             'success': false,
@@ -272,8 +304,26 @@ class OrderHistoryService {
   
   // Get order details by ID
   static Future<Map<String, dynamic>> getOrderDetails(String orderId) async {
+    debugPrint('OrderHistoryService: 🚩 getOrderDetails called for: $orderId');
+    
+    // Check cache first
+    if (_orderDetailsCache.containsKey(orderId)) {
+      final timestamp = _cacheTimestamps[orderId];
+      if (timestamp != null && DateTime.now().difference(timestamp) < _cacheDuration) {
+        debugPrint('OrderHistoryService: ✅ Returning cached order details for: $orderId');
+        return _orderDetailsCache[orderId]!;
+      } else {
+        // Cache expired, remove it
+        _orderDetailsCache.remove(orderId);
+        _cacheTimestamps.remove(orderId);
+        debugPrint('OrderHistoryService: 🗑️ Removed expired cache for: $orderId');
+      }
+    }
+    
     try {
       debugPrint('OrderHistoryService: 🔍 Fetching order details for: $orderId');
+      debugPrint('OrderHistoryService: 🔍 Order ID type: ${orderId.runtimeType}');
+      debugPrint('OrderHistoryService: 🔍 Order ID length: ${orderId.length}');
       
       final token = await TokenService.getToken();
       
@@ -301,6 +351,7 @@ class OrderHistoryService {
 
       debugPrint('OrderHistoryService: 📡 Response status: ${response.statusCode}');
       debugPrint('OrderHistoryService: 📡 Response body: ${response.body}');
+      debugPrint('OrderHistoryService: 📡 Response headers: ${response.headers}');
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
@@ -312,12 +363,20 @@ class OrderHistoryService {
         if ((responseData['status'] == 'SUCCESS' || responseData['status'] == true) && responseData['data'] != null) {
           debugPrint('OrderHistoryService: ✅ Order details fetched successfully');
           debugPrint('OrderHistoryService: 📋 Order data: ${responseData['data']}');
+          debugPrint('OrderHistoryService: 📋 Order data type: ${responseData['data'].runtimeType}');
           
-          return {
+          final result = {
             'success': true,
             'data': responseData['data'],
             'message': 'Order details fetched successfully',
           };
+          
+          // Cache the successful result
+          _orderDetailsCache[orderId] = result;
+          _cacheTimestamps[orderId] = DateTime.now();
+          debugPrint('OrderHistoryService: 💾 Cached order details for: $orderId');
+          
+          return result;
         } else {
           debugPrint('OrderHistoryService: ❌ Invalid order details response');
           debugPrint('OrderHistoryService: ❌ Response status: ${responseData['status']}');
@@ -354,6 +413,34 @@ class OrderHistoryService {
         'message': 'Network error occurred. Please check your connection.',
       };
     }
+  }
+  
+  // Clear order details cache
+  static void clearOrderDetailsCache() {
+    _orderDetailsCache.clear();
+    _cacheTimestamps.clear();
+    debugPrint('OrderHistoryService: 🗑️ Cleared all order details cache');
+  }
+  
+  // Clear cache for specific order
+  static void clearOrderDetailsCacheForOrder(String orderId) {
+    _orderDetailsCache.remove(orderId);
+    _cacheTimestamps.remove(orderId);
+    debugPrint('OrderHistoryService: 🗑️ Cleared cache for order: $orderId');
+  }
+  
+  // Clear restaurant details cache
+  static void clearRestaurantDetailsCache() {
+    _restaurantDetailsCache.clear();
+    _restaurantCacheTimestamps.clear();
+    debugPrint('OrderHistoryService: 🗑️ Cleared all restaurant details cache');
+  }
+  
+  // Clear cache for specific restaurant
+  static void clearRestaurantDetailsCacheForRestaurant(String partnerId) {
+    _restaurantDetailsCache.remove(partnerId);
+    _restaurantCacheTimestamps.remove(partnerId);
+    debugPrint('OrderHistoryService: 🗑️ Cleared cache for restaurant: $partnerId');
   }
   
   // Cancel an order

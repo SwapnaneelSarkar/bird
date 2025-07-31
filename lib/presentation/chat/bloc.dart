@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:collection/collection.dart';
 
 import '../../models/chat_models.dart';
 import '../../models/order_details_model.dart';
@@ -11,6 +12,7 @@ import '../../service/token_service.dart';
 import '../../service/order_history_service.dart';
 import '../../service/menu_item_service.dart';
 import '../../utils/timezone_utils.dart';
+import '../../utils/performance_monitor.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -167,12 +169,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         debugPrint('ChatBloc: Message from: ${chatMessage.senderType} (ID: ${chatMessage.senderId})');
         debugPrint('ChatBloc: Current user ID: $_currentUserId');
         
-        // Only add messages from OTHER users (avoid duplicates)
+        // Process messages from other users and own messages for delivery confirmation
         if (senderId != _currentUserId) {
           debugPrint('ChatBloc: Adding message from other user to UI');
           add(ReceiveMessage(chatMessage));
         } else {
-          debugPrint('ChatBloc: Ignoring own message from socket');
+          debugPrint('ChatBloc: Processing own message from socket for delivery confirmation');
+          debugPrint('ChatBloc: Message content: ${chatMessage.content}');
+          debugPrint('ChatBloc: Message ID: ${chatMessage.id}');
+          
+          // For own messages, we need to trigger ReceiveMessage to replace optimistic messages
+          // This ensures the temp_ message gets replaced with the real message
+          debugPrint('ChatBloc: 🔄 Triggering ReceiveMessage for own message to replace optimistic message');
+          add(ReceiveMessage(chatMessage));
+          debugPrint('ChatBloc: ✅ Own message delivered via socket: ${chatMessage.content}');
         }
       } catch (e) {
         debugPrint('ChatBloc: Error parsing socket message: $e');
@@ -238,6 +248,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
   
   Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
+    PerformanceMonitor.startTimer('ChatDataLoading');
+    debugPrint('ChatBloc: 🚩 _onLoadChatData called for event.orderId: ${event.orderId}');
+    debugPrint('ChatBloc: 🚩 Event orderId type: ${event.orderId.runtimeType}');
+    debugPrint('ChatBloc: 🚩 Event orderId empty: ${event.orderId.isEmpty}');
+    
+    if (event.orderId.isEmpty) {
+      debugPrint('ChatBloc: ❌ ERROR - orderId is empty!');
+      emit(const ChatError('Invalid order ID'));
+      return;
+    }
+    
     try {
       emit(ChatLoading());
       
@@ -269,32 +290,52 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       debugPrint('ChatBloc: Chat room loaded: ${chatRoom.roomId}');
       
-      // Start parallel operations for better performance
-      final orderId = chatRoom.orderId != null && chatRoom.orderId!.isNotEmpty 
-          ? chatRoom.orderId! 
-          : (event.orderId.isNotEmpty && event.orderId != 'default_order' ? event.orderId : null);
+      // Use the actual orderId from chat room for fetching order details
+      final orderId = chatRoom.orderId.isNotEmpty ? chatRoom.orderId : event.orderId;
+      debugPrint('ChatBloc: 🔍 Fetching order details for orderId: $orderId');
+      debugPrint('ChatBloc: 🔍 Chat room orderId: ${chatRoom.orderId}');
+      debugPrint('ChatBloc: 🔍 Event orderId: ${event.orderId}');
+      debugPrint('ChatBloc: 🔍 Chat room roomId: ${chatRoom.roomId}');
       
-      // Parallel operations: socket connection, chat history, and order details
+      // PRIORITY 1: Load order details and chat history in parallel for faster loading
+      debugPrint('ChatBloc: 🚀 PRIORITY 1: Loading order details and chat history in parallel...');
+      
       final results = await Future.wait([
-        // Socket connection
-        _socketService.connect().then((connected) {
-          if (connected && _currentRoomId != null) {
-            _socketService.joinRoom(_currentRoomId!);
-            debugPrint('ChatBloc: Socket connected and joined room');
-          }
-          return connected;
-        }),
-        
+        // Order details
+        OrderHistoryService.getOrderDetails(orderId),
         // Chat history
         ChatService.getChatHistory(chatRoom.roomId),
-        
-        // Order details (if orderId is available)
-        orderId != null ? OrderHistoryService.getOrderDetails(orderId) : Future.value({'success': false}),
       ]);
       
-      final socketConnected = results[0] as bool;
+      final orderResult = results[0] as Map<String, dynamic>;
       final historyResult = results[1] as Map<String, dynamic>;
-      final orderResult = results[2] as Map<String, dynamic>;
+      
+      debugPrint('ChatBloc: 🔍 Order details API called for orderId: $orderId');
+      debugPrint('ChatBloc: 🔍 Order details API result: ${orderResult['success']}');
+      debugPrint('ChatBloc: 🔍 Order details API message: ${orderResult['message']}');
+      debugPrint('ChatBloc: 🔍 Order details API has data: ${orderResult['data'] != null}');
+      
+      // Process order details immediately
+      OrderDetails? orderDetails;
+      Map<String, Map<String, dynamic>> menuItemDetails = {};
+      
+      debugPrint('ChatBloc: 🔍 Processing order details from API...');
+      debugPrint('ChatBloc: 🔍 Order result success: ${orderResult['success']}');
+      debugPrint('ChatBloc: 🔍 Order result message: ${orderResult['message']}');
+      debugPrint('ChatBloc: 🔍 Order result has data: ${orderResult['data'] != null}');
+      
+      if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
+        try {
+          orderDetails = OrderDetails.fromJson(orderResult['data']);
+          debugPrint('ChatBloc: ✅ Order details loaded successfully');
+          debugPrint('ChatBloc: ✅ Order ID: ${orderDetails.orderId}, Status: ${orderDetails.orderStatus}');
+          debugPrint('ChatBloc: ✅ Order details items count: ${orderDetails.items.length}');
+        } catch (e) {
+          debugPrint('ChatBloc: ❌ Error parsing order details: $e');
+        }
+      } else {
+        debugPrint('ChatBloc: ⚠️ Order details not available initially');
+      }
       
       // Process chat history
       List<ChatMessage> messages = [];
@@ -307,43 +348,26 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Sort messages by creation time
         messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         
-        debugPrint('ChatBloc: Loaded ${messages.length} messages');
-      }
-      
-      // Process order details
-      OrderDetails? orderDetails;
-      Map<String, Map<String, dynamic>> menuItemDetails = {};
-      
-      if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
-        orderDetails = OrderDetails.fromJson(orderResult['data']);
-        debugPrint('ChatBloc: ✅ Order details loaded successfully');
+        debugPrint('ChatBloc: 📨 Loaded ${messages.length} messages');
         
-        // Fetch menu item details in parallel for better performance
-        if (orderDetails.items.isNotEmpty) {
-                     final menuItemFutures = orderDetails.items
-               .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
-               .map((item) async {
-                 try {
-                   final menuResult = await MenuItemService.getMenuItemDetails(item.menuId!);
-                   if (menuResult['success'] == true && menuResult['data'] != null) {
-                     return {item.menuId!: menuResult['data'] as Map<String, dynamic>};
-                   }
-                 } catch (e) {
-                   debugPrint('ChatBloc: ❌ Error fetching menu item details for ${item.menuId}: $e');
-                 }
-                 return <String, Map<String, dynamic>>{};
-               })
-               .toList();
-           
-           final menuResults = await Future.wait(menuItemFutures);
-           for (final result in menuResults) {
-             menuItemDetails.addAll(result);
-           }
+        // Debug: Check readBy entries for each message
+        for (final message in messages) {
+          debugPrint('ChatBloc: 📨 Message "${message.content}" readBy: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
           
-          debugPrint('ChatBloc: ✅ Menu item details loaded for ${menuItemDetails.length} items');
+          // Check if partner is being marked as read (this shouldn't happen automatically)
+          final partnerReadEntries = message.readBy.where((entry) => 
+            entry.userId != _currentUserId && 
+            !entry.userId.startsWith('test_user_')
+          ).toList();
+          
+          if (partnerReadEntries.isNotEmpty) {
+            debugPrint('ChatBloc: ⚠️ WARNING: Partner marked as read for message "${message.content}": ${partnerReadEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+          }
         }
       }
       
+      // PRIORITY 2: Emit state with both order details and messages
+      debugPrint('ChatBloc: 📤 Emitting ChatLoaded state with orderDetails: ${orderDetails != null}, messages: ${messages.length}');
       emit(ChatLoaded(
         chatRoom: chatRoom,
         messages: messages,
@@ -352,22 +376,78 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         menuItemDetails: menuItemDetails,
       ));
       
-      // Setup socket listeners AFTER emitting loaded state
-      _setupSocketListeners();
-      add(const ConnectSocket());
+      // PRIORITY 3: Load menu item details if order details are available
+      debugPrint('ChatBloc: 🚀 PRIORITY 3: Loading menu item details...');
       
-      // Debug: Check socket connection status
-      debugPrint('ChatBloc: 🔍 Socket connection status after setup:');
-      debugPrint('ChatBloc: 🔍 _isSocketConnected: $_isSocketConnected');
-      debugPrint('ChatBloc: 🔍 _socketService.isConnected: ${_socketService.isConnected}');
-      debugPrint('ChatBloc: 🔍 _currentRoomId: $_currentRoomId');
-      debugPrint('ChatBloc: 🔍 _currentUserId: $_currentUserId');
+      // Fetch menu item details in parallel if order details are available
+      if (orderDetails != null && orderDetails.items.isNotEmpty) {
+        try {
+          // Get unique menu IDs to avoid duplicate API calls
+          final uniqueMenuIds = orderDetails.items
+              .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
+              .map((item) => item.menuId!)
+              .toSet()
+              .toList();
+          
+          debugPrint('ChatBloc: 🔍 Fetching menu details for ${uniqueMenuIds.length} unique items');
+          
+          // Fetch all menu items in parallel
+          final menuItemFutures = uniqueMenuIds.map((menuId) async {
+            try {
+              final menuResult = await MenuItemService.getMenuItemDetails(menuId);
+              if (menuResult['success'] == true && menuResult['data'] != null) {
+                return {menuId: menuResult['data'] as Map<String, dynamic>};
+              }
+            } catch (e) {
+              debugPrint('ChatBloc: ❌ Error fetching menu item details for $menuId: $e');
+            }
+            return <String, Map<String, dynamic>>{};
+          }).toList();
+          
+          final menuResults = await Future.wait(menuItemFutures);
+          for (final result in menuResults) {
+            menuItemDetails.addAll(result);
+          }
+          
+          debugPrint('ChatBloc: ✅ Menu item details loaded for ${menuItemDetails.length} items');
+        } catch (e) {
+          debugPrint('ChatBloc: ❌ Error loading menu item details: $e');
+        }
+      }
+      
+      // PRIORITY 4: Setup socket connection and listeners (non-blocking)
+      debugPrint('ChatBloc: 🔌 Setting up socket connection and listeners...');
+      _setupSocketListeners();
+      
+      // Connect socket in background (non-blocking to avoid timeout)
+      debugPrint('ChatBloc: 🔌 Connecting socket in background...');
+      _socketService.connect().then((connected) {
+        if (connected && _currentRoomId != null) {
+          _socketService.joinRoom(_currentRoomId!);
+          debugPrint('ChatBloc: 🔌 Socket connected and joined room: $_currentRoomId');
+        } else {
+          debugPrint('ChatBloc: ⚠️ Socket connection failed or room ID is null');
+        }
+      }).catchError((error) {
+        debugPrint('ChatBloc: ❌ Socket connection error: $error');
+      });
+      
+      // PRIORITY 5: Emit final state with messages loaded and socket ready
+      debugPrint('ChatBloc: 📤 Emitting final ChatLoaded state with messages: ${messages.length}, orderDetails: ${orderDetails != null}');
+      emit(ChatLoaded(
+        chatRoom: chatRoom,
+        messages: messages,
+        currentUserId: _currentUserId!,
+        orderDetails: orderDetails,
+        menuItemDetails: menuItemDetails,
+      ));
+      
+      debugPrint('ChatBloc: ✅ Chat data loaded with socket integration');
       
       // Use typing event strategy when opening chat page
       debugPrint('ChatBloc: Using typing event strategy when opening chat page');
       if (_currentRoomId != null) {
-        // Delay to ensure socket connection is established
-        await Future.delayed(const Duration(milliseconds: 500));
+        // Remove delay completely for instant response
         debugPrint('ChatBloc: 🚀 TRIGGERING ChatPageOpened event from _onLoadChatData');
         add(const ChatPageOpened());
         
@@ -376,9 +456,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
       
       debugPrint('ChatBloc: Chat data loaded with socket integration');
+      
+      // Log performance statistics
+      PerformanceMonitor.endTimer('ChatDataLoading');
+      PerformanceMonitor.logAllStatistics();
+      
     } catch (e, stackTrace) {
-      debugPrint('ChatBloc: Error loading chat data: $e');
-      debugPrint('ChatBloc: Stack trace: $stackTrace');
+      debugPrint('ChatBloc: 🚩 Exception in _onLoadChatData: $e');
+      debugPrint('ChatBloc: 🚩 Stack trace: $stackTrace');
+      PerformanceMonitor.endTimer('ChatDataLoading');
       emit(const ChatError('Failed to load chat. Please try again.'));
     }
   }
@@ -411,126 +497,72 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ));
       
       try {
-        // PRIMARY: Send via HTTP API for persistence
-        debugPrint('ChatBloc: Sending message via HTTP API (primary)');
-        final result = await ChatService.sendMessage(
+        // Send message via HTTP API first
+        final httpResult = await ChatService.sendMessage(
           roomId: _currentRoomId!,
           content: event.content,
         );
         
-        debugPrint('ChatBloc: HTTP send result: ${result['success']}');
+        debugPrint('ChatBloc: HTTP send result: $httpResult');
         
-        if (result['success'] == true) {
+        if (httpResult['success'] == true) {
           debugPrint('ChatBloc: Message sent successfully via HTTP');
           
-          // BACKUP: Also send via socket for real-time delivery
-          if (_isSocketConnected) {
-            debugPrint('ChatBloc: Also sending via socket (real-time)');
-            _socketService.sendMessage(
+          // Get the real message ID from the response
+          final realMessageId = httpResult['data']['_id'] as String?;
+          if (realMessageId != null) {
+            debugPrint('ChatBloc: Replaced optimistic message with real message ID: $realMessageId');
+            _tempToRealMessageIds[optimisticMessage.id] = realMessageId;
+            _contentToMessageId[event.content] = realMessageId;
+          }
+          
+          // Also send via socket for real-time delivery
+          debugPrint('ChatBloc: Also sending via socket (real-time)');
+          debugPrint('ChatBloc: 📤 Socket service connected: ${_socketService.isConnected}');
+          debugPrint('ChatBloc: 📤 Current room ID: $_currentRoomId');
+          debugPrint('ChatBloc: 📤 Message content: ${event.content}');
+          
+          if (_socketService.isConnected && _currentRoomId != null) {
+            final socketResult = _socketService.sendMessage(
               roomId: _currentRoomId!,
               content: event.content,
             );
-          }
-          
-          // IMPORTANT: Auto mark as read after sending message
-          debugPrint('ChatBloc: Auto marking as read after sending message');
-          await Future.delayed(const Duration(milliseconds: 300)); // Small delay to ensure message is processed
-          add(MarkAsRead(_currentRoomId!));
-          
-          // Remove optimistic message after delay (real message should come via API response)
-          await Future.delayed(const Duration(milliseconds: 1000));
-          
-          if (!emit.isDone && state is ChatLoaded) {
-            final newState = state as ChatLoaded;
-            // Add the real message from API response if not already added
-            if (result['data'] != null) {
-              try {
-                final realMessage = ChatMessage.fromJson(result['data']);
-                
-                // Remove optimistic message and add real message
-                final messagesWithoutOptimistic = newState.messages
-                    .where((msg) => msg.id != optimisticMessage.id)
-                    .toList();
-                
-                // Check if real message already exists
-                final messageExists = messagesWithoutOptimistic.any((msg) => msg.id == realMessage.id);
-                
-                if (!messageExists) {
-                  // Ensure the real message appears at the bottom by adjusting timestamp if needed
-                  var finalRealMessage = realMessage;
-                  if (messagesWithoutOptimistic.isNotEmpty) {
-                    final lastMessage = messagesWithoutOptimistic.last;
-                    if (realMessage.createdAt.isBefore(lastMessage.createdAt) || 
-                        realMessage.createdAt.isAtSameMomentAs(lastMessage.createdAt)) {
-                      final adjustedTime = lastMessage.createdAt.add(const Duration(milliseconds: 500));
-                      finalRealMessage = ChatMessage(
-                        id: realMessage.id,
-                        roomId: realMessage.roomId,
-                        senderId: realMessage.senderId,
-                        senderType: realMessage.senderType,
-                        content: realMessage.content,
-                        messageType: realMessage.messageType,
-                        readBy: realMessage.readBy,
-                        createdAt: adjustedTime,
-                      );
-                      debugPrint('ChatBloc: Adjusted real message timestamp to ensure bottom position');
-                    }
-                  }
-                  
-                  messagesWithoutOptimistic.add(finalRealMessage);
-                  messagesWithoutOptimistic.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-                  
-                  // Track the mapping between temporary and real message IDs
-                  _tempToRealMessageIds[optimisticMessage.id] = realMessage.id;
-                  _contentToMessageId[realMessage.content] = realMessage.id;
-                  
-                  debugPrint('ChatBloc: Replaced optimistic message with real message ID: ${realMessage.id}');
-                  debugPrint('ChatBloc: Mapped temp ID ${optimisticMessage.id} to real ID ${realMessage.id}');
-                }
-                
-                emit(newState.copyWith(
-                  messages: messagesWithoutOptimistic,
-                  isSendingMessage: false,
-                ));
-              } catch (e) {
-                debugPrint('ChatBloc: Error parsing real message: $e');
-                // Just remove optimistic message
-                final messagesWithoutOptimistic = newState.messages
-                    .where((msg) => !msg.id.startsWith('temp_'))
-                    .toList();
-                
-                emit(newState.copyWith(
-                  messages: messagesWithoutOptimistic,
-                  isSendingMessage: false,
-                ));
-              }
+            debugPrint('ChatBloc: 📤 Socket send result: $socketResult');
+            if (socketResult) {
+              debugPrint('ChatBloc: ✅ Message sent via socket successfully');
+              debugPrint('ChatBloc: 🔄 Waiting for socket delivery confirmation...');
             } else {
-              // Just remove optimistic message
-              final messagesWithoutOptimistic = newState.messages
-                  .where((msg) => !msg.id.startsWith('temp_'))
-                  .toList();
-              
-              emit(newState.copyWith(
-                messages: messagesWithoutOptimistic,
-                isSendingMessage: false,
-              ));
+              debugPrint('ChatBloc: ❌ Failed to send message via socket');
             }
+          } else {
+            debugPrint('ChatBloc: ⚠️ Cannot send via socket - not connected or room ID is null');
+            debugPrint('ChatBloc: ⚠️ Socket connected: ${_socketService.isConnected}, Room ID: $_currentRoomId');
           }
           
+          // Mark messages as read immediately after sending (only if bloc is not closed)
+          debugPrint('ChatBloc: Auto marking as read after sending message');
+          if (!isClosed) {
+            add(MarkAsRead(_currentRoomId!));
+          } else {
+            debugPrint('ChatBloc: ⚠️ Cannot add MarkAsRead event - bloc is closed');
+          }
         } else {
-          debugPrint('ChatBloc: Failed to send message via HTTP: ${result['message']}');
-          
-          // Remove the optimistic message since sending failed
-          final messagesWithoutOptimistic = currentState.messages
-              .where((msg) => msg.id != optimisticMessage.id)
-              .toList();
-          
-          emit(currentState.copyWith(
-            messages: messagesWithoutOptimistic,
-            isSendingMessage: false,
-          ));
-          
-          debugPrint('ChatBloc: Message send failed, removed optimistic update');
+          debugPrint('ChatBloc: Failed to send message via HTTP: ${httpResult['message']}');
+          // Remove optimistic message on failure
+          final currentState = state;
+          if (currentState is ChatLoaded) {
+            final updatedMessages = currentState.messages
+                .where((msg) => msg.id != optimisticMessage.id)
+                .toList();
+            
+            emit(ChatLoaded(
+              chatRoom: currentState.chatRoom,
+              messages: updatedMessages,
+              currentUserId: currentState.currentUserId,
+              orderDetails: currentState.orderDetails,
+              menuItemDetails: currentState.menuItemDetails,
+            ));
+          }
         }
         
       } catch (e) {
@@ -618,7 +650,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       debugPrint('ChatBloc: Existing message index: $existingMessageIndex');
       debugPrint('ChatBloc: Checking for duplicates - Content: "${event.message.content}", Sender: ${event.message.senderId}');
       
-      if (existingMessageIndex == -1) {
+      // Check if the existing message is an optimistic message that should be replaced
+      bool shouldReplaceOptimistic = false;
+      if (existingMessageIndex != -1) {
+        final existingMessage = currentState.messages[existingMessageIndex];
+        shouldReplaceOptimistic = existingMessage.id.startsWith('temp_') && 
+                                 existingMessage.content == event.message.content &&
+                                 existingMessage.senderId == event.message.senderId;
+        debugPrint('ChatBloc: Found existing message at index $existingMessageIndex');
+        debugPrint('ChatBloc: Existing message ID: ${existingMessage.id}');
+        debugPrint('ChatBloc: Existing message is optimistic: ${existingMessage.id.startsWith('temp_')}');
+        debugPrint('ChatBloc: Should replace optimistic message: $shouldReplaceOptimistic');
+      }
+      
+      if (existingMessageIndex == -1 || shouldReplaceOptimistic) {
         debugPrint('ChatBloc: Message is new, adding to UI');
         
         // Remove any temporary optimistic messages that might match this content
@@ -629,6 +674,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             .toList();
         
         debugPrint('ChatBloc: Messages without optimistic: ${messagesWithoutOptimistic.length}');
+        debugPrint('ChatBloc: Original messages count: ${currentState.messages.length}');
+        debugPrint('ChatBloc: Removed ${currentState.messages.length - messagesWithoutOptimistic.length} optimistic messages');
         
         // Create a new message with adjusted timestamp if needed
         var newMessage = event.message;
@@ -718,72 +765,70 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
   
   Future<void> _onMarkAsRead(MarkAsRead event, Emitter<ChatState> emit) async {
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      final roomId = event.roomId;
+    try {
+      debugPrint('ChatBloc: Marking messages as read for room: ${event.roomId}');
       
-      debugPrint('ChatBloc: Marking messages as read for room: $roomId');
+      // Mark as read via socket first (real-time)
+      _socketService.markAsReadViaSocket(event.roomId);
+      debugPrint('ChatBloc: Marked as read via socket - SUCCESS');
       
-      try {
-        // Mark as read via socket
-        _socketService.markAsReadViaSocket(roomId);
-        final socketSuccess = true; // Socket method doesn't return a value
-        debugPrint('ChatBloc: Marked as read via socket - SUCCESS');
-        
-        // Wait for server to broadcast mark_as_read event
-        debugPrint('ChatBloc: Waiting for server to broadcast mark_as_read event');
-        
-        // Call mark as read API
-        debugPrint('ChatBloc: Calling mark as read API...');
-        final apiResult = await ChatService.markMessagesAsRead(roomId: roomId);
-        final apiSuccess = apiResult['success'] == true;
-        debugPrint('ChatBloc: Marked as read via API - ${apiSuccess ? 'SUCCESS' : 'FAILED'}');
-        
-        debugPrint('ChatBloc: Mark as read completed - Socket: $socketSuccess, API: $apiSuccess');
-        
-        // Since server doesn't broadcast mark_as_read events, simulate the response locally
-        if (apiSuccess && _currentUserId != null) {
-          debugPrint('ChatBloc: Simulating mark_as_read event locally since server doesn\'t broadcast');
-          
-          // Update all unread messages in the current room
-          final updatedMessages = currentState.messages.map((message) {
-            // Only update messages that haven't been read by current user
-            if (message.roomId == roomId && 
-                !message.readBy.any((entry) => entry.userId == _currentUserId)) {
-              
-              final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+      // Also mark as read via HTTP API for persistence
+      debugPrint('ChatBloc: Calling mark as read API...');
+      final apiResult = await ChatService.markMessagesAsRead(roomId: event.roomId);
+      final apiSuccess = apiResult['success'] == true;
+      debugPrint('ChatBloc: Marked as read via API - ${apiSuccess ? 'SUCCESS' : 'FAILED'}');
+      
+      debugPrint('ChatBloc: Mark as read completed - Socket: true, API: $apiSuccess');
+      
+      // Simulate mark_as_read event locally since server doesn't broadcast it
+      debugPrint('ChatBloc: Simulating mark_as_read event locally since server doesn\'t broadcast');
+      
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        final updatedMessages = currentState.messages.map((message) {
+          // Mark all messages as read by current user
+          if (!message.isReadByOthers(_currentUserId!)) {
+            final updatedReadBy = List<ReadByEntry>.from(message.readBy);
+            final existingEntry = updatedReadBy.firstWhereOrNull(
+              (entry) => entry.userId == _currentUserId,
+            );
+            
+            if (existingEntry == null) {
               updatedReadBy.add(ReadByEntry(
                 userId: _currentUserId!,
-                readAt: DateTime.now(),
+                readAt: TimezoneUtils.getCurrentTime(),
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
               ));
-              
-              debugPrint('ChatBloc: Locally marking message as read: ${message.content}');
-              
-              return ChatMessage(
-                id: message.id,
-                roomId: message.roomId,
-                senderId: message.senderId,
-                senderType: message.senderType,
-                content: message.content,
-                messageType: message.messageType,
-                readBy: updatedReadBy,
-                createdAt: message.createdAt,
-              );
             }
-            return message;
-          }).toList();
-          
-          // Emit updated state with read status
-          emit(currentState.copyWith(messages: updatedMessages));
-          debugPrint('ChatBloc: Updated messages with local read status');
-        }
+            
+            debugPrint('ChatBloc: Locally marking message as read: ${message.content}');
+            
+            return ChatMessage(
+              id: message.id,
+              roomId: message.roomId,
+              senderId: message.senderId,
+              senderType: message.senderType,
+              content: message.content,
+              messageType: message.messageType,
+              readBy: updatedReadBy,
+              createdAt: message.createdAt,
+            );
+          }
+          return message;
+        }).toList();
         
-      } catch (e) {
-        debugPrint('ChatBloc: Error marking messages as read: $e');
+        emit(ChatLoaded(
+          chatRoom: currentState.chatRoom,
+          messages: updatedMessages,
+          currentUserId: currentState.currentUserId,
+          orderDetails: currentState.orderDetails,
+          menuItemDetails: currentState.menuItemDetails,
+        ));
+        
+        debugPrint('ChatBloc: Updated messages with local read status');
       }
-    } else {
-      debugPrint('ChatBloc: Cannot mark as read - state is not ChatLoaded');
+    } catch (e) {
+      debugPrint('ChatBloc: Error marking as read: $e');
     }
   }
   
@@ -1049,8 +1094,79 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   
   // Helper method to start periodic refresh for real-time updates
   void _startPeriodicRefresh() {
-    // Removed periodic refresh - now using typing events to mark as read
-    debugPrint('ChatBloc: Periodic refresh disabled - using typing events instead');
+    // Start periodic refresh to check for order details if not available initially
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        // Only refresh if order details are not available
+        if (currentState.orderDetails == null && _currentRoomId != null) {
+          debugPrint('ChatBloc: 🔄 Periodic refresh - checking for order details...');
+          debugPrint('ChatBloc: 🔄 Current orderDetails: ${currentState.orderDetails != null}');
+          _refreshOrderDetails();
+        }
+      }
+    });
+    debugPrint('ChatBloc: ✅ Periodic refresh started for order details');
+  }
+  
+  // Helper method to refresh order details
+  Future<void> _refreshOrderDetails() async {
+    if (state is ChatLoaded && _currentRoomId != null) {
+      final currentState = state as ChatLoaded;
+      // Use the correct orderId from chat room, not roomId
+      final orderId = currentState.chatRoom.orderId.isNotEmpty 
+          ? currentState.chatRoom.orderId 
+          : currentState.chatRoom.roomId;
+      
+      if (orderId.isNotEmpty) {
+        try {
+          debugPrint('ChatBloc: 🔄 Refreshing order details for: $orderId');
+          final orderResult = await OrderHistoryService.getOrderDetails(orderId);
+          
+          if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
+            final orderDetails = OrderDetails.fromJson(orderResult['data']);
+            debugPrint('ChatBloc: ✅ Order details refreshed successfully');
+            
+            // Fetch menu item details
+            Map<String, Map<String, dynamic>> menuItemDetails = {};
+            if (orderDetails.items.isNotEmpty) {
+              final menuItemFutures = orderDetails.items
+                  .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
+                  .map((item) async {
+                    try {
+                      final menuResult = await MenuItemService.getMenuItemDetails(item.menuId!);
+                      if (menuResult['success'] == true && menuResult['data'] != null) {
+                        return {item.menuId!: menuResult['data'] as Map<String, dynamic>};
+                      }
+                    } catch (e) {
+                      debugPrint('ChatBloc: ❌ Error fetching menu item details for ${item.menuId}: $e');
+                    }
+                    return <String, Map<String, dynamic>>{};
+                  })
+                  .toList();
+              
+              final menuResults = await Future.wait(menuItemFutures);
+              for (final result in menuResults) {
+                menuItemDetails.addAll(result);
+              }
+            }
+            
+            // Emit updated state with order details
+            emit(currentState.copyWith(
+              orderDetails: orderDetails,
+              menuItemDetails: menuItemDetails,
+            ));
+            
+            debugPrint('ChatBloc: ✅ Chat state updated with order details');
+          } else {
+            debugPrint('ChatBloc: ⚠️ Order details still not available in refresh');
+          }
+        } catch (e) {
+          debugPrint('ChatBloc: ❌ Error refreshing order details: $e');
+        }
+      }
+    }
   }
   
   Future<void> _onChatPageOpened(ChatPageOpened event, Emitter<ChatState> emit) async {
@@ -1061,8 +1177,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _socketService.sendTyping(_currentRoomId!);
       
       // Auto mark as read when page opens to handle previous unread messages
-      await Future.delayed(const Duration(milliseconds: 300));
-      debugPrint('ChatBloc: 📖 Marking previous messages as read after page open');
       add(MarkAsRead(_currentRoomId!));
       
       // NEW: Also update blue ticks for previous messages when page opens
@@ -1096,8 +1210,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _socketService.sendTyping(_currentRoomId!);
       
       // Auto mark as read when new message is received on active page
-      await Future.delayed(const Duration(milliseconds: 300));
-      debugPrint('ChatBloc: 📖 Marking messages as read after message receipt on active page');
       add(MarkAsRead(_currentRoomId!));
       
       // NEW: Also update blue ticks for previous messages when new message is received

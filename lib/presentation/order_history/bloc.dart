@@ -1,4 +1,5 @@
 // lib/presentation/order_history/bloc.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../service/order_history_service.dart';
@@ -6,6 +7,9 @@ import 'event.dart';
 import 'state.dart';
 
 class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
+  // Cache for restaurant details to avoid repeated API calls
+  final Map<String, String> _restaurantAddressCache = {};
+  
   OrderHistoryBloc() : super(OrderHistoryInitial()) {
     on<LoadOrderHistory>(_onLoadOrderHistory);
     on<RefreshOrderHistory>(_onRefreshOrderHistory);
@@ -99,6 +103,15 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
       final currentState = state as OrderHistoryLoaded;
       final updatedOrders = List<OrderItem>.from(currentState.allOrders);
 
+      // Get unique restaurant IDs to avoid duplicate API calls
+      final uniqueRestaurantIds = updatedOrders
+          .where((order) => order.restaurantId.isNotEmpty)
+          .map((order) => order.restaurantId)
+          .toSet()
+          .toList();
+      
+      debugPrint('OrderHistoryBloc: Fetching data for ${uniqueRestaurantIds.length} unique restaurants');
+
       // Process orders concurrently for better performance
       await Future.wait(
         updatedOrders.asMap().entries.map((entry) async {
@@ -108,14 +121,19 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
           if (order.restaurantId.isEmpty) return;
 
           try {
-            // Fetch restaurant details and review data concurrently
-            final results = await Future.wait([
-              _fetchRestaurantDetails(order),
-              _fetchOrderReview(order),
-            ]);
-
-            final restaurantAddress = results[0] as String?;
-            final reviewData = results[1] as Map<String, dynamic>?;
+            // Check if we already have restaurant address cached
+            String? restaurantAddress = _restaurantAddressCache[order.restaurantId];
+            
+            // Only fetch if not cached
+            if (restaurantAddress == null) {
+              restaurantAddress = await _fetchRestaurantDetails(order);
+              if (restaurantAddress != null) {
+                _restaurantAddressCache[order.restaurantId] = restaurantAddress;
+              }
+            }
+            
+            // Fetch review data
+            final reviewData = await _fetchOrderReview(order);
 
             if (restaurantAddress != null) {
               updatedOrders[index] = order.copyWithRestaurantAddress(restaurantAddress);

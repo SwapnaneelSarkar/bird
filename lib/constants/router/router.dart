@@ -4,6 +4,7 @@ import 'package:bird/presentation/chat/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
 import 'package:bird/presentation/dashboard/bloc.dart';
 import 'package:bird/presentation/dashboard/view.dart';
+import 'package:bird/presentation/favorites/view.dart';
 import 'package:bird/presentation/home%20page/bloc.dart';
 import 'package:bird/presentation/home%20page/event.dart';
 import 'package:bird/presentation/order_confirmation/view.dart';
@@ -35,6 +36,7 @@ class Routes {
   static const String chat = '/chat';
   static const String orderHistory = '/orderHistory';
   static const String dashboard = '/dashboard';
+  static const String favorites = '/favorites';
 
   static const String blank = '/blank';
 }
@@ -211,6 +213,9 @@ class RouteGenerator {
 
       case Routes.orderHistory:
         return MaterialPageRoute(builder: (_) => const OrderHistoryView());
+
+      case Routes.favorites:
+        return MaterialPageRoute(builder: (_) => const FavoritesPage());
 
       default:
         return unDefinedRoute();

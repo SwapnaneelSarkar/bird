@@ -6,6 +6,7 @@ import 'package:bird/widgets/cancel_order_bottom_sheet.dart';
 
 import 'package:bird/widgets/chat_order_details_bubble.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
@@ -31,7 +32,6 @@ class ChatView extends StatefulWidget {
     this.isNewlyPlacedOrder = false, // Default to false
   }) : super(key: key) {
     debugPrint('🚨🚨🚨 CHAT VIEW CONSTRUCTOR CALLED with orderId: $orderId, isNewlyPlacedOrder: $isNewlyPlacedOrder 🚨🚨🚨');
-    print('🚨🚨🚨 CHAT VIEW CONSTRUCTOR PRINT with orderId: $orderId, isNewlyPlacedOrder: $isNewlyPlacedOrder 🚨🚨🚨');
   }
 
   @override
@@ -59,7 +59,6 @@ class _ChatViewState extends State<ChatView> {
   void initState() {
     super.initState();
     debugPrint('🚨🚨🚨 CHAT VIEW INIT STATE CALLED with orderId: ${widget.orderId} 🚨🚨🚨');
-    print('🚨🚨🚨 CHAT VIEW INIT STATE PRINT with orderId: ${widget.orderId} 🚨🚨🚨');
     // Listen to text changes to update send button state and typing indicators
     _messageController.addListener(_onTextChanged);
     
@@ -672,12 +671,17 @@ class _ChatViewState extends State<ChatView> {
 
 
   Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails, Map<String, Map<String, dynamic>> menuItemDetails, String orderId) {
-    debugPrint('ChatView: 📋 Building messages list - Messages:  [33m${messages.length} [0m, Order details:  [33m${orderDetails != null} [0m');
+    // OPTIMIZATION: Reduce debug prints in production
+    if (kDebugMode) {
+      debugPrint('ChatView: 📋 Building messages list - Messages: ${messages.length}, Order details: ${orderDetails != null}');
+    }
     
     // If there are no messages and not sending, but order details exist, show only the order details bubble
     if (messages.isEmpty && !isSending) {
       if (orderDetails != null) {
-        debugPrint('ChatView: 📋 No messages, but order details available - showing only order details bubble');
+        if (kDebugMode) {
+          debugPrint('ChatView: 📋 No messages, but order details available - showing only order details bubble');
+        }
         return ListView(
           controller: _scrollController,
           padding: EdgeInsets.all(screenWidth * 0.035),
@@ -698,23 +702,35 @@ class _ChatViewState extends State<ChatView> {
           ],
         );
       } else {
-        debugPrint('ChatView: 📋 No messages and no order details - showing empty state');
+        if (kDebugMode) {
+          debugPrint('ChatView: 📋 No messages and no order details - showing empty state');
+        }
         return _buildEmptyState(screenWidth, screenHeight);
       }
     }
 
-    debugPrint('ChatView: 📋 Building ListView with orderDetails: ${orderDetails != null}, messages: ${messages.length}');
-    debugPrint('ChatView: 📋 ItemCount: ${(orderDetails != null ? 1 : 0) + messages.length}');
+    if (kDebugMode) {
+      debugPrint('ChatView: 📋 Building ListView with orderDetails: ${orderDetails != null}, messages: ${messages.length}');
+      debugPrint('ChatView: 📋 ItemCount: ${(orderDetails != null ? 1 : 0) + messages.length}');
+    }
     
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(screenWidth * 0.035),
       itemCount: (orderDetails != null ? 1 : 0) + messages.length,
+      // OPTIMIZATION: Add cacheExtent for better performance
+      cacheExtent: 1000,
+      // OPTIMIZATION: Add addAutomaticKeepAlives for better memory management
+      addAutomaticKeepAlives: false,
       itemBuilder: (context, index) {
-        debugPrint('ChatView: 📋 Building item at index: $index');
+        if (kDebugMode) {
+          debugPrint('ChatView: 📋 Building item at index: $index');
+        }
         // Show order details as first item if available
         if (orderDetails != null && index == 0) {
-          debugPrint('ChatView: 📋 Rendering order details bubble for order: ${orderDetails.orderId}');
+          if (kDebugMode) {
+            debugPrint('ChatView: 📋 Rendering order details bubble for order: ${orderDetails.orderId}');
+          }
           return ChatOrderDetailsBubble(
             orderDetails: orderDetails,
             menuItemDetails: menuItemDetails,
@@ -845,7 +861,9 @@ class _ChatViewState extends State<ChatView> {
                       Builder(
                         builder: (context) {
                           final shouldShowBlue = _shouldShowBlueTick(message, currentUserId);
-                          debugPrint('ChatView: 🎨 Building blue tick for message: ${message.content} - Should show blue: $shouldShowBlue');
+                          if (kDebugMode) {
+                            debugPrint('ChatView: 🎨 Building blue tick for message: ${message.content} - Should show blue: $shouldShowBlue');
+                          }
                           return Icon(
                             Icons.done_all,
                             size: screenWidth * 0.03,
@@ -877,7 +895,7 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  // Helper method to determine if we should show blue tick
+  // OPTIMIZATION: Helper method to determine if we should show blue tick with reduced debug output
   bool _shouldShowBlueTick(ChatMessage message, String currentUserId) {
     // Get partner user IDs from the chat room
     if (_chatBloc != null && _chatBloc!.state is ChatLoaded) {
@@ -887,17 +905,22 @@ class _ChatViewState extends State<ChatView> {
           .map((participant) => participant.userId)
           .toList();
       
-      debugPrint('ChatView: Checking blue tick for message: ${message.content}');
-      debugPrint('ChatView: Message sender: ${message.senderId}');
-      debugPrint('ChatView: Current user: $currentUserId');
-      debugPrint('ChatView: Partner IDs: $partnerUserIds');
-      debugPrint('ChatView: ReadBy entries: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      if (kDebugMode) {
+        debugPrint('ChatView: Checking blue tick for message: ${message.content}');
+        debugPrint('ChatView: Message sender: ${message.senderId}');
+        debugPrint('ChatView: Current user: $currentUserId');
+        debugPrint('ChatView: Partner IDs: $partnerUserIds');
+        debugPrint('ChatView: ReadBy entries: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      }
       
       // Filter out test users and auto-marked entries from readBy entries
       final currentTime = DateTime.now();
       final cutoffTime = currentTime.subtract(const Duration(seconds: 5));
-      debugPrint('ChatView: Current time: $currentTime');
-      debugPrint('ChatView: Cutoff time (5 seconds ago): $cutoffTime');
+      
+      if (kDebugMode) {
+        debugPrint('ChatView: Current time: $currentTime');
+        debugPrint('ChatView: Cutoff time (5 seconds ago): $cutoffTime');
+      }
       
       final realReadByEntries = message.readBy
           .where((entry) => 
@@ -907,7 +930,9 @@ class _ChatViewState extends State<ChatView> {
           )
           .toList();
       
-      debugPrint('ChatView: Real ReadBy entries (excluding auto-marked): ${realReadByEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      if (kDebugMode) {
+        debugPrint('ChatView: Real ReadBy entries (excluding auto-marked): ${realReadByEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
+      }
       
       // Check if message is read by both current user and at least one real partner
       bool shouldShowBlue = false;
@@ -921,14 +946,18 @@ class _ChatViewState extends State<ChatView> {
         shouldShowBlue = realReadByEntries.any((entry) => entry.userId == currentUserId);
       }
       
-      debugPrint('ChatView: Should show blue tick: $shouldShowBlue');
+      if (kDebugMode) {
+        debugPrint('ChatView: Should show blue tick: $shouldShowBlue');
+      }
       
       return shouldShowBlue;
     }
     
     // Fallback to the old method if we can't get partner IDs
     final fallbackResult = message.isReadByOthers(currentUserId);
-    debugPrint('ChatView: Using fallback method, should show blue tick: $fallbackResult');
+    if (kDebugMode) {
+      debugPrint('ChatView: Using fallback method, should show blue tick: $fallbackResult');
+    }
     return fallbackResult;
   }
 

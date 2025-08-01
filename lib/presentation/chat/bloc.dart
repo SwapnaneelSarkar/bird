@@ -28,7 +28,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   StreamSubscription? _typingSubscription;
   bool _isSocketConnected = false;
   Timer? _typingTimer;
-  Timer? _refreshTimer; // Add timer for periodic refresh
+  Timer? _refreshTimer;
   
   // Add global message tracking to prevent duplicates
   final Set<String> _processedMessageHashes = <String>{};
@@ -37,6 +37,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   // Add message ID mapping for read receipt tracking
   final Map<String, String> _tempToRealMessageIds = <String, String>{};
   final Map<String, String> _contentToMessageId = <String, String>{};
+  
+  // Add caching for order details and menu items
+  static final Map<String, OrderDetails> _orderDetailsCache = {};
+  static final Map<String, Map<String, dynamic>> _menuItemCache = {};
+  static const Duration _cacheDuration = Duration(minutes: 5);
+  static final Map<String, DateTime> _cacheTimestamps = {};
   
   ChatBloc({required ChatService chatService, required SocketService socketService})
       : _chatService = chatService,
@@ -62,7 +68,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   @override
   Future<void> close() {
     _typingTimer?.cancel();
-    _refreshTimer?.cancel(); // Cancel refresh timer
+    _refreshTimer?.cancel();
     _messageSubscription?.cancel();
     _connectionSubscription?.cancel();
     _readReceiptSubscription?.cancel();
@@ -86,7 +92,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _messageSubscription = _socketService.messageStream.listen((messageData) {
       try {
         debugPrint('ChatBloc: Received socket message: $messageData');
-        debugPrint('ChatBloc: Message data type: ${messageData.runtimeType}');
         
         // Handle different message data formats
         String messageId = '';
@@ -136,8 +141,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             createdAt = TimezoneUtils.getCurrentTime();
           }
         } else {
-          // If no createdAt in socket message, use current IST time
-          // This should only happen for real-time messages that don't have server timestamp
           createdAt = TimezoneUtils.getCurrentTime();
           debugPrint('No createdAt in socket message, using current IST time: $createdAt');
         }
@@ -166,8 +169,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
         
         debugPrint('ChatBloc: Parsed socket message: ${chatMessage.content}');
-        debugPrint('ChatBloc: Message from: ${chatMessage.senderType} (ID: ${chatMessage.senderId})');
-        debugPrint('ChatBloc: Current user ID: $_currentUserId');
         
         // Process messages from other users and own messages for delivery confirmation
         if (senderId != _currentUserId) {
@@ -175,12 +176,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           add(ReceiveMessage(chatMessage));
         } else {
           debugPrint('ChatBloc: Processing own message from socket for delivery confirmation');
-          debugPrint('ChatBloc: Message content: ${chatMessage.content}');
-          debugPrint('ChatBloc: Message ID: ${chatMessage.id}');
-          
-          // For own messages, we need to trigger ReceiveMessage to replace optimistic messages
-          // This ensures the temp_ message gets replaced with the real message
-          debugPrint('ChatBloc: 🔄 Triggering ReceiveMessage for own message to replace optimistic message');
           add(ReceiveMessage(chatMessage));
           debugPrint('ChatBloc: ✅ Own message delivered via socket: ${chatMessage.content}');
         }
@@ -193,34 +188,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     // Listen for read receipt updates
     _readReceiptSubscription = _socketService.readReceiptStream.listen((readData) {
       debugPrint('ChatBloc: Received read receipt: $readData');
-      debugPrint('ChatBloc: Read receipt type: ${readData['type']}');
-      if (readData['data'] != null) {
-        debugPrint('ChatBloc: Read receipt data: ${readData['data']}');
-        debugPrint('ChatBloc: Message seen by: ${readData['data']['seenBy']}');
-        debugPrint('ChatBloc: Message ID: ${readData['data']['messageId']}');
-        debugPrint('ChatBloc: Message content: ${readData['data']['content']}');
-      }
       add(UpdateMessageReadStatus(readData));
     });
     
     // Listen for typing indicators
     _typingSubscription = _socketService.typingStream.listen((typingData) {
       debugPrint('ChatBloc: 📨 RECEIVED typing event from socket service: $typingData');
-      debugPrint('ChatBloc: Typing user: ${typingData['userId']}, Type: ${typingData['userType']}, Is typing: ${typingData['isTyping']}');
-      debugPrint('ChatBloc: Current user ID: $_currentUserId');
       
       // Handle typing indicators in UI if needed
       if (typingData['isTyping'] == true && typingData['userId'] != _currentUserId) {
         debugPrint('ChatBloc: 👥 Partner is typing - can show typing indicator in UI');
-        
-        // NEW: Update blue ticks for previous messages when partner starts typing
         debugPrint('ChatBloc: 🔵 Updating blue ticks for previous messages due to partner typing');
         _updateBlueTicksForPreviousMessages();
-        
       } else if (typingData['isTyping'] == false && typingData['userId'] != _currentUserId) {
         debugPrint('ChatBloc: 🛑 Partner stopped typing');
-        
-        // NEW: Also update blue ticks when partner stops typing (they might have seen the messages)
         debugPrint('ChatBloc: 🔵 Updating blue ticks for previous messages due to partner stopping typing');
         _updateBlueTicksForPreviousMessages();
       }
@@ -250,8 +231,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Future<void> _onLoadChatData(LoadChatData event, Emitter<ChatState> emit) async {
     PerformanceMonitor.startTimer('ChatDataLoading');
     debugPrint('ChatBloc: 🚩 _onLoadChatData called for event.orderId: ${event.orderId}');
-    debugPrint('ChatBloc: 🚩 Event orderId type: ${event.orderId.runtimeType}');
-    debugPrint('ChatBloc: 🚩 Event orderId empty: ${event.orderId.isEmpty}');
     
     if (event.orderId.isEmpty) {
       debugPrint('ChatBloc: ❌ ERROR - orderId is empty!');
@@ -273,8 +252,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       debugPrint('ChatBloc: Loading chat data for order: ${event.orderId}');
       debugPrint('ChatBloc: Current user ID: $_currentUserId');
       
-      // Create or get chat room
-      final roomResult = await ChatService.createOrGetChatRoom(event.orderId);
+      // OPTIMIZATION 1: Load chat room and chat history in parallel
+      debugPrint('ChatBloc: 🚀 OPTIMIZATION 1: Loading chat room and history in parallel...');
+      
+      final chatRoomFuture = ChatService.createOrGetChatRoom(event.orderId);
+      final orderDetailsFuture = _getOrderDetailsWithCache(event.orderId);
+      
+      // Wait for chat room first (required for history)
+      final roomResult = await chatRoomFuture;
       
       if (roomResult['success'] != true) {
         debugPrint('ChatBloc: Failed to create/get chat room: ${roomResult['message']}');
@@ -290,137 +275,43 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       debugPrint('ChatBloc: Chat room loaded: ${chatRoom.roomId}');
       
-      // Use the actual orderId from chat room for fetching order details
-      final orderId = chatRoom.orderId.isNotEmpty ? chatRoom.orderId : event.orderId;
-      debugPrint('ChatBloc: 🔍 Fetching order details for orderId: $orderId');
-      debugPrint('ChatBloc: 🔍 Chat room orderId: ${chatRoom.orderId}');
-      debugPrint('ChatBloc: 🔍 Event orderId: ${event.orderId}');
-      debugPrint('ChatBloc: 🔍 Chat room roomId: ${chatRoom.roomId}');
+      // OPTIMIZATION 2: Load chat history and order details in parallel
+      debugPrint('ChatBloc: 🚀 OPTIMIZATION 2: Loading chat history and order details in parallel...');
       
-      // PRIORITY 1: Load order details and chat history in parallel for faster loading
-      debugPrint('ChatBloc: 🚀 PRIORITY 1: Loading order details and chat history in parallel...');
+      final historyFuture = _loadChatHistoryWithTimeout(chatRoom.roomId);
+      final orderDetailsFuture2 = orderDetailsFuture; // Reuse the future
       
+      // Wait for both with timeout
       final results = await Future.wait([
-        // Order details
-        OrderHistoryService.getOrderDetails(orderId),
-        // Chat history
-        ChatService.getChatHistory(chatRoom.roomId),
-      ]);
+        historyFuture,
+        orderDetailsFuture2,
+      ]).timeout(const Duration(seconds: 10)); // 10 second total timeout
       
-      final orderResult = results[0] as Map<String, dynamic>;
-      final historyResult = results[1] as Map<String, dynamic>;
+      final messages = results[0] as List<ChatMessage>;
+      final orderDetails = results[1] as OrderDetails?;
       
-      debugPrint('ChatBloc: 🔍 Order details API called for orderId: $orderId');
-      debugPrint('ChatBloc: 🔍 Order details API result: ${orderResult['success']}');
-      debugPrint('ChatBloc: 🔍 Order details API message: ${orderResult['message']}');
-      debugPrint('ChatBloc: 🔍 Order details API has data: ${orderResult['data'] != null}');
+      debugPrint('ChatBloc: 📨 Loaded ${messages.length} messages');
+      debugPrint('ChatBloc: 📋 Order details loaded: ${orderDetails != null}');
       
-      // Process order details immediately
-      OrderDetails? orderDetails;
-      Map<String, Map<String, dynamic>> menuItemDetails = {};
-      
-      debugPrint('ChatBloc: 🔍 Processing order details from API...');
-      debugPrint('ChatBloc: 🔍 Order result success: ${orderResult['success']}');
-      debugPrint('ChatBloc: 🔍 Order result message: ${orderResult['message']}');
-      debugPrint('ChatBloc: 🔍 Order result has data: ${orderResult['data'] != null}');
-      
-      if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
-        try {
-          orderDetails = OrderDetails.fromJson(orderResult['data']);
-          debugPrint('ChatBloc: ✅ Order details loaded successfully');
-          debugPrint('ChatBloc: ✅ Order ID: ${orderDetails.orderId}, Status: ${orderDetails.orderStatus}');
-          debugPrint('ChatBloc: ✅ Order details items count: ${orderDetails.items.length}');
-        } catch (e) {
-          debugPrint('ChatBloc: ❌ Error parsing order details: $e');
-        }
-      } else {
-        debugPrint('ChatBloc: ⚠️ Order details not available initially');
-      }
-      
-      // Process chat history
-      List<ChatMessage> messages = [];
-      if (historyResult['success'] == true) {
-        final historyData = historyResult['data'] as List<dynamic>;
-        messages = historyData
-            .map((messageData) => ChatMessage.fromJson(messageData))
-            .toList();
-        
-        // Sort messages by creation time
-        messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        
-        debugPrint('ChatBloc: 📨 Loaded ${messages.length} messages');
-        
-        // Debug: Check readBy entries for each message
-        for (final message in messages) {
-          debugPrint('ChatBloc: 📨 Message "${message.content}" readBy: ${message.readBy.map((e) => '${e.userId} at ${e.readAt}').toList()}');
-          
-          // Check if partner is being marked as read (this shouldn't happen automatically)
-          final partnerReadEntries = message.readBy.where((entry) => 
-            entry.userId != _currentUserId && 
-            !entry.userId.startsWith('test_user_')
-          ).toList();
-          
-          if (partnerReadEntries.isNotEmpty) {
-            debugPrint('ChatBloc: ⚠️ WARNING: Partner marked as read for message "${message.content}": ${partnerReadEntries.map((e) => '${e.userId} at ${e.readAt}').toList()}');
-          }
-        }
-      }
-      
-      // PRIORITY 2: Emit state with both order details and messages
-      debugPrint('ChatBloc: 📤 Emitting ChatLoaded state with orderDetails: ${orderDetails != null}, messages: ${messages.length}');
+      // OPTIMIZATION 3: Emit state immediately with available data
+      debugPrint('ChatBloc: 📤 Emitting ChatLoaded state immediately');
       emit(ChatLoaded(
         chatRoom: chatRoom,
         messages: messages,
         currentUserId: _currentUserId!,
         orderDetails: orderDetails,
-        menuItemDetails: menuItemDetails,
+        menuItemDetails: {},
       ));
       
-      // PRIORITY 3: Load menu item details if order details are available
-      debugPrint('ChatBloc: 🚀 PRIORITY 3: Loading menu item details...');
-      
-      // Fetch menu item details in parallel if order details are available
+      // OPTIMIZATION 4: Load menu items in background (non-blocking)
       if (orderDetails != null && orderDetails.items.isNotEmpty) {
-        try {
-          // Get unique menu IDs to avoid duplicate API calls
-          final uniqueMenuIds = orderDetails.items
-              .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
-              .map((item) => item.menuId!)
-              .toSet()
-              .toList();
-          
-          debugPrint('ChatBloc: 🔍 Fetching menu details for ${uniqueMenuIds.length} unique items');
-          
-          // Fetch all menu items in parallel
-          final menuItemFutures = uniqueMenuIds.map((menuId) async {
-            try {
-              final menuResult = await MenuItemService.getMenuItemDetails(menuId);
-              if (menuResult['success'] == true && menuResult['data'] != null) {
-                return {menuId: menuResult['data'] as Map<String, dynamic>};
-              }
-            } catch (e) {
-              debugPrint('ChatBloc: ❌ Error fetching menu item details for $menuId: $e');
-            }
-            return <String, Map<String, dynamic>>{};
-          }).toList();
-          
-          final menuResults = await Future.wait(menuItemFutures);
-          for (final result in menuResults) {
-            menuItemDetails.addAll(result);
-          }
-          
-          debugPrint('ChatBloc: ✅ Menu item details loaded for ${menuItemDetails.length} items');
-        } catch (e) {
-          debugPrint('ChatBloc: ❌ Error loading menu item details: $e');
-        }
+        _loadMenuItemDetailsInBackground(orderDetails, emit);
       }
       
-      // PRIORITY 4: Setup socket connection and listeners (non-blocking)
-      debugPrint('ChatBloc: 🔌 Setting up socket connection and listeners...');
+      // OPTIMIZATION 5: Setup socket connection in background
+      debugPrint('ChatBloc: 🔌 Setting up socket connection in background...');
       _setupSocketListeners();
       
-      // Connect socket in background (non-blocking to avoid timeout)
-      debugPrint('ChatBloc: 🔌 Connecting socket in background...');
       _socketService.connect().then((connected) {
         if (connected && _currentRoomId != null) {
           _socketService.joinRoom(_currentRoomId!);
@@ -432,30 +323,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         debugPrint('ChatBloc: ❌ Socket connection error: $error');
       });
       
-      // PRIORITY 5: Emit final state with messages loaded and socket ready
-      debugPrint('ChatBloc: 📤 Emitting final ChatLoaded state with messages: ${messages.length}, orderDetails: ${orderDetails != null}');
-      emit(ChatLoaded(
-        chatRoom: chatRoom,
-        messages: messages,
-        currentUserId: _currentUserId!,
-        orderDetails: orderDetails,
-        menuItemDetails: menuItemDetails,
-      ));
+      // Emit page opened event immediately
+      debugPrint('ChatBloc: 🚀 TRIGGERING ChatPageOpened event from _onLoadChatData');
+      add(const ChatPageOpened());
       
-      debugPrint('ChatBloc: ✅ Chat data loaded with socket integration');
+      // Start periodic refresh for real-time updates
+      _startPeriodicRefresh();
       
-      // Use typing event strategy when opening chat page
-      debugPrint('ChatBloc: Using typing event strategy when opening chat page');
-      if (_currentRoomId != null) {
-        // Remove delay completely for instant response
-        debugPrint('ChatBloc: 🚀 TRIGGERING ChatPageOpened event from _onLoadChatData');
-        add(const ChatPageOpened());
-        
-        // Start periodic refresh for real-time updates
-        _startPeriodicRefresh();
-      }
-      
-      debugPrint('ChatBloc: Chat data loaded with socket integration');
+      debugPrint('ChatBloc: Chat data loaded with optimizations');
       
       // Log performance statistics
       PerformanceMonitor.endTimer('ChatDataLoading');
@@ -466,6 +341,151 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       debugPrint('ChatBloc: 🚩 Stack trace: $stackTrace');
       PerformanceMonitor.endTimer('ChatDataLoading');
       emit(const ChatError('Failed to load chat. Please try again.'));
+    }
+  }
+
+  // OPTIMIZATION: Load chat history with timeout
+  Future<List<ChatMessage>> _loadChatHistoryWithTimeout(String roomId) async {
+    try {
+      final historyResult = await ChatService.getChatHistory(roomId)
+          .timeout(const Duration(seconds: 5)); // 5 second timeout for chat history
+      
+      if (historyResult['success'] == true) {
+        final historyData = historyResult['data'] as List<dynamic>;
+        final messages = historyData
+            .map((messageData) => ChatMessage.fromJson(messageData))
+            .toList();
+        
+        // Sort messages by creation time
+        messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        
+        debugPrint('ChatBloc: 📨 Loaded ${messages.length} messages');
+        return messages;
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ⚠️ Chat history loading failed or timed out: $e');
+    }
+    return [];
+  }
+
+  // OPTIMIZATION: Get order details with caching
+  Future<OrderDetails?> _getOrderDetailsWithCache(String orderId) async {
+    // Check cache first
+    if (_orderDetailsCache.containsKey(orderId)) {
+      final timestamp = _cacheTimestamps[orderId];
+      if (timestamp != null && DateTime.now().difference(timestamp) < _cacheDuration) {
+        debugPrint('ChatBloc: ✅ Returning cached order details for: $orderId');
+        return _orderDetailsCache[orderId];
+      } else {
+        _orderDetailsCache.remove(orderId);
+        _cacheTimestamps.remove(orderId);
+        debugPrint('ChatBloc: 🗑️ Removed expired cache for: $orderId');
+      }
+    }
+    
+    try {
+      final orderResult = await OrderHistoryService.getOrderDetails(orderId)
+          .timeout(const Duration(seconds: 8)); // 8 second timeout for order details
+      
+      debugPrint('ChatBloc: 🔍 Order details API called for orderId: $orderId');
+      
+      if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
+        try {
+          final orderDetails = OrderDetails.fromJson(orderResult['data']);
+          debugPrint('ChatBloc: ✅ Order details loaded successfully');
+          
+          // Cache the result
+          _orderDetailsCache[orderId] = orderDetails;
+          _cacheTimestamps[orderId] = DateTime.now();
+          debugPrint('ChatBloc: 💾 Cached order details for: $orderId');
+          
+          return orderDetails;
+        } catch (e) {
+          debugPrint('ChatBloc: ❌ Error parsing order details: $e');
+        }
+      } else {
+        debugPrint('ChatBloc: ⚠️ Order details not available initially');
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: ⚠️ Order details loading failed or timed out: $e');
+    }
+    return null;
+  }
+
+  // OPTIMIZATION: Load menu item details in background with better caching
+  Future<void> _loadMenuItemDetailsInBackground(OrderDetails orderDetails, Emitter<ChatState> emit) async {
+    try {
+      debugPrint('ChatBloc: 🚀 Loading menu item details in background...');
+      
+      // Get unique menu IDs to avoid duplicate API calls
+      final uniqueMenuIds = orderDetails.items
+          .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
+          .map((item) => item.menuId!)
+          .toSet()
+          .toList();
+      
+      debugPrint('ChatBloc: 🔍 Fetching menu details for ${uniqueMenuIds.length} unique items');
+      
+      // Process menu items in batches to avoid overwhelming the API
+      const batchSize = 3;
+      for (int i = 0; i < uniqueMenuIds.length; i += batchSize) {
+        final batch = uniqueMenuIds.skip(i).take(batchSize).toList();
+        
+        try {
+          await Future.wait(
+            batch.map((menuId) async {
+              // Check cache first
+              if (_menuItemCache.containsKey(menuId)) {
+                final timestamp = _cacheTimestamps[menuId];
+                if (timestamp != null && DateTime.now().difference(timestamp) < _cacheDuration) {
+                  debugPrint('ChatBloc: ✅ Returning cached menu item: $menuId');
+                  return;
+                } else {
+                  _menuItemCache.remove(menuId);
+                  _cacheTimestamps.remove(menuId);
+                }
+              }
+              
+              try {
+                final menuResult = await MenuItemService.getMenuItemDetails(menuId)
+                    .timeout(const Duration(seconds: 3)); // 3 second timeout per item
+                
+                if (menuResult['success'] == true && menuResult['data'] != null) {
+                  // Cache the result
+                  _menuItemCache[menuId] = menuResult['data'] as Map<String, dynamic>;
+                  _cacheTimestamps[menuId] = DateTime.now();
+                  
+                  // Update state immediately for each successful menu item
+                  if (state is ChatLoaded && !isClosed) {
+                    final currentState = state as ChatLoaded;
+                    final updatedMenuDetails = Map<String, Map<String, dynamic>>.from(currentState.menuItemDetails);
+                    updatedMenuDetails[menuId] = menuResult['data'] as Map<String, dynamic>;
+                    
+                    emit(currentState.copyWith(menuItemDetails: updatedMenuDetails));
+                    debugPrint('ChatBloc: 📤 Updated state with menu item: $menuId');
+                  }
+                }
+              } catch (e) {
+                debugPrint('ChatBloc: ❌ Error fetching menu item details for $menuId: $e');
+              }
+            }),
+            eagerError: false, // Don't fail all if one fails
+          ).timeout(const Duration(seconds: 5)); // 5 second timeout per batch
+          
+          // Small delay between batches to avoid overwhelming the server
+          if (i + batchSize < uniqueMenuIds.length) {
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+          
+        } catch (e) {
+          debugPrint('ChatBloc: ⚠️ Batch processing failed: $e');
+        }
+      }
+      
+      debugPrint('ChatBloc: ✅ Menu item details loading completed');
+      
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error in menu item details background loading: $e');
     }
   }
   
@@ -1092,17 +1112,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     debugPrint('ChatBloc: Cleared processed message hashes and ID mappings for new room');
   }
   
-  // Helper method to start periodic refresh for real-time updates
+  // OPTIMIZATION: Start periodic refresh for real-time updates
   void _startPeriodicRefresh() {
-    // Start periodic refresh to check for order details if not available initially
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (state is ChatLoaded) {
         final currentState = state as ChatLoaded;
         // Only refresh if order details are not available
         if (currentState.orderDetails == null && _currentRoomId != null) {
           debugPrint('ChatBloc: 🔄 Periodic refresh - checking for order details...');
-          debugPrint('ChatBloc: 🔄 Current orderDetails: ${currentState.orderDetails != null}');
           _refreshOrderDetails();
         }
       }
@@ -1110,11 +1128,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     debugPrint('ChatBloc: ✅ Periodic refresh started for order details');
   }
   
-  // Helper method to refresh order details
+  // OPTIMIZATION: Refresh order details with caching
   Future<void> _refreshOrderDetails() async {
     if (state is ChatLoaded && _currentRoomId != null) {
       final currentState = state as ChatLoaded;
-      // Use the correct orderId from chat room, not roomId
       final orderId = currentState.chatRoom.orderId.isNotEmpty 
           ? currentState.chatRoom.orderId 
           : currentState.chatRoom.roomId;
@@ -1122,43 +1139,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (orderId.isNotEmpty) {
         try {
           debugPrint('ChatBloc: 🔄 Refreshing order details for: $orderId');
-          final orderResult = await OrderHistoryService.getOrderDetails(orderId);
+          final orderDetails = await _getOrderDetailsWithCache(orderId);
           
-          if ((orderResult['success'] == 'SUCCESS' || orderResult['success'] == true) && orderResult['data'] != null) {
-            final orderDetails = OrderDetails.fromJson(orderResult['data']);
+          if (orderDetails != null) {
             debugPrint('ChatBloc: ✅ Order details refreshed successfully');
             
-            // Fetch menu item details
-            Map<String, Map<String, dynamic>> menuItemDetails = {};
-            if (orderDetails.items.isNotEmpty) {
-              final menuItemFutures = orderDetails.items
-                  .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
-                  .map((item) async {
-                    try {
-                      final menuResult = await MenuItemService.getMenuItemDetails(item.menuId!);
-                      if (menuResult['success'] == true && menuResult['data'] != null) {
-                        return {item.menuId!: menuResult['data'] as Map<String, dynamic>};
-                      }
-                    } catch (e) {
-                      debugPrint('ChatBloc: ❌ Error fetching menu item details for ${item.menuId}: $e');
-                    }
-                    return <String, Map<String, dynamic>>{};
-                  })
-                  .toList();
-              
-              final menuResults = await Future.wait(menuItemFutures);
-              for (final result in menuResults) {
-                menuItemDetails.addAll(result);
-              }
-            }
-            
-            // Emit updated state with order details
+            // Emit updated state with order details only
             emit(currentState.copyWith(
               orderDetails: orderDetails,
-              menuItemDetails: menuItemDetails,
             ));
             
-            debugPrint('ChatBloc: ✅ Chat state updated with order details');
+            debugPrint('ChatBloc: ✅ Chat state updated with refreshed order details');
           } else {
             debugPrint('ChatBloc: ⚠️ Order details still not available in refresh');
           }

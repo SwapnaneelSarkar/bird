@@ -47,7 +47,7 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
       final recentOrders = results[1] as List<RecentOrderModel>;
 
       // Extract user info
-      final userName = userData?['name'] ?? userData?['full_name'] ?? 'User';
+      final userName = userData?['name'] ?? userData?['full_name'] ?? 'Welcome Back';
       final userAddress = userData?['address'] ?? 'Add delivery address';
 
       emit(CategoryHomepageLoaded(

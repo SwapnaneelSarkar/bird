@@ -1,6 +1,5 @@
 // lib/presentation/home page/view.dart - COMPLETE ERROR-FREE VERSION
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -16,6 +15,7 @@ import '../../utils/currency_utils.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import 'home_favorites_bloc.dart';
 import '../../service/firebase_services.dart';
 
 // Responsive text utility function
@@ -44,7 +44,14 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Do NOT create a new BlocProvider here!
     // The router should provide the HomeBloc with the correct selectedSupercategoryId.
-    return _HomeContent(userData: userData, token: token);
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<HomeFavoritesBloc>(
+          create: (context) => HomeFavoritesBloc(),
+        ),
+      ],
+      child: _HomeContent(userData: userData, token: token),
+    );
   }
 }
 
@@ -112,8 +119,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
         Navigator.pushReplacementNamed(
           context,
           Routes.dashboard,
@@ -122,63 +131,80 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             'token': widget.token,
           },
         );
-        return false;
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FF),
         body: SafeArea(
-          child: BlocListener<HomeBloc, HomeState>(
-            listener: (context, state) {
-              // Handle all address-related state changes
-              _handleAddressUpdates(context, state);
-              // Handle address change notifications
-              if (state is HomeLoaded && state.userAddress != previousAddress) {
-                if (previousAddress != null && previousAddress != 'Add delivery address') {
-                  _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
-                }
-                previousAddress = state.userAddress;
-                debugPrint('HomePage: Address changed to: \\${state.userAddress}');
-                // Initialize currency when coordinates are available
-                if (state.userLatitude != null && state.userLongitude != null) {
-                  CurrencyUtils.getCurrencySymbolFromUserLocation();
-                }
-              }
-            },
-            child: BlocBuilder<HomeBloc, HomeState>(
-              buildWhen: (previous, current) {
-                // Always rebuild when state type changes
-                if (previous.runtimeType != current.runtimeType) return true;
-                // For HomeLoaded states, rebuild when important fields change
-                if (previous is HomeLoaded && current is HomeLoaded) {
-                  return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
-                         previous.selectedCategoryId != current.selectedCategoryId ||
-                         previous.vegOnly != current.vegOnly ||
-                         previous.restaurants.length != current.restaurants.length;
-                }
-                return true;
-              },
-              builder: (context, state) {
-                debugPrint('HomePage: BlocBuilder received state: \\${state.runtimeType}');
-                if (state is HomeLoaded) {
-                          debugPrint('HomePage: BlocBuilder - selectedCategoryId: \\${state.selectedCategoryId}');
-        debugPrint('HomePage: BlocBuilder - vegOnly: \\${state.vegOnly}');
-        debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: \\${state.selectedFoodTypeId}');
-        debugPrint('HomePage: BlocBuilder - restaurants count: \\${state.restaurants.length}');
-        debugPrint('HomePage: BlocBuilder - filtered restaurants count: \\${state.filteredRestaurants.length}');
-        
-        // Additional debugging for state consistency
-        debugPrint('HomePage: State consistency check - selectedCategoryId: ${state.selectedCategoryId}, selectedFoodTypeId: ${state.selectedFoodTypeId}');
-                }
-                if (state is HomeLoading) {
-                  return _buildLoadingWithTimeout(context);
-                } else if (state is HomeLoaded) {
-                  return _buildHomeContent(context, state);
-                } else {
-                  // If no HomeLoaded at all, show the full error state
-                  return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
+                          child: MultiBlocListener(
+          listeners: [
+            BlocListener<HomeBloc, HomeState>(
+              listener: (context, state) {
+                // Handle all address-related state changes
+                _handleAddressUpdates(context, state);
+                
+                // Handle address change notifications
+                if (state is HomeLoaded && state.userAddress != previousAddress) {
+                  if (previousAddress != null && previousAddress != 'Add delivery address') {
+                    _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
+                  }
+                  previousAddress = state.userAddress;
+                  debugPrint('HomePage: Address changed to: ${state.userAddress}');
+                  // Initialize currency when coordinates are available
+                  if (state.userLatitude != null && state.userLongitude != null) {
+                    CurrencyUtils.getCurrencySymbolFromUserLocation();
+                  }
                 }
               },
             ),
+            BlocListener<HomeFavoritesBloc, HomeFavoritesState>(
+              listener: (context, state) {
+                if (state is HomeFavoriteToggleError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: Colors.red,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+          child: BlocBuilder<HomeBloc, HomeState>(
+            buildWhen: (previous, current) {
+              // Always rebuild when state type changes
+              if (previous.runtimeType != current.runtimeType) return true;
+              // For HomeLoaded states, rebuild when important fields change
+              if (previous is HomeLoaded && current is HomeLoaded) {
+                return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
+                       previous.selectedCategoryId != current.selectedCategoryId ||
+                       previous.vegOnly != current.vegOnly ||
+                       previous.restaurants.length != current.restaurants.length;
+              }
+              return true;
+            },
+            builder: (context, state) {
+              debugPrint('HomePage: BlocBuilder received state: ${state.runtimeType}');
+              if (state is HomeLoaded) {
+                debugPrint('HomePage: BlocBuilder - selectedCategoryId: ${state.selectedCategoryId}');
+                debugPrint('HomePage: BlocBuilder - vegOnly: ${state.vegOnly}');
+                debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: ${state.selectedFoodTypeId}');
+                debugPrint('HomePage: BlocBuilder - restaurants count: ${state.restaurants.length}');
+                debugPrint('HomePage: BlocBuilder - filtered restaurants count: ${state.filteredRestaurants.length}');
+                
+                // Additional debugging for state consistency
+                debugPrint('HomePage: State consistency check - selectedCategoryId: ${state.selectedCategoryId}, selectedFoodTypeId: ${state.selectedFoodTypeId}');
+              }
+              if (state is HomeLoading) {
+                return _buildLoadingWithTimeout(context);
+              } else if (state is HomeLoaded) {
+                return _buildHomeContent(context, state);
+              } else {
+                // If no HomeLoaded at all, show the full error state
+                return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
+              }
+            },
+          ),
           ),
         ),
       ),
@@ -1187,22 +1213,69 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
     
     return Hero(
       tag: 'restaurant-$sanitizedName',
-      child: RestaurantCard(
-        name: restaurant.name,
-        imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
-        cuisine: restaurant.cuisine,
-        rating: restaurant.rating ?? 0.0,
-        isVeg: restaurant.isVeg,
-        restaurantLatitude: restaurant.latitude,
-        restaurantLongitude: restaurant.longitude,
-        userLatitude: state.userLatitude,
-        userLongitude: state.userLongitude,
-        restaurantType: restaurant.restaurantType,
-        isAcceptingOrder: restaurant.isAcceptingOrder,
-        onTap: () => _navigateToRestaurantDetails(context, restaurant),
-      ).animate(controller: _animationController)
-        .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
-        .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
+      child: BlocBuilder<HomeFavoritesBloc, HomeFavoritesState>(
+        builder: (context, favoritesState) {
+          bool isFavorite = false;
+          bool isLoading = false;
+          
+          // Get cached status first
+          final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(restaurant.id);
+          if (cachedStatus != null) {
+            isFavorite = cachedStatus;
+          }
+          
+          // Check if this restaurant's favorite status has been checked
+          if (favoritesState is HomeFavoriteStatusChecked && 
+              favoritesState.partnerId == restaurant.id) {
+            isFavorite = favoritesState.isFavorite;
+          } else if (favoritesState is HomeFavoriteToggled && 
+                     favoritesState.partnerId == restaurant.id) {
+            isFavorite = favoritesState.isNowFavorite;
+          } else if (favoritesState is HomeFavoriteToggling && 
+                     favoritesState.partnerId == restaurant.id) {
+            isLoading = true;
+            // Show optimistic update
+            isFavorite = favoritesState.isAdding;
+          }
+          
+          // Check favorite status when restaurant is first displayed (only once)
+          if (restaurant.id != null && restaurant.id.isNotEmpty && cachedStatus == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<HomeFavoritesBloc>().add(
+                CheckHomeFavoriteStatus(partnerId: restaurant.id),
+              );
+            });
+          }
+          
+          return RestaurantCard(
+            name: restaurant.name,
+            imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
+            cuisine: restaurant.cuisine,
+            rating: restaurant.rating ?? 0.0,
+            isVeg: restaurant.isVeg,
+            restaurantLatitude: restaurant.latitude,
+            restaurantLongitude: restaurant.longitude,
+            userLatitude: state.userLatitude,
+            userLongitude: state.userLongitude,
+            restaurantType: restaurant.restaurantType,
+            isAcceptingOrder: restaurant.isAcceptingOrder,
+            partnerId: restaurant.id,
+            isFavorite: isFavorite,
+            isLoading: isLoading,
+            onFavoriteToggle: restaurant.id != null && restaurant.id.isNotEmpty ? () {
+              context.read<HomeFavoritesBloc>().add(
+                ToggleHomeFavorite(
+                  partnerId: restaurant.id,
+                  isCurrentlyFavorite: isFavorite,
+                ),
+              );
+            } : null,
+            onTap: () => _navigateToRestaurantDetails(context, restaurant),
+          ).animate(controller: _animationController)
+            .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+            .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad);
+        },
+      ),
     );
   }
 

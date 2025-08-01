@@ -813,11 +813,28 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
               const SizedBox(width: 12),
               Expanded(
                 child: _buildQuickActionCard(
+                  icon: Icons.favorite,
+                  title: 'Favorites',
+                  subtitle: 'Your saved restaurants',
+                  onTap: () => Navigator.pushNamed(context, Routes.favorites),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildQuickActionCard(
                   icon: Icons.settings_outlined,
                   title: 'Settings',
                   subtitle: 'Manage account',
                   onTap: () => Navigator.pushNamed(context, Routes.settings),
                 ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(), // Empty container for spacing
               ),
             ],
           ),
@@ -1069,7 +1086,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
 
   // Helper Methods
   String _getGreeting() {
-    return 'Welcome Back';
+    return 'Hello';
   }
 
   IconData _getCategoryIcon(String categoryName) {

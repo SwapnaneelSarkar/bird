@@ -19,6 +19,10 @@ class RestaurantCard extends StatelessWidget {
   final double? userLongitude;
   final String? restaurantType;
   final int? isAcceptingOrder;
+  final String? partnerId;
+  final bool? isFavorite;
+  final bool? isLoading;
+  final VoidCallback? onFavoriteToggle;
 
   const RestaurantCard({
     Key? key,
@@ -34,6 +38,10 @@ class RestaurantCard extends StatelessWidget {
     this.userLongitude,
     this.restaurantType,
     this.isAcceptingOrder,
+    this.partnerId,
+    this.isFavorite,
+    this.isLoading,
+    this.onFavoriteToggle,
   }) : super(key: key);
 
   @override
@@ -210,6 +218,50 @@ class RestaurantCard extends StatelessWidget {
                       child: _buildYellowRatingBadge(ratingValue, screenWidth),
                     ),
                   ),
+                  
+                  // Favorite button
+                  if (partnerId != null && onFavoriteToggle != null)
+                    Positioned(
+                      top: screenHeight * 0.015,
+                      left: screenWidth * 0.03,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (onFavoriteToggle != null && !(isLoading == true)) {
+                            onFavoriteToggle!();
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.all(screenWidth * 0.015),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(screenWidth * 0.025),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: isLoading == true
+                              ? SizedBox(
+                                  width: screenWidth * 0.035,
+                                  height: screenWidth * 0.035,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      isFavorite == true ? Colors.red[400]! : Colors.grey[600]!,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  isFavorite == true ? Icons.favorite : Icons.favorite_border,
+                                  color: isFavorite == true ? Colors.red[400] : Colors.grey[600],
+                                  size: screenWidth * 0.045,
+                                ),
+                        ),
+                      ),
+                    ),
                   
                   // Restaurant Type badge - moved to bottom left of image
                   if (restaurantType != null && restaurantType!.isNotEmpty)

@@ -8,6 +8,7 @@ import 'package:bird/presentation/favorites/view.dart';
 import 'package:bird/presentation/home%20page/bloc.dart';
 import 'package:bird/presentation/home%20page/event.dart';
 import 'package:bird/presentation/order_confirmation/view.dart';
+import 'package:bird/presentation/order_details/view.dart';
 import 'package:bird/presentation/order_history/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
 import 'package:bird/presentation/profile_view/view.dart';
@@ -33,6 +34,7 @@ class Routes {
   static const String restaurantMenu = '/restaurantMenu';
   static const String restaurantProfile = '/restaurantProfile';
   static const String orderConfirmation = '/orderConfirmation';
+  static const String orderDetails = '/orderDetails';
   static const String chat = '/chat';
   static const String orderHistory = '/orderHistory';
   static const String dashboard = '/dashboard';
@@ -176,6 +178,17 @@ class RouteGenerator {
 
       case Routes.orderConfirmation:
         return MaterialPageRoute(builder: (_) => const OrderConfirmationView());
+
+      case Routes.orderDetails:
+        if (routeSettings.arguments != null && routeSettings.arguments is String) {
+          final orderId = routeSettings.arguments as String;
+          return MaterialPageRoute(
+            builder: (_) => OrderDetailsView(orderId: orderId),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const OrderDetailsView(orderId: ''),
+        );
 
       case Routes.chat:
         String? orderId;

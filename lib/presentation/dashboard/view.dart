@@ -6,7 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/router/router.dart';
-import '../../utils/currency_utils.dart';
+
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -44,7 +44,6 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     with TickerProviderStateMixin {
   late AnimationController _headerAnimationController;
   late AnimationController _categoryAnimationController;
-  late AnimationController _ordersAnimationController;
 
   @override
   void initState() {
@@ -70,16 +69,9 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
       vsync: this,
     );
 
-    _ordersAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-
     // Start animations in sequence
     _headerAnimationController.forward().then((_) {
-      _categoryAnimationController.forward().then((_) {
-        _ordersAnimationController.forward();
-      });
+      _categoryAnimationController.forward();
     });
   }
 
@@ -87,7 +79,6 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
   void dispose() {
     _headerAnimationController.dispose();
     _categoryAnimationController.dispose();
-    _ordersAnimationController.dispose();
     super.dispose();
   }
 
@@ -118,45 +109,35 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
           listener: (context, state) {
             if (state is CategorySelected) {
               debugPrint('CategoryHomepage: Navigating with supercategory ID: ${state.categoryId}');
-              bool homeFound = false;
-              Navigator.popUntil(context, (route) {
-                if (route.settings.name == Routes.home) {
-                  homeFound = true;
-                  return true;
-                }
-                return false;
-              });
-              if (homeFound) {
-                // Optionally, use a global event or a callback to update the HomePage's category
-                // For now, do nothing (the HomePage should listen for a global event or refresh itself)
-              } else {
-                Navigator.of(context).pushAndRemoveUntil(
-                  PageRouteBuilder(
-                    settings: RouteSettings(name: Routes.home),
-                    pageBuilder: (context, animation, secondaryAnimation) => BlocProvider(
-                      create: (_) => HomeBloc(
-                        selectedSupercategoryId: state.categoryId,
-                      )..add(const LoadHomeData()),
-                      child: HomePage(
-                        userData: widget.userData,
-                        token: widget.token,
-                      ),
+              
+              // Always navigate to home page with the selected category
+              // Don't try to find existing home route since we're coming from dashboard
+              Navigator.of(context).pushAndRemoveUntil(
+                PageRouteBuilder(
+                  settings: RouteSettings(name: Routes.home),
+                  pageBuilder: (context, animation, secondaryAnimation) => BlocProvider(
+                    create: (_) => HomeBloc(
+                      selectedSupercategoryId: state.categoryId,
+                    )..add(const LoadHomeData()),
+                    child: HomePage(
+                      userData: widget.userData,
+                      token: widget.token,
                     ),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      const begin = Offset(1.0, 0.0);
-                      const end = Offset.zero;
-                      const curve = Curves.easeInOut;
-                      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                      return SlideTransition(
-                        position: animation.drive(tween),
-                        child: child,
-                      );
-                    },
-                    transitionDuration: const Duration(milliseconds: 400),
                   ),
-                  (route) => false,
-                );
-              }
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+                    var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                    return SlideTransition(
+                      position: animation.drive(tween),
+                      child: child,
+                    );
+                  },
+                  transitionDuration: const Duration(milliseconds: 400),
+                ),
+                (route) => false,
+              );
             }
           },
           builder: (context, state) {
@@ -259,27 +240,6 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 curve: Curves.easeOutCubic,
               ).fadeIn(delay: 200.ms, duration: 600.ms),
             ),
-                        // Recent Orders Section
-            if (state.recentOrders.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _buildRecentOrdersSection(state.recentOrders).animate().slideY(
-                  begin: 0.3,
-                  end: 0,
-                  duration: 800.ms,
-                  curve: Curves.easeOutCubic,
-                ).fadeIn(delay: 600.ms, duration: 600.ms),
-              ),
-            
-
-            // Quick Actions Section
-            SliverToBoxAdapter(
-              child: _buildQuickActionsSection().animate().slideY(
-                begin: 0.3,
-                end: 0,
-                duration: 800.ms,
-                curve: Curves.easeOutCubic,
-              ).fadeIn(delay: 400.ms, duration: 600.ms),
-            ),
             
             // Bottom spacing
             const SliverToBoxAdapter(
@@ -365,40 +325,40 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 ),
               ),
               const SizedBox(width: 16),
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.pushNamed(context, Routes.profileView);
-                },
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        ColorManager.primary.withOpacity(0.1),
-                        ColorManager.primary.withOpacity(0.2),
-                      ],
+              // Profile Button
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: ColorManager.primary.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ColorManager.primary.withOpacity(0.2),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
+                  ],
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.9),
+                      Colors.white.withOpacity(0.7),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Icon(
-                    Icons.person_outline_rounded,
-                    color: ColorManager.primary,
-                    size: 32,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: () => Navigator.pushNamed(context, Routes.profileView),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Icon(
+                        Icons.person,
+                        color: ColorManager.primary,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -785,304 +745,13 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     );
   }
 
-  Widget _buildQuickActionsSection() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quick Actions',
-            style: GoogleFonts.poppins(
-              fontSize: _getResponsiveFontSize(18),
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildQuickActionCard(
-                  icon: Icons.history,
-                  title: 'Order History',
-                  subtitle: 'View past orders',
-                  onTap: () => Navigator.pushNamed(context, Routes.orderHistory),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildQuickActionCard(
-                  icon: Icons.favorite,
-                  title: 'Favorites',
-                  subtitle: 'Your saved restaurants',
-                  onTap: () => Navigator.pushNamed(context, Routes.favorites),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildQuickActionCard(
-                  icon: Icons.settings_outlined,
-                  title: 'Settings',
-                  subtitle: 'Manage account',
-                  onTap: () => Navigator.pushNamed(context, Routes.settings),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(), // Empty container for spacing
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildQuickActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.grey[200]!,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: ColorManager.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: ColorManager.primary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: _getResponsiveFontSize(14),
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: GoogleFonts.poppins(
-                fontSize: _getResponsiveFontSize(12),
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildRecentOrdersSection(List<RecentOrderModel> recentOrders) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Orders',
-                style: GoogleFonts.poppins(
-                  fontSize: _getResponsiveFontSize(18),
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, Routes.orderHistory),
-                child: Text(
-                  'View All',
-                  style: GoogleFonts.poppins(
-                    fontSize: _getResponsiveFontSize(14),
-                    color: ColorManager.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 120,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: recentOrders.take(5).length,
-              itemBuilder: (context, index) {
-                final order = recentOrders[index];
-                return _buildRecentOrderCard(order, index);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildRecentOrderCard(RecentOrderModel order, int index) {
-    final statusColor = _getOrderStatusColor(order.orderStatus);
-    
-    return Container(
-      width: 280,
-      margin: EdgeInsets.only(right: index < 4 ? 12 : 0),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey[200]!,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(order.supercategoryName).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  _getCategoryIcon(order.supercategoryName),
-                  color: _getCategoryColor(order.supercategoryName),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      order.supercategoryName,
-                      style: GoogleFonts.poppins(
-                        fontSize: _getResponsiveFontSize(14),
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      _formatOrderDate(order.createdAt),
-                      style: GoogleFonts.poppins(
-                        fontSize: _getResponsiveFontSize(12),
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _formatOrderStatus(order.orderStatus),
-                  style: GoogleFonts.poppins(
-                    fontSize: _getResponsiveFontSize(10),
-                    fontWeight: FontWeight.w500,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              FutureBuilder<String>(
-                future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-                builder: (context, snapshot) {
-                  final currencySymbol = snapshot.data ?? '₹';
-                  return Text(
-                    CurrencyUtils.formatPrice(double.tryParse(order.totalPrice) ?? 0, currencySymbol),
-                    style: GoogleFonts.poppins(
-                      fontSize: _getResponsiveFontSize(16),
-                      fontWeight: FontWeight.bold,
-                      color: ColorManager.primary,
-                    ),
-                  );
-                },
-              ),
-              // Only show reorder if the order is delivered/completed
-              if (order.orderStatus.toUpperCase() == 'DELIVERED')
-                GestureDetector(
-                  onTap: () {
-                    // Navigate to order details for potential reorder
-                    Navigator.pushNamed(context, Routes.orderHistory);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: ColorManager.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Reorder',
-                      style: GoogleFonts.poppins(
-                        fontSize: _getResponsiveFontSize(12),
-                        fontWeight: FontWeight.w600,
-                        color: ColorManager.primary,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    ).animate().slideX(
-      begin: 0.3,
-      end: 0,
-      duration: Duration(milliseconds: 300 + (index * 100)),
-      curve: Curves.easeOutCubic,
-    );
-  }
+
+
+
+
 
   // Helper Methods
   String _getGreeting() {
@@ -1104,73 +773,8 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     }
   }
 
-  Color _getCategoryColor(String categoryName) {
-    switch (categoryName.toLowerCase()) {
-      case 'food':
-        return ColorManager.primary;
-      case 'grocery':
-        return const Color(0xFF4CAF50);
-      case 'medicine':
-        return const Color(0xFF2196F3);
-      case 'electronics':
-        return const Color(0xFFE91E63);
-      default:
-        return ColorManager.primary;
-    }
-  }
 
-  Color _getOrderStatusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return const Color(0xFFFF9800);
-      case 'PREPARING':
-        return const Color(0xFF2196F3);
-      case 'OUT_FOR_DELIVERY':
-        return const Color(0xFF9C27B0);
-      case 'DELIVERED':
-        return const Color(0xFF4CAF50);
-      case 'CANCELLED':
-        return const Color(0xFFF44336);
-      default:
-        return Colors.grey;
-    }
-  }
 
-  String _formatOrderStatus(String status) {
-    switch (status.toUpperCase()) {
-      case 'OUT_FOR_DELIVERY':
-        return 'Out for Delivery';
-      case 'PENDING':
-        return 'Pending';
-      case 'PREPARING':
-        return 'Preparing';
-      case 'DELIVERED':
-        return 'Delivered';
-      case 'CANCELLED':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  }
 
-  String _formatOrderDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      final now = DateTime.now();
-      final difference = now.difference(date).inDays;
-
-      if (difference == 0) {
-        return 'Today';
-      } else if (difference == 1) {
-        return 'Yesterday';
-      } else if (difference < 7) {
-        return '$difference days ago';
-      } else {
-        return '${date.day}/${date.month}/${date.year}';
-      }
-    } catch (e) {
-      return 'Unknown date';
-    }
-  }
 }
                 

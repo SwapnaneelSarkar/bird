@@ -15,6 +15,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "1062805760329-a8dbcuc8ssu0p39u6huj9ks8a0fa5smi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.birduser.app",
+            "certificate_hash": "fc014aa3ef928ef31264171abe08071766428648"
+          }
+        },
+        {
+          "client_id": "1062805760329-ilhb1afd4aa6btog97mbofgf1bjkaa6a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.birduser.app",
+            "certificate_hash": "32bcbcd59ec741d1cc30e7de657706a6c513978a"
+          }
+        },
+        {
           "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -50,6 +66,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "1062805760329-n4raphajbbl9o79vmm7hmu3qdm27ncqa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bird",
+            "certificate_hash": "fc014aa3ef928ef31264171abe08071766428648"
+          }
+        },
         {
           "client_id": "1062805760329-itp0lhjbr1ha60d0ijek0l65s4b9ai3f.apps.googleusercontent.com",
           "client_type": 3

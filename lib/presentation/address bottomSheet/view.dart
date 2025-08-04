@@ -791,6 +791,8 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
     String fullAddress,
   ) {
     final nameController = TextEditingController();
+    final houseFlatController = TextEditingController();
+    final apartmentRoadController = TextEditingController();
     bool makeDefault = false;
     final parentContext = context;
 
@@ -846,6 +848,67 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'A detailed address will help our Delivery Partner reach your doorstep easily',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange[700],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'HOUSE / FLAT / FLOOR NO.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: houseFlatController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Flat 101, House No. 123',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'APARTMENT / ROAD / AREA (RECOMMENDED)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: apartmentRoadController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., ABC Apartment, Main Road',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Checkbox(
@@ -889,6 +952,8 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
             ElevatedButton(
               onPressed: () {
                 final enteredName = nameController.text.trim();
+                final houseFlat = houseFlatController.text.trim();
+                final apartmentRoad = apartmentRoadController.text.trim();
                 final lowerName = enteredName.toLowerCase();
                 final savedNames = _getSavedNames();
 
@@ -910,10 +975,22 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                   );
                   return;
                 }
+                
+                // Combine house/flat and apartment/road into a single address string
+                String combinedAddress = address;
+                if (houseFlat.isNotEmpty || apartmentRoad.isNotEmpty) {
+                  List<String> addressParts = [];
+                  if (houseFlat.isNotEmpty) addressParts.add(houseFlat);
+                  if (apartmentRoad.isNotEmpty) addressParts.add(apartmentRoad);
+                  if (address.isNotEmpty) addressParts.add(address);
+                  
+                  combinedAddress = addressParts.join(', ');
+                }
+                
                 Navigator.of(dialogContext).pop();
                 parentContext.read<AddressPickerBloc>().add(
                   SaveAddressEvent(
-                    address: address,
+                    address: combinedAddress,
                     subAddress: subAddress,
                     addressName: enteredName,
                     latitude: latitude,
@@ -1093,7 +1170,6 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
   void _showEditAddressDialog(BuildContext context, Map<String, dynamic> address, double textScale, AddressPickerBloc bloc) {
     final addressId = address['address_id']?.toString() ?? '';
     final addressNameController = TextEditingController(text: address['address_line2'] ?? '');
-    final addressLineController = TextEditingController(text: address['address_line1'] ?? '');
     final cityController = TextEditingController(text: address['city'] ?? '');
     final stateController = TextEditingController(text: address['state'] ?? '');
     final postalCodeController = TextEditingController(text: address['postal_code'] ?? '');
@@ -1101,6 +1177,25 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
     bool isDefault = address['is_default'] == 1;
     final latitude = double.tryParse(address['latitude']?.toString() ?? '') ?? 0.0;
     final longitude = double.tryParse(address['longitude']?.toString() ?? '') ?? 0.0;
+    
+    // Parse existing address to extract house/flat and apartment/road parts
+    String existingAddress = address['address_line1'] ?? '';
+    String houseFlat = '';
+    String apartmentRoad = '';
+    
+    // Simple parsing logic - this can be improved based on your data format
+    if (existingAddress.isNotEmpty) {
+      List<String> parts = existingAddress.split(', ');
+      if (parts.length >= 2) {
+        houseFlat = parts[0];
+        apartmentRoad = parts[1];
+      } else if (parts.length == 1) {
+        apartmentRoad = parts[0];
+      }
+    }
+    
+    final houseFlatController = TextEditingController(text: houseFlat);
+    final apartmentRoadController = TextEditingController(text: apartmentRoad);
 
     showDialog(
       context: context,
@@ -1144,8 +1239,23 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                   ),
                 ),
                 SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'A detailed address will help our Delivery Partner reach your doorstep easily',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange[700],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
                 Text(
-                  'Address Line 1',
+                  'HOUSE / FLAT / FLOOR NO.',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1154,9 +1264,32 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                 ),
                 SizedBox(height: 8),
                 TextField(
-                  controller: addressLineController,
+                  controller: houseFlatController,
                   decoration: InputDecoration(
-                    hintText: 'Street address',
+                    hintText: 'e.g., Flat 101, House No. 123',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'APARTMENT / ROAD / AREA (RECOMMENDED)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: apartmentRoadController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., ABC Apartment, Main Road',
                     filled: true,
                     fillColor: ColorManager.otpField,
                     border: OutlineInputBorder(
@@ -1271,28 +1404,37 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
             ElevatedButton(
               onPressed: () {
                 final addressName = addressNameController.text.trim();
-                final addressLine = addressLineController.text.trim();
+                final houseFlat = houseFlatController.text.trim();
+                final apartmentRoad = apartmentRoadController.text.trim();
                 final city = cityController.text.trim();
                 final state = stateController.text.trim();
                 final postalCode = postalCodeController.text.trim();
                 final country = countryController.text.trim();
 
-                if (addressName.isEmpty || addressLine.isEmpty || city.isEmpty || state.isEmpty) {
+                if (addressName.isEmpty || city.isEmpty || state.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please fill in all required fields.'),
+                      content: Text('Please fill in address name, city and state.'),
                       backgroundColor: Colors.red,
                     ),
                   );
                   return;
                 }
 
+                // Combine house/flat and apartment/road into a single address string
+                String combinedAddress = '';
+                List<String> addressParts = [];
+                if (houseFlat.isNotEmpty) addressParts.add(houseFlat);
+                if (apartmentRoad.isNotEmpty) addressParts.add(apartmentRoad);
+                
+                combinedAddress = addressParts.join(', ');
+
                 Navigator.of(dialogContext).pop();
                 // Use the passed bloc instance
                 bloc.add(
                   UpdateAddressEvent(
                     addressId: addressId,
-                    addressLine1: addressLine,
+                    addressLine1: combinedAddress,
                     addressLine2: addressName,
                     city: city,
                     state: state,

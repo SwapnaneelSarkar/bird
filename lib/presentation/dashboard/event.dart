@@ -29,14 +29,4 @@ class SelectCategory extends CategoryHomepageEvent {
   List<Object?> get props => [categoryId, categoryName];
 }
 
-class NavigateToProfile extends CategoryHomepageEvent {
-  const NavigateToProfile();
-}
 
-class NavigateToOrderHistory extends CategoryHomepageEvent {
-  const NavigateToOrderHistory();
-}
-
-class NavigateToSettings extends CategoryHomepageEvent {
-  const NavigateToSettings();
-}

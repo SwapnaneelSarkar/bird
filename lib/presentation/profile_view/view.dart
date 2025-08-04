@@ -58,9 +58,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
   Widget build(BuildContext context) {
     final w = MediaQuery.of(context).size.width;
 
-    return BlocProvider(
-      create: (_) => ProfileBloc()..add(LoadProfile()),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF8F8F8),
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -72,15 +70,31 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
             BlocBuilder<ProfileBloc, ProfileState>(
               builder: (context, state) {
                 if (state is ProfileLoaded) {
-                  return IconButton(
-                    icon: const Icon(
-                      Icons.logout,
-                      color: Colors.red,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      _showLogoutDialog(context);
-                    },
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Heart icon for favorites
+                      IconButton(
+                        icon: const Text(
+                          '❤️',
+                          style: TextStyle(fontSize: 24),
+                        ),
+                        onPressed: () {
+                          Navigator.pushNamed(context, Routes.favorites);
+                        },
+                      ),
+                      // Logout button
+                      IconButton(
+                        icon: const Icon(
+                          Icons.logout,
+                          color: Colors.red,
+                          size: 24,
+                        ),
+                        onPressed: () {
+                          _showLogoutDialog(context);
+                        },
+                      ),
+                    ],
                   );
                 }
                 return const SizedBox.shrink();
@@ -134,8 +148,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
             );
           },
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildLoadingView(double w) {
@@ -222,31 +235,6 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Profile Avatar with Icon
-                Container(
-                  width: w * 0.22,
-                  height: w * 0.22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.15),
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 3,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.person,
-                    size: w * 0.11,
-                    color: Colors.white,
-                  ),
-                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -764,7 +752,6 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
 
   void _showEditAddressDialog(BuildContext context, SavedAddress address) {
     final addressNameController = TextEditingController(text: address.addressLine2);
-    final addressLineController = TextEditingController(text: address.addressLine1);
     final cityController = TextEditingController(text: address.city);
     final stateController = TextEditingController(text: address.state);
     final postalCodeController = TextEditingController(text: address.postalCode);
@@ -772,6 +759,25 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
     bool isDefault = address.isDefault;
     final latitude = address.latitude;
     final longitude = address.longitude;
+    
+    // Parse existing address to extract house/flat and apartment/road parts
+    String existingAddress = address.addressLine1;
+    String houseFlat = '';
+    String apartmentRoad = '';
+    
+    // Simple parsing logic - this can be improved based on your data format
+    if (existingAddress.isNotEmpty) {
+      List<String> parts = existingAddress.split(', ');
+      if (parts.length >= 2) {
+        houseFlat = parts[0];
+        apartmentRoad = parts[1];
+      } else if (parts.length == 1) {
+        apartmentRoad = parts[0];
+      }
+    }
+    
+    final houseFlatController = TextEditingController(text: houseFlat);
+    final apartmentRoadController = TextEditingController(text: apartmentRoad);
 
     showDialog(
       context: context,
@@ -815,8 +821,23 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                   ),
                 ),
                 SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'A detailed address will help our Delivery Partner reach your doorstep easily',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange[700],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
                 Text(
-                  'Address Line 1',
+                  'HOUSE / FLAT / FLOOR NO.',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -825,9 +846,32 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                 ),
                 SizedBox(height: 8),
                 TextField(
-                  controller: addressLineController,
+                  controller: houseFlatController,
                   decoration: InputDecoration(
-                    hintText: 'Street address',
+                    hintText: 'e.g., Flat 101, House No. 123',
+                    filled: true,
+                    fillColor: ColorManager.otpField,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'APARTMENT / ROAD / AREA (RECOMMENDED)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: apartmentRoadController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., ABC Apartment, Main Road',
                     filled: true,
                     fillColor: ColorManager.otpField,
                     border: OutlineInputBorder(
@@ -997,29 +1041,38 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
             ElevatedButton(
               onPressed: () {
                 final addressName = addressNameController.text.trim();
-                final addressLine = addressLineController.text.trim();
+                final houseFlat = houseFlatController.text.trim();
+                final apartmentRoad = apartmentRoadController.text.trim();
                 final city = cityController.text.trim();
                 final state = stateController.text.trim();
                 final postalCode = postalCodeController.text.trim();
                 final country = countryController.text.trim();
 
-                // Only require address line 1 and state as essential fields
-                if (addressLine.isEmpty || state.isEmpty) {
+                // Only require state as essential field
+                if (state.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please fill in address line and state.'),
+                      content: Text('Please fill in state.'),
                       backgroundColor: Colors.red,
                     ),
                   );
                   return;
                 }
 
+                // Combine house/flat and apartment/road into a single address string
+                String combinedAddress = '';
+                List<String> addressParts = [];
+                if (houseFlat.isNotEmpty) addressParts.add(houseFlat);
+                if (apartmentRoad.isNotEmpty) addressParts.add(apartmentRoad);
+                
+                combinedAddress = addressParts.join(', ');
+
                 Navigator.of(dialogContext).pop();
                 // Use the AddressPickerBloc from context
                 context.read<AddressPickerBloc>().add(
                   UpdateAddressEvent(
                     addressId: address.addressId,
-                    addressLine1: addressLine,
+                    addressLine1: combinedAddress,
                     addressLine2: addressName,
                     city: city,
                     state: state,

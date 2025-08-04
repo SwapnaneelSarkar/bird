@@ -23,6 +23,7 @@ class RestaurantCard extends StatelessWidget {
   final bool? isFavorite;
   final bool? isLoading;
   final VoidCallback? onFavoriteToggle;
+  final bool? isFoodSupercategory;
 
   const RestaurantCard({
     Key? key,
@@ -42,6 +43,7 @@ class RestaurantCard extends StatelessWidget {
     this.isFavorite,
     this.isLoading,
     this.onFavoriteToggle,
+    this.isFoodSupercategory,
   }) : super(key: key);
 
   @override
@@ -49,6 +51,17 @@ class RestaurantCard extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     double ratingValue = _parseRating(rating);
+    
+    // Check if this is a store (non-food supercategory)
+    // Use the explicit isFoodSupercategory parameter if provided, otherwise fall back to restaurantType
+    final isStore = isFoodSupercategory != null 
+        ? !isFoodSupercategory! 
+        : (restaurantType != null && restaurantType != 'restaurant');
+    
+    if (isStore) {
+      return _buildInstamartStoreCard(context, ratingValue, screenWidth, screenHeight);
+    }
+    
     return _buildVerticalCard(context, ratingValue, screenWidth, screenHeight);
   }
 
@@ -404,6 +417,292 @@ class RestaurantCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildInstamartStoreCard(BuildContext context, double ratingValue, double screenWidth, double screenHeight) {
+    final bool isNotAcceptingOrders = isAcceptingOrder == 0;
+    final scale = (screenWidth / 400).clamp(0.7, 1.0);
+    
+    return GestureDetector(
+      onTap: isNotAcceptingOrders ? null : onTap,
+      child: Container(
+        width: (screenWidth - 48) / 2, // 2 cards per row with margins
+        margin: EdgeInsets.all(6 * scale),
+        decoration: BoxDecoration(
+          color: isNotAcceptingOrders ? Colors.grey[100] : Colors.white,
+          borderRadius: BorderRadius.circular(10 * scale),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isNotAcceptingOrders ? 0.03 : 0.06),
+              offset: Offset(0, 1),
+              blurRadius: 6,
+              spreadRadius: 0,
+            ),
+          ],
+          border: Border.all(
+            color: isNotAcceptingOrders ? Colors.grey[300]! : Colors.grey[200]!,
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10 * scale),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Image section
+              Stack(
+                children: [
+                  // Store Image
+                  SizedBox(
+                    width: double.infinity,
+                    height: 90 * scale,
+                    child: _buildImage(imageUrl),
+                  ),
+                  
+                  // Enhanced grey overlay when not accepting orders
+                  if (isNotAcceptingOrders)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                  
+                  // Favorite button
+                  if (partnerId != null && onFavoriteToggle != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (onFavoriteToggle != null && !(isLoading == true)) {
+                            onFavoriteToggle!();
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: isLoading == true
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      isFavorite == true ? Colors.red[400]! : Colors.grey[600]!,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  isFavorite == true ? Icons.favorite : Icons.favorite_border,
+                                  color: isFavorite == true ? Colors.red[400] : Colors.grey[600],
+                                  size: 16,
+                                ),
+                        ),
+                      ),
+                    ),
+                  
+                  // Rating badge
+                  if (ratingValue > 0)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: ColorManager.instamartGreen,
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 2,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.star,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            SizedBox(width: 2),
+                            Text(
+                              ratingValue.toStringAsFixed(1),
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              
+              // Content section
+              Padding(
+                padding: EdgeInsets.all(8 * scale),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Store name
+                    Text(
+                      name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13 * scale,
+                        fontWeight: FontWeight.w600,
+                        color: isNotAcceptingOrders ? Colors.grey[600] : Colors.black87,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    
+                    SizedBox(height: 4),
+                    
+                    // Cuisine/category
+                    if (cuisine.isNotEmpty)
+                      Text(
+                        cuisine,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11 * scale,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    
+                    SizedBox(height: 4 * scale),
+                    
+                    // Delivery info row
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 12 * scale,
+                          color: ColorManager.instamartGreen,
+                        ),
+                        SizedBox(width: 3 * scale),
+                        Text(
+                          '20-30 min',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10 * scale,
+                            color: ColorManager.instamartGreen,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Spacer(),
+                        Icon(
+                          Icons.location_on,
+                          size: 12 * scale,
+                          color: Colors.grey[500],
+                        ),
+                        SizedBox(width: 3 * scale),
+                        Expanded(
+                          child: Text(
+                            _calculateDistance(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 10 * scale,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w400,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    SizedBox(height: 4 * scale),
+                    
+                    // Add to cart button - only show for food supercategories
+                    if (!isNotAcceptingOrders && isFoodSupercategory == true)
+                      Container(
+                        width: double.infinity,
+                        height: 26 * scale,
+                        child: ElevatedButton(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ColorManager.instamartGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Text(
+                            'Add to Cart',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11 * scale,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (isNotAcceptingOrders && isFoodSupercategory == true)
+                      Container(
+                        width: double.infinity,
+                        height: 26 * scale,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Not Available',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11 * scale,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _calculateDistance() {
+    if (restaurantLatitude == null || restaurantLongitude == null || 
+        userLatitude == null || userLongitude == null) {
+      return 'Distance N/A';
+    }
+    
+    final distance = DistanceUtil.calculateDistance(
+      userLatitude!, userLongitude!,
+      restaurantLatitude!, restaurantLongitude!,
+    );
+    
+    if (distance < 1) {
+      return '${(distance * 1000).round()}m';
+    } else {
+      return '${distance.toStringAsFixed(1)}km';
+    }
   }
 
   // Updated method to create the restaurant type badge with the app theme color

@@ -9,6 +9,7 @@ import '../service/attribute_service.dart';
 import '../models/attribute_model.dart';
 import '../constants/font/fontManager.dart';
 import '../utils/currency_utils.dart';
+import 'veg_nonveg_icons.dart';
 
 class FoodItemCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -179,25 +180,17 @@ class _FoodItemCardState extends State<FoodItemCard> {
                       // Veg indicator at the start
                       Container(
                         margin: EdgeInsets.only(top: 2, right: screenWidth * 0.02), 
-                        child: Container(
-                          width: screenWidth * 0.04,
-                          height: screenWidth * 0.04,
-                          decoration: BoxDecoration(
-                            color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 1.5,
+                        child: isVeg 
+                          ? VegNonVegIcons.vegIcon(
+                              size: screenWidth * 0.04,
+                              color: const Color(0xFF3CB043),
+                              borderColor: Colors.white,
+                            )
+                          : VegNonVegIcons.nonVegIcon(
+                              size: screenWidth * 0.04,
+                              color: const Color(0xFFE53935),
+                              borderColor: Colors.white,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: isVeg ? const Color(0xFF3CB043).withOpacity(0.3) : const Color(0xFFE53935).withOpacity(0.3),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                       
                       // Name text with proper constraints

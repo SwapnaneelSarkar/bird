@@ -13,6 +13,7 @@ import '../../../service/category_recommendation_service.dart';
 import '../../../service/food_type_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../models/restaurant_model.dart';
+import '../../models/recent_order_model.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -110,17 +111,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         }
       }
       
-      // Fetch restaurants, categories, and food types in parallel
+      // Fetch restaurants, categories, food types, and recent orders in parallel
       final restaurantsFuture = (latitude != null && longitude != null) 
           ? _fetchRestaurants(latitude, longitude)
           : _fetchRestaurantsWithoutLocation();
       final categoriesFuture = _fetchCategories();
       final foodTypesFuture = FoodTypeService.fetchFoodTypes();
+      final recentOrdersFuture = _fetchRecentOrders(token, userId);
       
-      final results = await Future.wait([restaurantsFuture, categoriesFuture, foodTypesFuture]);
+      final results = await Future.wait([restaurantsFuture, categoriesFuture, foodTypesFuture, recentOrdersFuture]);
       final allRestaurants = results[0] as List<Restaurant>;
       final categories = results[1] as List<Map<String, dynamic>>;
       final foodTypes = results[2] as List<Map<String, dynamic>>;
+      final recentOrders = results[3] as List<RecentOrderModel>;
       
       // Use all restaurants since filtering is now handled by the API
       List<Restaurant> filteredRestaurants = allRestaurants;
@@ -135,6 +138,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         userLatitude: latitude,
         userLongitude: longitude,
         savedAddresses: savedAddresses,
+        recentOrders: recentOrders,
       ));
       
     } catch (e) {
@@ -524,5 +528,48 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       {'name': 'Dessert', 'icon': 'icecream', 'color': 'pink'},
       {'name': 'Drinks', 'icon': 'local_drink', 'color': 'teal'},
     ];
+  }
+
+  Future<List<RecentOrderModel>> _fetchRecentOrders(String? token, String? userId) async {
+    try {
+      if (token == null || userId == null) {
+        debugPrint('HomeBloc: No token or user ID for recent orders');
+        return [];
+      }
+
+      debugPrint('HomeBloc: Fetching recent orders for user: $userId');
+      
+      final url = Uri.parse('${ApiConstants.baseUrl}/api/user/orders/recent?count=10&user_id=$userId');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      debugPrint('HomeBloc: Recent orders response status: ${response.statusCode}');
+      debugPrint('HomeBloc: Recent orders response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['status'] == true && responseData['data'] != null) {
+          final List<dynamic> ordersData = responseData['data'];
+          
+          return ordersData.map((json) => RecentOrderModel.fromJson(json)).toList();
+        } else {
+          debugPrint('HomeBloc: API returned error: ${responseData['message'] ?? 'Unknown error'}');
+          return [];
+        }
+      } else {
+        debugPrint('HomeBloc: HTTP error ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('HomeBloc: Error fetching recent orders: $e');
+      return [];
+    }
   }
 }

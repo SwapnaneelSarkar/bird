@@ -100,7 +100,7 @@ class OrderItemCard extends StatelessWidget {
         SizedBox(height: screenHeight * 0.005),
         _buildItemsDisplay(order.items, screenWidth),
         SizedBox(height: screenHeight * 0.005),
-        if (order.rating != null) _buildRating(screenWidth),
+        if (order.restaurantRating != null) _buildRestaurantRating(screenWidth),
         SizedBox(height: screenHeight * 0.005),
         _buildDateAndDeliveryAddress(screenWidth, screenHeight),
       ],
@@ -175,6 +175,38 @@ class OrderItemCard extends StatelessWidget {
             fontSize: screenWidth * 0.03,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF666666),
+            fontFamily: 'Roboto',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRestaurantRating(double screenWidth) {
+    return Row(
+      children: [
+        Icon(
+          Icons.star,
+          size: screenWidth * 0.03,
+          color: Colors.amber,
+        ),
+        SizedBox(width: screenWidth * 0.01),
+        Text(
+          '${order.restaurantRating!.toStringAsFixed(1)}',
+          style: TextStyle(
+            fontSize: screenWidth * 0.03,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF666666),
+            fontFamily: 'Roboto',
+          ),
+        ),
+        SizedBox(width: screenWidth * 0.01),
+        Text(
+          'Restaurant',
+          style: TextStyle(
+            fontSize: screenWidth * 0.025,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF999999),
             fontFamily: 'Roboto',
           ),
         ),

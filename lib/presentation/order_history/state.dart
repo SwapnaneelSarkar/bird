@@ -70,6 +70,7 @@ class OrderItem extends Equatable {
   final String? deliveryAddress; // ADDED: Delivery address
   final double? rating; // ADDED: Food rating
   final String? reviewText; // ADDED: Review text
+  final double? restaurantRating; // ADDED: Restaurant rating
 
   const OrderItem({
     required this.id,
@@ -86,6 +87,7 @@ class OrderItem extends Equatable {
     this.deliveryAddress, // ADDED
     this.rating, // ADDED
     this.reviewText, // ADDED
+    this.restaurantRating, // ADDED
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
@@ -115,6 +117,7 @@ class OrderItem extends Equatable {
       deliveryAddress: json['delivery_address'], // ADDED: From API response
       rating: null, // ADDED: Will be populated later from reviews API
       reviewText: null, // ADDED: Will be populated later from reviews API
+      restaurantRating: null, // ADDED: Will be populated later from restaurant API
     );
   }
 
@@ -135,6 +138,7 @@ class OrderItem extends Equatable {
       deliveryAddress: deliveryAddress,
       rating: rating,
       reviewText: reviewText,
+      restaurantRating: restaurantRating,
     );
   }
 
@@ -155,6 +159,28 @@ class OrderItem extends Equatable {
       deliveryAddress: deliveryAddress,
       rating: rating,
       reviewText: reviewText,
+      restaurantRating: restaurantRating,
+    );
+  }
+
+  // ADDED: Method to update restaurant rating
+  OrderItem copyWithRestaurantRating(double? restaurantRating) {
+    return OrderItem(
+      id: id,
+      name: name,
+      restaurantName: restaurantName,
+      date: date,
+      price: price,
+      status: status,
+      imageUrl: imageUrl,
+      dateTime: dateTime,
+      restaurantId: restaurantId,
+      items: items,
+      restaurantAddress: restaurantAddress,
+      deliveryAddress: deliveryAddress,
+      rating: rating,
+      reviewText: reviewText,
+      restaurantRating: restaurantRating,
     );
   }
 
@@ -196,5 +222,5 @@ class OrderItem extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, name, restaurantName, date, price, status, imageUrl, dateTime, restaurantAddress, deliveryAddress, rating, reviewText];
+  List<Object?> get props => [id, name, restaurantName, date, price, status, imageUrl, dateTime, restaurantAddress, deliveryAddress, rating, reviewText, restaurantRating];
 }

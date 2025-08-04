@@ -114,8 +114,10 @@ class _OrderConfirmationContent extends StatelessWidget {
           }
           
           if (state is PaymentMethodsLoaded) {
-            debugPrint('_OrderConfirmationContent: Showing loaded view with payment methods');
-            // Convert PaymentMethodsLoaded to OrderConfirmationLoaded for the view
+            debugPrint('_OrderConfirmationContent: Payment methods loaded, but should not show this state in main view');
+            // This state should only be shown in the payment dialog, not in the main view
+            // If we reach here, it means the payment dialog was closed without selection
+            // So we should show the normal loaded view
             final orderState = OrderConfirmationLoaded(
               orderSummary: state.orderSummary,
               cartMetadata: state.cartMetadata,
@@ -146,6 +148,10 @@ class _OrderConfirmationContent extends StatelessWidget {
   }
 
   Widget _buildErrorView(BuildContext context, String message, double screenWidth, double screenHeight) {
+    // Check if the error is related to delivery address
+    final isDeliveryAddressError = message.toLowerCase().contains('delivery address') || 
+                                   message.toLowerCase().contains('address is required');
+    
     return Center(
       child: Padding(
         padding: EdgeInsets.all(screenWidth * 0.06),
@@ -153,13 +159,13 @@ class _OrderConfirmationContent extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              isDeliveryAddressError ? Icons.location_on : Icons.error_outline,
               size: screenWidth * 0.2,
-              color: Colors.red,
+              color: isDeliveryAddressError ? ColorManager.primary : Colors.red,
             ),
             SizedBox(height: screenHeight * 0.03),
             Text(
-              'Error',
+              isDeliveryAddressError ? 'Delivery Address Required' : 'Error',
               style: TextStyle(
                 fontSize: screenWidth * 0.06,
                 fontWeight: FontWeightManager.bold,
@@ -178,12 +184,47 @@ class _OrderConfirmationContent extends StatelessWidget {
                 color: Colors.grey[600],
               ),
             ),
+            if (isDeliveryAddressError) ...[
+              SizedBox(height: screenHeight * 0.02),
+              Text(
+                'You can add your delivery address and return here to complete your order.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: screenWidth * 0.035,
+                  fontWeight: FontWeightManager.regular,
+                  fontFamily: FontFamily.Montserrat,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
             SizedBox(height: screenHeight * 0.04),
+            if (isDeliveryAddressError) ...[
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/address', arguments: true).then((_) {
+                    // Reload order confirmation data after returning from address page
+                    context.read<OrderConfirmationBloc>().add(LoadOrderConfirmationData());
+                  });
+                },
+                icon: const Icon(Icons.add_location),
+                label: const Text('Add Delivery Address'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorManager.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.02),
+            ],
             ElevatedButton(
               onPressed: () {
                 context.read<OrderConfirmationBloc>().add(LoadOrderConfirmationData());
               },
-              child: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDeliveryAddressError ? Colors.grey[300] : ColorManager.primary,
+                foregroundColor: isDeliveryAddressError ? Colors.grey[600] : Colors.white,
+              ),
+              child: Text(isDeliveryAddressError ? 'Try Again' : 'Try Again'),
             ),
           ],
         ),

@@ -29,7 +29,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       if (!_isValidPhoneNumberFormat(event.phoneNumber)) {
         debugPrint('LoginBloc: Invalid phone number format detected');
         emit(LoginErrorState(
-          errorMessage: 'Invalid phone number format. Please check and try again.',
+          errorMessage: 'Invalid phone number format: ${event.phoneNumber}. Please check and try again.',
         ));
         return;
       }
@@ -83,6 +83,10 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         codeAutoRetrievalTimeout: (String verificationId) {
           debugPrint('LoginBloc: Auto retrieval timeout');
           debugPrint('LoginBloc: Verification ID on timeout: $verificationId');
+          // Add timeout error handling
+          add(PhoneVerificationFailedEvent(
+            error: 'OTP auto-retrieval timed out. Please enter the code manually or request a new one.',
+          ));
         },
         timeout: const Duration(seconds: 120),
         forceResendingToken: null,
@@ -95,9 +99,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       debugPrint('LoginBloc: Exception: $e');
       debugPrint('LoginBloc: Stack trace: $stackTrace');
       
-      emit(LoginErrorState(
-        errorMessage: 'Error occurred. Please check your internet connection and try again.',
-      ));
+      // Show the exact exception message
+      emit(LoginErrorState(errorMessage: e.toString()));
     }
   }
 
@@ -268,94 +271,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     debugPrint('LoginBloc: Original error message: ${e.message}');
     debugPrint('LoginBloc: Plugin: ${e.plugin}');
     
-    // Return user-friendly error messages based on error codes
-    switch (e.code) {
-      case 'network-request-failed':
-        debugPrint('LoginBloc: Network error detected');
-        return 'Network error. Please check your internet connection and try again.';
-        
-      case 'too-many-requests':
-        debugPrint('LoginBloc: Too many requests error');
-        return 'Too many attempts. Please wait a moment and try again.';
-        
-      case 'invalid-phone-number':
-        debugPrint('LoginBloc: Invalid phone number error');
-        // Check if the error message contains specific hints
-        if (e.message?.contains('TOO_LONG') ?? false) {
-          return 'Phone number is too long. Please check the number and try again.';
-        } else if (e.message?.contains('TOO_SHORT') ?? false) {
-          return 'Phone number is too short. Please check the number and try again.';
-        } else if (e.message?.contains('INVALID_COUNTRY_CODE') ?? false) {
-          return 'Invalid country code. Please select the correct country.';
-        }
-        return 'Invalid phone number format. Please check the number and country code.';
-        
-      case 'quota-exceeded':
-        debugPrint('LoginBloc: SMS quota exceeded');
-        return 'SMS quota exceeded. Please try again later or contact support.';
-        
-      case 'app-not-authorized':
-        debugPrint('LoginBloc: App not authorized error');
-        return 'App not authorized for phone verification. Please contact support.';
-        
-      case 'operation-not-allowed':
-        debugPrint('LoginBloc: Operation not allowed error');
-        return 'Phone authentication is not enabled. Please contact support.';
-        
-      case 'invalid-verification-code':
-        debugPrint('LoginBloc: Invalid verification code error');
-        return 'Invalid verification code. Please check and try again.';
-        
-      case 'session-expired':
-        debugPrint('LoginBloc: Session expired error');
-        return 'Verification session expired. Please request a new code.';
-        
-      case 'missing-phone-number':
-        debugPrint('LoginBloc: Missing phone number error');
-        return 'Phone number is required. Please enter your phone number.';
-        
-      case 'captcha-check-failed':
-        debugPrint('LoginBloc: CAPTCHA check failed');
-        return 'Security verification failed. Please try again.';
-        
-      default:
-        debugPrint('LoginBloc: Processing default error case');
-        
-        // Check for specific error message patterns
-        final errorMessage = e.message?.toLowerCase() ?? '';
-        
-        if (errorMessage.contains('certificate') || 
-            errorMessage.contains('ssl') ||
-            errorMessage.contains('tls')) {
-          debugPrint('LoginBloc: SSL/Certificate error detected');
-          return 'Connection security error. Please check your internet connection.';
-        }
-        
-        if (errorMessage.contains('unable to resolve host') ||
-            errorMessage.contains('unknownhostexception')) {
-          debugPrint('LoginBloc: DNS/Host resolution error');
-          return 'Cannot connect to server. Please check your internet connection.';
-        }
-        
-        if (errorMessage.contains('socketexception') ||
-            errorMessage.contains('timeout')) {
-          debugPrint('LoginBloc: Network timeout error');
-          return 'Connection timeout. Please check your internet connection and try again.';
-        }
-        
-        if (errorMessage.contains('failed to resolve')) {
-          debugPrint('LoginBloc: DNS resolution error');
-          return 'Network error. Please check your internet connection.';
-        }
-        
-        if (errorMessage.contains('too_long')) {
-          debugPrint('LoginBloc: Phone number too long error');
-          return 'Phone number is too long. Please check and try again.';
-        }
-        
-        // Generic error message for unknown cases
-        debugPrint('LoginBloc: Using generic error message');
-        return 'Something went wrong. Please try again or contact support if the issue persists.';
+    // Return the exact Firebase error message
+    if (e.message != null && e.message!.isNotEmpty) {
+      return e.message!;
+    } else {
+      // Fallback to error code if message is empty
+      return 'Firebase Error: ${e.code}';
     }
   }
   

@@ -15,6 +15,7 @@ import '../service/attribute_service.dart';
 import 'menu_item_attributes_dialog.dart';
 import '../models/attribute_model.dart';
 import '../widgets/item_added_popup.dart';
+import 'veg_nonveg_icons.dart';
 
 class MenuItemDetailsBottomSheet extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -489,27 +490,17 @@ class _MenuItemDetailsBottomSheetState extends State<MenuItemDetailsBottomSheet>
               // Enhanced veg indicator
               Container(
                 margin: const EdgeInsets.only(top: 6, right: 16),
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: isVeg ? const Color(0xFF3CB043) : const Color(0xFFE53935),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isVeg 
-                          ? const Color(0xFF3CB043).withOpacity(0.4) 
-                          : const Color(0xFFE53935).withOpacity(0.4),
-                      blurRadius: 8,
-                      spreadRadius: 2,
+                child: isVeg 
+                  ? VegNonVegIcons.vegIcon(
+                      size: 24,
+                      color: const Color(0xFF3CB043),
+                      borderColor: Colors.white,
+                    )
+                  : VegNonVegIcons.nonVegIcon(
+                      size: 24,
+                      color: const Color(0xFFE53935),
+                      borderColor: Colors.white,
                     ),
-                  ],
-                ),
-                child: Icon(
-                  isVeg ? Icons.eco : Icons.restaurant,
-                  color: Colors.white,
-                  size: 12,
-                ),
               ),
               
               // Name with enhanced styling

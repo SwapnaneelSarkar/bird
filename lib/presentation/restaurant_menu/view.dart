@@ -14,6 +14,7 @@ import '../../utils/currency_utils.dart';
 import '../../utils/distance_util.dart';
 import '../../utils/delivery_time_util.dart';
 import '../../service/cart_service.dart';
+import '../../widgets/veg_nonveg_icons.dart';
 
 class RestaurantDetailsPage extends StatelessWidget {
   final Map<String, dynamic> restaurantData;
@@ -1000,21 +1001,10 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 1),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Center(
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
+                    VegNonVegIcons.vegIcon(
+                      size: 10,
+                      color: Colors.white,
+                      borderColor: Colors.white,
                     ),
                     const SizedBox(width: 6),
                     Text(

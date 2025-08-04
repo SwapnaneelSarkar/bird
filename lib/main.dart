@@ -1,6 +1,8 @@
 // main.dart
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/presentation/loginPage/bloc.dart';
+import 'package:bird/presentation/profile_view/bloc.dart';
+import 'package:bird/presentation/profile_view/event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -39,6 +41,10 @@ class MyApp extends StatelessWidget {
         // Login Bloc provider
         BlocProvider<LoginBloc>(
           create: (_) => LoginBloc(),
+        ),
+        // Profile Bloc provider
+        BlocProvider<ProfileBloc>(
+          create: (_) => ProfileBloc()..add(LoadProfile()),
         ),
         // RestaurantProfileBloc provider
         BlocProvider<RestaurantProfileBloc>(

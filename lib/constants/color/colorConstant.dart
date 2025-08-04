@@ -9,6 +9,12 @@ class ColorManager {
   static Color yellowAcc = HexColor.fromHex('#F5A936');
   static Color cardGrey = HexColor.fromHex('#D9D9D9');
   static Color faqCardGrey = HexColor.fromHex('##272727');
+  
+  // Swiggy Instamart-style green accents
+  static Color instamartGreen = HexColor.fromHex('#00B14F');
+  static Color instamartLightGreen = HexColor.fromHex('#E8F5E8');
+  static Color instamartDarkGreen = HexColor.fromHex('#008A3D');
+  static Color instamartAccentGreen = HexColor.fromHex('#00D663');
 }
 extension HexColor on Color {
   static Color fromHex(String hexColorString) {

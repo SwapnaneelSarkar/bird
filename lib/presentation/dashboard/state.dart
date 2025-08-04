@@ -1,6 +1,5 @@
 // lib/presentation/category_homepage/state.dart
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 abstract class CategoryHomepageState extends Equatable {
   const CategoryHomepageState();
@@ -19,32 +18,28 @@ class CategoryHomepageLoading extends CategoryHomepageState {
 
 class CategoryHomepageLoaded extends CategoryHomepageState {
   final List<CategoryModel> categories;
-  final List<RecentOrderModel> recentOrders;
   final Map<String, dynamic>? userData;
   final String userName;
   final String userAddress;
 
   const CategoryHomepageLoaded({
     required this.categories,
-    required this.recentOrders,
     this.userData,
     required this.userName,
     required this.userAddress,
   });
 
   @override
-  List<Object?> get props => [categories, recentOrders, userData, userName, userAddress];
+  List<Object?> get props => [categories, userData, userName, userAddress];
 
   CategoryHomepageLoaded copyWith({
     List<CategoryModel>? categories,
-    List<RecentOrderModel>? recentOrders,
     Map<String, dynamic>? userData,
     String? userName,
     String? userAddress,
   }) {
     return CategoryHomepageLoaded(
       categories: categories ?? this.categories,
-      recentOrders: recentOrders ?? this.recentOrders,
       userData: userData ?? this.userData,
       userName: userName ?? this.userName,
       userAddress: userAddress ?? this.userAddress,
@@ -93,7 +88,7 @@ class CategoryModel extends Equatable {
     final image = json['image'];
     final name = json['name'];
     final id = json['id'];
-    debugPrint('CategoryModel.fromJson: Parsing category $name (id: $id)');
+    // debugPrint('CategoryModel.fromJson: Parsing category $name (id: $id)');
     
     final category = CategoryModel(
       id: id ?? '',
@@ -105,45 +100,3 @@ class CategoryModel extends Equatable {
   }
 }
 
-class RecentOrderModel extends Equatable {
-  final String orderId;
-  final String partnerId;
-  final String totalPrice;
-  final String address;
-  final String orderStatus;
-  final String createdAt;
-  final String supercategoryName;
-
-  const RecentOrderModel({
-    required this.orderId,
-    required this.partnerId,
-    required this.totalPrice,
-    required this.address,
-    required this.orderStatus,
-    required this.createdAt,
-    required this.supercategoryName,
-  });
-
-  @override
-  List<Object?> get props => [
-    orderId,
-    partnerId,
-    totalPrice,
-    address,
-    orderStatus,
-    createdAt,
-    supercategoryName,
-  ];
-
-  factory RecentOrderModel.fromJson(Map<String, dynamic> json) {
-    return RecentOrderModel(
-      orderId: json['order_id'] ?? '',
-      partnerId: json['partner_id'] ?? '',
-      totalPrice: json['total_price']?.toString() ?? '0',
-      address: json['address'] ?? '',
-      orderStatus: json['order_status'] ?? 'UNKNOWN',
-      createdAt: json['created_at'] ?? '',
-      supercategoryName: json['supercategory']?['name'] ?? 'Unknown',
-    );
-  }
-}

@@ -13,9 +13,6 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
     on<LoadCategoryHomepage>(_onLoadCategoryHomepage);
     on<RefreshCategoryHomepage>(_onRefreshCategoryHomepage);
     on<SelectCategory>(_onSelectCategory);
-    on<NavigateToProfile>(_onNavigateToProfile);
-    on<NavigateToOrderHistory>(_onNavigateToOrderHistory);
-    on<NavigateToSettings>(_onNavigateToSettings);
   }
 
   Future<void> _onLoadCategoryHomepage(
@@ -37,14 +34,8 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
         return;
       }
 
-      // Load data concurrently
-      final results = await Future.wait([
-        _fetchSupercategories(token),
-        _fetchRecentOrders(token, userId),
-      ]);
-
-      final categories = results[0] as List<CategoryModel>;
-      final recentOrders = results[1] as List<RecentOrderModel>;
+      // Load categories
+      final categories = await _fetchSupercategories(token);
 
       // Extract user info
       final userName = userData?['name'] ?? userData?['full_name'] ?? 'Welcome Back';
@@ -52,13 +43,12 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
 
       emit(CategoryHomepageLoaded(
         categories: categories,
-        recentOrders: recentOrders,
         userData: userData,
         userName: userName,
         userAddress: userAddress,
       ));
 
-      debugPrint('CategoryHomepageBloc: Homepage loaded with ${categories.length} categories and ${recentOrders.length} recent orders');
+      debugPrint('CategoryHomepageBloc: Homepage loaded with ${categories.length} categories');
     } catch (e) {
       debugPrint('CategoryHomepageBloc: Error loading homepage: $e');
       emit(CategoryHomepageError(message: 'Failed to load data. Please try again.'));
@@ -83,29 +73,7 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
     ));
   }
 
-  Future<void> _onNavigateToProfile(
-    NavigateToProfile event,
-    Emitter<CategoryHomepageState> emit,
-  ) async {
-    debugPrint('CategoryHomepageBloc: Navigate to profile');
-    // Navigation will be handled in the UI layer
-  }
 
-  Future<void> _onNavigateToOrderHistory(
-    NavigateToOrderHistory event,
-    Emitter<CategoryHomepageState> emit,
-  ) async {
-    debugPrint('CategoryHomepageBloc: Navigate to order history');
-    // Navigation will be handled in the UI layer
-  }
-
-  Future<void> _onNavigateToSettings(
-    NavigateToSettings event,
-    Emitter<CategoryHomepageState> emit,
-  ) async {
-    debugPrint('CategoryHomepageBloc: Navigate to settings');
-    // Navigation will be handled in the UI layer
-  }
 
   // API Methods
   Future<List<CategoryModel>> _fetchSupercategories(String token) async {
@@ -159,41 +127,5 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
     }
   }
 
-  Future<List<RecentOrderModel>> _fetchRecentOrders(String token, String userId) async {
-    try {
-      debugPrint('CategoryHomepageBloc: Fetching recent orders for user: $userId');
-      
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/user/orders/recent?count=10&user_id=$userId');
-      
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
 
-      debugPrint('CategoryHomepageBloc: Recent orders response status: ${response.statusCode}');
-      debugPrint('CategoryHomepageBloc: Recent orders response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        
-        if (responseData['status'] == true && responseData['data'] != null) {
-          final List<dynamic> ordersData = responseData['data'];
-          
-          return ordersData.map((json) => RecentOrderModel.fromJson(json)).toList();
-        } else {
-          debugPrint('CategoryHomepageBloc: API returned error: ${responseData['message'] ?? 'Unknown error'}');
-          return [];
-        }
-      } else {
-        debugPrint('CategoryHomepageBloc: HTTP error ${response.statusCode}');
-        return [];
-      }
-    } catch (e) {
-      debugPrint('CategoryHomepageBloc: Error fetching recent orders: $e');
-      return [];
-    }
-  }
 }

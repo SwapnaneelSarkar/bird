@@ -268,14 +268,23 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
     debugPrint('=== ORDER PLACEMENT BLOC: START ===');
     debugPrint('OrderPlacement: Current state: ${state.runtimeType}');
     
-    // Get the order data from the last loaded state
+    // Get the order data from the current state
     OrderConfirmationLoaded? orderData;
     if (state is OrderConfirmationLoaded) {
       orderData = state as OrderConfirmationLoaded;
     } else if (state is PaymentMethodsLoaded) {
-      // If we're in PaymentMethodsLoaded state, we need to get the order data from the previous state
-      // For now, we'll reload the order data
-      debugPrint('OrderPlacement: Reloading order data from cart...');
+      // If we're in PaymentMethodsLoaded state, convert it to OrderConfirmationLoaded
+      debugPrint('OrderPlacement: Converting PaymentMethodsLoaded to OrderConfirmationLoaded');
+      final paymentState = state as PaymentMethodsLoaded;
+      orderData = OrderConfirmationLoaded(
+        orderSummary: paymentState.orderSummary,
+        cartMetadata: paymentState.cartMetadata,
+        selectedPaymentMode: event.paymentMode ?? paymentState.selectedPaymentMode,
+      );
+    }
+    
+    if (orderData == null) {
+      debugPrint('OrderPlacement: No order data available, reloading from cart...');
       try {
         final cart = await CartService.getCart();
         if (cart != null && cart['items'] != null && (cart['items'] as List).isNotEmpty) {
@@ -315,6 +324,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           orderData = OrderConfirmationLoaded(
             orderSummary: orderSummary,
             cartMetadata: cartMetadata,
+            selectedPaymentMode: event.paymentMode,
           );
         }
       } catch (e) {
@@ -350,21 +360,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         debugPrint('  - Partner ID: $partnerId');
         debugPrint('  - Address: $address');
         
-        // If address is empty, try to get from user profile
-        if (address.isEmpty) {
-          debugPrint('OrderPlacement: Address is empty, trying to get from user profile...');
-          final userData = await TokenService.getUserData();
-          address = userData?['address']?.toString() ?? '';
-          debugPrint('OrderPlacement: Address from user profile: $address');
-        }
-        
-        if (address.isEmpty) {
-          debugPrint('OrderPlacement: No address found, emitting error');
-          emit(const OrderConfirmationError('Delivery address is required. Please add your address.'));
-          return;
-        }
-        
-        // Get user coordinates from profile API
+        // Get user profile data from API (includes address and coordinates)
         double? latitude;
         double? longitude;
         
@@ -378,18 +374,44 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             
             if (profileResult['success'] == true) {
               final userData = profileResult['data'] as Map<String, dynamic>;
+              
+              // Get address from API response
+              final apiAddress = userData['address']?.toString() ?? '';
+              if (apiAddress.isNotEmpty) {
+                address = apiAddress;
+                debugPrint('OrderPlacement: Address from API: $address');
+              }
+              
+              // Get coordinates from API response
               latitude = userData['latitude'] != null ? double.tryParse(userData['latitude'].toString()) : null;
               longitude = userData['longitude'] != null ? double.tryParse(userData['longitude'].toString()) : null;
               
-              debugPrint('OrderPlacement: User coordinates - Lat: $latitude, Long: $longitude');
+              debugPrint('OrderPlacement: User data from API:');
+              debugPrint('  - Address: $address');
+              debugPrint('  - Latitude: $latitude');
+              debugPrint('  - Longitude: $longitude');
             } else {
-              debugPrint('OrderPlacement: Failed to fetch user coordinates: ${profileResult['message']}');
+              debugPrint('OrderPlacement: Failed to fetch user profile: ${profileResult['message']}');
             }
           } else {
-            debugPrint('OrderPlacement: No token available for fetching coordinates');
+            debugPrint('OrderPlacement: No token available for fetching user profile');
           }
         } catch (e) {
-          debugPrint('OrderPlacement: Error fetching user coordinates: $e');
+          debugPrint('OrderPlacement: Error fetching user profile: $e');
+        }
+        
+        // If still no address, try to get from local storage as fallback
+        if (address.isEmpty) {
+          debugPrint('OrderPlacement: Address still empty, trying local storage...');
+          final userData = await TokenService.getUserData();
+          address = userData?['address']?.toString() ?? '';
+          debugPrint('OrderPlacement: Address from local storage: $address');
+        }
+        
+        if (address.isEmpty) {
+          debugPrint('OrderPlacement: No address found, emitting error');
+          emit(const OrderConfirmationError('Delivery address is required. Please add your delivery address to continue with your order.'));
+          return;
         }
         
         // Prepare order items with attributes

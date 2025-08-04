@@ -58,12 +58,21 @@ class _AddressScreenState extends State<AddressScreen> {
         child: BlocConsumer<AddressBloc, AddressState>(
           listener: (context, state) {
             if (state is AddressSubmittedState) {
-              // Navigate to next screen
-              debugPrint('AddressScreen: Address submitted successfully, navigating to dashboard');
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                Routes.dashboard,
-                (route) => false,
-              );
+              // Check if we came from order confirmation page
+              final cameFromOrderConfirmation = ModalRoute.of(context)?.settings.arguments as bool? ?? false;
+              
+              if (cameFromOrderConfirmation) {
+                // Go back to order confirmation page
+                debugPrint('AddressScreen: Address submitted successfully, returning to order confirmation');
+                Navigator.of(context).pop();
+              } else {
+                // Navigate to dashboard (default behavior)
+                debugPrint('AddressScreen: Address submitted successfully, navigating to dashboard');
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  Routes.dashboard,
+                  (route) => false,
+                );
+              }
             }
             if (state is LocationDetectedState) {
               // Update text field with detected address

@@ -6,6 +6,7 @@ import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/restaurant_model.dart';
 import '../../utils/timezone_utils.dart';
+import '../../widgets/veg_nonveg_icons.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -281,11 +282,17 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          restaurant.isVeg ? Icons.eco_outlined : Icons.restaurant,
-                          color: restaurant.isVeg ? Colors.green : Colors.orange,
-                          size: 14,
-                        ),
+                        restaurant.isVeg 
+                          ? VegNonVegIcons.vegIcon(
+                              size: 14,
+                              color: Colors.green,
+                              borderColor: Colors.white,
+                            )
+                          : VegNonVegIcons.nonVegIcon(
+                              size: 14,
+                              color: Colors.orange,
+                              borderColor: Colors.white,
+                            ),
                         const SizedBox(width: 4),
                         Text(
                           restaurant.isVeg ? "Pure Veg" : "Non-Veg",

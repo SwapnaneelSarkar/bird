@@ -126,9 +126,18 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             
             // Only fetch if not cached
             if (restaurantAddress == null) {
-              restaurantAddress = await _fetchRestaurantDetails(order);
-              if (restaurantAddress != null) {
-                _restaurantAddressCache[order.restaurantId] = restaurantAddress;
+              final restaurantData = await _fetchRestaurantDetails(order);
+              if (restaurantData != null) {
+                restaurantAddress = restaurantData['address'];
+                if (restaurantAddress != null) {
+                  _restaurantAddressCache[order.restaurantId] = restaurantAddress;
+                }
+                
+                // Update order with restaurant rating
+                final restaurantRating = restaurantData['rating'];
+                if (restaurantRating != null) {
+                  updatedOrders[index] = order.copyWithRestaurantRating(restaurantRating);
+                }
               }
             }
             
@@ -136,7 +145,7 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
             final reviewData = await _fetchOrderReview(order);
 
             if (restaurantAddress != null) {
-              updatedOrders[index] = order.copyWithRestaurantAddress(restaurantAddress);
+              updatedOrders[index] = updatedOrders[index].copyWithRestaurantAddress(restaurantAddress);
             }
 
             if (reviewData != null) {
@@ -167,13 +176,18 @@ class OrderHistoryBloc extends Bloc<OrderHistoryEvent, OrderHistoryState> {
   }
 
   // Helper method to fetch restaurant details
-  Future<String?> _fetchRestaurantDetails(OrderItem order) async {
+  Future<Map<String, dynamic>?> _fetchRestaurantDetails(OrderItem order) async {
     try {
       final result = await OrderHistoryService.fetchRestaurantDetails(order.restaurantId);
       if (result['success'] == true) {
         final data = result['data'] as Map<String, dynamic>;
         final address = data['address']?.toString();
-        return address?.isNotEmpty == true ? address : null;
+        final rating = data['rating']?.toString();
+        
+        return {
+          'address': address?.isNotEmpty == true ? address : null,
+          'rating': rating != null ? double.tryParse(rating) : null,
+        };
       }
     } catch (e) {
       print('Failed to fetch restaurant details for order ${order.id}: $e');

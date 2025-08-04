@@ -421,42 +421,18 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         ],
                       ),
                       child: Column(
-children: [
-  Container(
-    width: 110 * responsiveTextScale,
-    height: 110 * responsiveTextScale,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Colors.grey[200],
-      border: Border.all(
-        color: Colors.white,
-        width: 4,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.08),
-          blurRadius: 10,
-          spreadRadius: 1,
-        ),
-      ],
-    ),
-    child: Icon(
-      Icons.person,
-      size: 55 * responsiveTextScale,
-      color: Colors.grey,
-    ),
-  ),
-  SizedBox(height: 12 * responsiveTextScale),
-  Text(
-    'Profile',
-    style: TextStyle(
-      fontSize: FontSize.s12 * responsiveTextScale,
-      color: Colors.grey,
-      letterSpacing: 0.2,
-      fontFamily: FontFamily.Montserrat,
-    ),
-  ),
-],
+                        children: [
+                          SizedBox(height: 12 * responsiveTextScale),
+                          Text(
+                            'Profile',
+                            style: TextStyle(
+                              fontSize: FontSize.s12 * responsiveTextScale,
+                              color: Colors.grey,
+                              letterSpacing: 0.2,
+                              fontFamily: FontFamily.Montserrat,
+                            ),
+                          ),
+                        ],
                       ),
                     ).animate().slideY(begin: 0.05, end: 0, duration: 600.ms, curve: Curves.easeOutQuint),
                     

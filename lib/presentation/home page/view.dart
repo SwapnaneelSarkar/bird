@@ -12,6 +12,7 @@ import '../restaurant_menu/view.dart';
 import '../search_page/bloc.dart';
 import '../search_page/searchPage.dart';
 import '../../utils/currency_utils.dart';
+import '../../models/recent_order_model.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -320,7 +321,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             ).animate(controller: _animationController).fadeIn(duration: 400.ms, curve: Curves.easeOut),
 
             // Search Bar
-            _buildSearchBar(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
+            _buildSearchBar(context, state, isStore: !isFoodSupercategory(selectedSupercategoryId))
               .animate(controller: _animationController)
               .fadeIn(duration: 400.ms, delay: 100.ms, curve: Curves.easeOut)
               .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -340,7 +341,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     children: [
                       // Popular Categories - Only show if not outside service area
                       if (!isOutsideServiceableArea)
-                        _buildCategoriesSection(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
+                        _buildCategoriesSection(context, state, isStore: !isFoodSupercategory(selectedSupercategoryId))
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -352,6 +353,16 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           .fadeIn(duration: 400.ms, delay: 250.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
+                      // Recent Orders Section - Only show if not outside service area and has recent orders
+                              if (!isOutsideServiceableArea && state.recentOrders.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildRecentOrdersSection(context, state)
+              .animate(controller: _animationController)
+              .fadeIn(duration: 400.ms, delay: 275.ms, curve: Curves.easeOut)
+              .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
+          ),
+                      
                       // All Restaurants or Outside Service Area Message
                       if (isOutsideServiceableArea)
                         _buildOutsideServiceableArea(context)
@@ -359,7 +370,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut)
                       else
-                        _buildRestaurantsSection(context, state, isStore: selectedSupercategoryId != null && selectedSupercategoryId != 'food')
+                        _buildRestaurantsSection(context, state, isStore: !isFoodSupercategory(selectedSupercategoryId))
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -377,6 +388,9 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
   
   Widget _buildAddressBar(BuildContext context, HomeLoaded state) {
+    // For food supercategory, use original styling
+    final isFood = isFoodSupercategory(selectedSupercategoryId);
+    
     return InkWell(
       onTap: () => _showAddressPicker(context, state),
       child: Padding(
@@ -390,10 +404,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: ColorManager.primary.withOpacity(0.1),
+                    color: isFood ? ColorManager.primary.withOpacity(0.1) : ColorManager.instamartGreen.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.location_on, color: ColorManager.primary, size: isWide ? 24 : 22),
+                  child: Icon(Icons.location_on, color: isFood ? ColorManager.primary : ColorManager.instamartGreen, size: isWide ? 24 : 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -472,27 +486,45 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       child: Material(
         color: Colors.transparent,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isStore ? ColorManager.instamartGreen.withOpacity(0.2) : Colors.grey[200]!,
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
           child: Row(
             children: [
-              Icon(Icons.search, color: Colors.grey[500]),
-              const SizedBox(width: 8),
+              Icon(
+                Icons.search, 
+                color: isStore ? ColorManager.instamartGreen : Colors.grey[500],
+                size: 20,
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   readOnly: true,
-                  decoration: InputDecoration.collapsed(hintText: isStore ? 'Search stores...' : 'Search stores or dishes...'),
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
+                  decoration: InputDecoration.collapsed(
+                    hintText: isStore ? 'Search for groceries, fruits & more...' : 'Search stores or dishes...',
+                    hintStyle: GoogleFonts.poppins(
+                      fontSize: 15,
+                      color: Colors.grey[500],
+                    ),
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -510,6 +542,19 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   },
                 ),
               ),
+              if (isStore)
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: ColorManager.instamartGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.search,
+                    color: ColorManager.instamartGreen,
+                    size: 16,
+                  ),
+                ),
             ],
           ),
         ),
@@ -527,7 +572,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
     ..sort((a, b) => (a['display_order'] ?? 999).compareTo(b['display_order'] ?? 999));
 
   return Container(
-    margin: const EdgeInsets.only(top: 8),
+    margin: const EdgeInsets.only(top: 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -540,13 +585,13 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Padding(
-                  padding: EdgeInsets.only(left: 20 * scale), // ⬅️ shifted further right
+                  padding: EdgeInsets.only(left: 16 * scale),
                   child: Text(
-                    isStore ? 'Popular Categories' : 'Popular Categories',
+                    isStore ? 'Categories' : 'Popular Categories',
                     style: GoogleFonts.poppins(
-                      fontSize: getResponsiveFontSize(context, 16 * scale),
+                      fontSize: getResponsiveFontSize(context, 18 * scale),
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
+                      color: Colors.black87,
                     ),
                   ),
                 ),
@@ -555,24 +600,55 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                   children: [
                     if (state.selectedCategoryId != null)
                       Container(
-                        margin: EdgeInsets.only(right: 4 * scale),
-                        child: IconButton(
-                          icon: Icon(Icons.close, color: Colors.grey[600], size: 20 * scale),
-                          tooltip: 'Clear category filter',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            debugPrint('HomePage: Cross icon pressed to clear category filter');
+                        margin: EdgeInsets.only(right: 8 * scale),
+                        child: GestureDetector(
+                          onTap: () {
+                            debugPrint('HomePage: Clear button pressed to clear category filter');
                             context.read<HomeBloc>().add(const FilterByCategory(null));
                           },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 6 * scale),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(16 * scale),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.close, color: Colors.grey[600], size: 14 * scale),
+                                SizedBox(width: 4 * scale),
+                                Text(
+                                  'Clear',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12 * scale,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    IconButton(
-                      icon: Icon(Icons.tune, color: ColorManager.primary, size: 22 * scale),
-                      tooltip: 'Filter',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => _showFuturisticFilterDialog(context),
+                    GestureDetector(
+                      onTap: () => _showFuturisticFilterDialog(context),
+                      child: Container(
+                        padding: EdgeInsets.all(8 * scale),
+                        decoration: BoxDecoration(
+                          color: isStore ? ColorManager.instamartGreen.withOpacity(0.1) : ColorManager.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8 * scale),
+                          border: Border.all(
+                            color: isStore ? ColorManager.instamartGreen.withOpacity(0.3) : ColorManager.primary.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.tune,
+                          color: isStore ? ColorManager.instamartGreen : ColorManager.primary,
+                          size: 18 * scale,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -580,12 +656,13 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             );
           },
         ),
+        const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
             final double maxWidth = constraints.maxWidth;
             final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-            final double itemWidth = 90.0 * scale;
-            final double itemHeight = 120.0 * scale;
+            final double itemWidth = isStore ? 80.0 * scale : 90.0 * scale;
+            final double itemHeight = isStore ? 90.0 * scale : 110.0 * scale;
             final double screenWidth = constraints.maxWidth;
             final int maxVisibleItems = (screenWidth / itemWidth).floor();
             final bool shouldScroll = sortedCategories.length > maxVisibleItems;
@@ -596,6 +673,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
               scale: scale,
               itemWidth: itemWidth,
               itemHeight: itemHeight,
+              isStore: isStore,
             );
 
             if (shouldScroll) {
@@ -604,14 +682,14 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
+                  padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
                   children: categoryItems,
                 ),
               );
             } else {
               return Container(
                 height: itemHeight,
-                padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
+                padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: categoryItems,
@@ -687,7 +765,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
     );
   }
   
-  List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategoryId, {double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
+  List<Widget> _getCategoryItems(List<dynamic> categories, String? selectedCategoryId, {double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0, bool isStore = false}) {
     debugPrint('HomePage: Building category items. Selected categoryId: $selectedCategoryId');
     final Map<String, String> imageMap = {
       'pizza': 'assets/images/pizza.jpg',
@@ -716,9 +794,11 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
       final iconAndColor = _getSmartCategoryIconAndColor(categoryDisplayName);
       final icon = iconAndColor['icon'] ?? category['icon'] ?? 'restaurant';
       final color = iconAndColor['color'] ?? category['color'] ?? 'orange';
-      if (imagePath != null && imagePath.isNotEmpty) {
-        return _buildCategoryItem(categoryDisplayName, imagePath, color, isSelected: isSelected, onTap: () {
-          // Prevent double-tap issues with debounce
+      
+      // Enhanced image handling for stores
+      if (isStore) {
+        // For stores, always use icon-based design for consistency
+        return _buildStoreCategoryItem(categoryDisplayName, _getIconData(icon), _getCategoryColor(color), isSelected: isSelected, onTap: () {
           if (mounted && _shouldProcessFilterTap()) {
             final newCategoryId = isSelected ? null : categoryId;
             debugPrint('Category filter: $categoryDisplayName (id: $categoryId) - wasSelected: $isSelected, newCategoryId: $newCategoryId');
@@ -726,14 +806,24 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
           }
         }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
       } else {
-        return _buildCategoryItemWithIcon(categoryDisplayName, _getIconData(icon), _getCategoryColor(color), isSelected: isSelected, onTap: () {
-          // Prevent double-tap issues with debounce
-          if (mounted && _shouldProcessFilterTap()) {
-            final newCategoryId = isSelected ? null : categoryId;
-            debugPrint('Category filter: $categoryDisplayName (id: $categoryId) - wasSelected: $isSelected, newCategoryId: $newCategoryId');
-            context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
-          }
-        }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
+        // For food, use image if available and valid, otherwise icon
+        if (imagePath != null && imagePath.isNotEmpty && imagePath.startsWith('http')) {
+          return _buildCategoryItemWithNetworkImage(categoryDisplayName, imagePath, color, isSelected: isSelected, onTap: () {
+            if (mounted && _shouldProcessFilterTap()) {
+              final newCategoryId = isSelected ? null : categoryId;
+              debugPrint('Category filter: $categoryDisplayName (id: $categoryId) - wasSelected: $isSelected, newCategoryId: $newCategoryId');
+              context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
+            }
+          }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
+        } else {
+          return _buildCategoryItemWithIcon(categoryDisplayName, _getIconData(icon), _getCategoryColor(color), isSelected: isSelected, onTap: () {
+            if (mounted && _shouldProcessFilterTap()) {
+              final newCategoryId = isSelected ? null : categoryId;
+              debugPrint('Category filter: $categoryDisplayName (id: $categoryId) - wasSelected: $isSelected, newCategoryId: $newCategoryId');
+              context.read<HomeBloc>().add(FilterByCategory(newCategoryId));
+            }
+          }, scale: scale, itemWidth: itemWidth, itemHeight: itemHeight);
+        }
       }
     }).toList();
   }
@@ -840,6 +930,194 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                   title,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoreCategoryItem(String title, IconData icon, Color color, {bool isSelected = false, VoidCallback? onTap, double scale = 1.0, double itemWidth = 80.0, double itemHeight = 100.0}) {
+    return Container(
+      width: itemWidth,
+      margin: EdgeInsets.only(right: 10 * scale),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50 * scale,
+              height: 50 * scale,
+              decoration: BoxDecoration(
+                color: isSelected ? ColorManager.instamartGreen : Colors.white,
+                borderRadius: BorderRadius.circular(10 * scale),
+                border: Border.all(
+                  color: isSelected ? ColorManager.instamartGreen : Colors.grey[300]!,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  color: isSelected ? Colors.white : color,
+                  size: 20 * scale,
+                ),
+              ),
+            ),
+            SizedBox(height: 6 * scale),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 10 * scale,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? ColorManager.instamartGreen : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryItemWithNetworkImage(String title, String imageUrl, String colorName, {bool isSelected = false, VoidCallback? onTap, double scale = 1.0, double itemWidth = 90.0, double itemHeight = 120.0}) {
+    Color accentColor = _getCategoryColor(colorName);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 6 * scale),
+        width: itemWidth,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 60 * scale,
+                  height: 60 * scale,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSelected ? accentColor.withOpacity(0.4) : accentColor.withOpacity(0.2),
+                        blurRadius: isSelected ? 12 * scale : 8 * scale,
+                        offset: Offset(0, 4 * scale),
+                        spreadRadius: isSelected ? 3 * scale : 1.5 * scale,
+                      )
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 56 * scale,
+                  height: 56 * scale,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? accentColor : Colors.white,
+                      width: isSelected ? 3 * scale : 2 * scale,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: isSelected
+                                  ? [accentColor.withOpacity(0.3), accentColor.withOpacity(0.5)]
+                                  : [Colors.white, accentColor.withOpacity(0.15)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Icon(
+                            _getIconData('restaurant'),
+                            size: isSelected ? 28 * scale : 24 * scale,
+                            color: accentColor,
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: isSelected
+                                  ? [accentColor.withOpacity(0.3), accentColor.withOpacity(0.5)]
+                                  : [Colors.white, accentColor.withOpacity(0.15)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                if (isSelected)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 18 * scale,
+                      height: 18 * scale,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5 * scale),
+                      ),
+                      child: Icon(Icons.check, color: Colors.white, size: 10 * scale),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 8 * scale),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 4 * scale),
+              decoration: BoxDecoration(
+                color: isSelected ? accentColor.withOpacity(0.1) : Colors.white,
+                borderRadius: BorderRadius.circular(10 * scale),
+                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 3 * scale, offset: Offset(0, 1.5 * scale))],
+                border: Border.all(
+                  color: isSelected ? accentColor.withOpacity(0.5) : accentColor.withOpacity(0.3),
+                  width: isSelected ? 1.5 * scale : 1 * scale,
+                ),
+              ),
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: getResponsiveFontSize(context, 11 * scale),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? accentColor : Colors.grey[800],
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -1195,7 +1473,27 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
         // Restaurant List or No Results Message
         if (filteredRestaurants.isEmpty)
           _buildNoResultsMessage(context, state)
+        else if (isStore)
+          // Grid layout for stores (2 per row)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: filteredRestaurants.length,
+              itemBuilder: (context, index) => _buildStoreGridItem(
+                context, filteredRestaurants[index], state, index
+              ),
+            ),
+          )
         else
+          // List layout for restaurants (original)
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1205,6 +1503,78 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildStoreGridItem(BuildContext context, dynamic store, HomeLoaded state, int index) {
+    final sanitizedName = _sanitizeRestaurantName(store.name);
+    
+    return Hero(
+      tag: 'store-$sanitizedName',
+      child: BlocBuilder<HomeFavoritesBloc, HomeFavoritesState>(
+        builder: (context, favoritesState) {
+          bool isFavorite = false;
+          bool isLoading = false;
+          
+          // Get cached status first
+          final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(store.id);
+          if (cachedStatus != null) {
+            isFavorite = cachedStatus;
+          }
+          
+          // Check if this store's favorite status has been checked
+          if (favoritesState is HomeFavoriteStatusChecked && 
+              favoritesState.partnerId == store.id) {
+            isFavorite = favoritesState.isFavorite;
+          } else if (favoritesState is HomeFavoriteToggled && 
+                     favoritesState.partnerId == store.id) {
+            isFavorite = favoritesState.isNowFavorite;
+          } else if (favoritesState is HomeFavoriteToggling && 
+                     favoritesState.partnerId == store.id) {
+            isLoading = true;
+            // Show optimistic update
+            isFavorite = favoritesState.isAdding;
+          }
+          
+          // Check favorite status when store is first displayed (only once)
+          if (store.id != null && store.id.isNotEmpty && cachedStatus == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<HomeFavoritesBloc>().add(
+                CheckHomeFavoriteStatus(partnerId: store.id),
+              );
+            });
+          }
+          
+          return RestaurantCard(
+            name: store.name,
+            imageUrl: store.imageUrl ?? 'assets/images/placeholder.jpg',
+            cuisine: store.cuisine,
+            rating: store.rating ?? 0.0,
+            isVeg: store.isVeg,
+            restaurantLatitude: store.latitude,
+            restaurantLongitude: store.longitude,
+            userLatitude: state.userLatitude,
+            userLongitude: state.userLongitude,
+            restaurantType: store.restaurantType,
+            isAcceptingOrder: store.isAcceptingOrder,
+            partnerId: store.id,
+            isFavorite: isFavorite,
+            isLoading: isLoading,
+            isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
+            onFavoriteToggle: store.id != null && store.id.isNotEmpty ? () {
+              context.read<HomeFavoritesBloc>().add(
+                ToggleHomeFavorite(
+                  partnerId: store.id,
+                  isCurrentlyFavorite: isFavorite,
+                ),
+              );
+            } : null,
+            onTap: () => _navigateToRestaurantDetails(context, store),
+          ).animate(controller: _animationController)
+            .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+            .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad);
+        },
+      ),
     );
   }
 
@@ -1262,6 +1632,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             partnerId: restaurant.id,
             isFavorite: isFavorite,
             isLoading: isLoading,
+            isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
             onFavoriteToggle: restaurant.id != null && restaurant.id.isNotEmpty ? () {
               context.read<HomeFavoritesBloc>().add(
                 ToggleHomeFavorite(
@@ -2152,5 +2523,239 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
       case 'local_dining': return Icons.local_dining;
       default: return Icons.restaurant;
     }
+  }
+
+  Widget _buildRecentOrdersSection(BuildContext context, HomeLoaded state) {
+    final filteredOrders = _filterRecentOrdersBySupercategory(state.recentOrders);
+    
+    if (filteredOrders.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12, right: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Orders',
+                  style: GoogleFonts.poppins(
+                    fontSize: getResponsiveFontSize(context, 16),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pushNamed(context, Routes.orderHistory);
+                  },
+                  child: Text(
+                    'View All',
+                    style: GoogleFonts.poppins(
+                      fontSize: getResponsiveFontSize(context, 13),
+                      fontWeight: FontWeight.w500,
+                      color: ColorManager.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: filteredOrders.length,
+              itemBuilder: (context, index) {
+                final order = filteredOrders[index];
+                return Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  child: _buildRecentOrderCard(context, order),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+    Widget _buildRecentOrderCard(BuildContext context, RecentOrderModel order) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scale = (screenWidth / 400).clamp(0.7, 1.0);
+    
+    return GestureDetector(
+      onTap: () => _navigateToOrderDetails(context, order),
+      child: Container(
+        width: 140 * scale,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12 * scale),
+          border: Border.all(color: Colors.grey[200]!),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(8 * scale),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Item name
+              Text(
+                order.supercategoryName ?? 'Unknown Item',
+                style: GoogleFonts.poppins(
+                  fontSize: 12 * scale,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: 4 * scale),
+              
+              // Price
+              Row(
+                children: [
+                  Icon(
+                    Icons.currency_rupee,
+                    size: 10 * scale,
+                    color: ColorManager.instamartGreen,
+                  ),
+                  Text(
+                    '${order.totalPrice ?? '0'}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11 * scale,
+                      fontWeight: FontWeight.w600,
+                      color: ColorManager.instamartGreen,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4 * scale),
+              
+              // Date
+              Text(
+                _formatOrderDate(order.createdAt),
+                style: GoogleFonts.poppins(
+                  fontSize: 9 * scale,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey[600],
+                ),
+              ),
+              SizedBox(height: 4 * scale),
+              
+              // Status badge
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
+                decoration: BoxDecoration(
+                  color: _getOrderStatusColor(order.orderStatus ?? '').withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6 * scale),
+                  border: Border.all(
+                    color: _getOrderStatusColor(order.orderStatus ?? '').withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  _formatOrderStatus(order.orderStatus ?? ''),
+                  style: GoogleFonts.poppins(
+                    fontSize: 8 * scale,
+                    fontWeight: FontWeight.w500,
+                    color: _getOrderStatusColor(order.orderStatus ?? ''),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<RecentOrderModel> _filterRecentOrdersBySupercategory(List<RecentOrderModel> orders) {
+    if (selectedSupercategoryId == null || selectedSupercategoryId!.isEmpty) {
+      return orders;
+    }
+    return orders.where((order) => order.supercategoryId?.toString() == selectedSupercategoryId).toList();
+  }
+
+  Color _getOrderStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING': return const Color(0xFFFF9800);
+      case 'PREPARING': return const Color(0xFF2196F3);
+      case 'OUT_FOR_DELIVERY': return const Color(0xFF9C27B0);
+      case 'DELIVERED': return const Color(0xFF4CAF50);
+      case 'CANCELLED': return const Color(0xFFF44336);
+      default: return Colors.grey;
+    }
+  }
+
+  String _formatOrderStatus(String status) {
+    switch (status.toUpperCase()) {
+      case 'OUT_FOR_DELIVERY': return 'Out for Delivery';
+      case 'PENDING': return 'Pending';
+      case 'PREPARING': return 'Preparing';
+      case 'DELIVERED': return 'Delivered';
+      case 'CANCELLED': return 'Cancelled';
+      default: return status;
+    }
+  }
+
+  String _formatOrderDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+      
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Unknown date';
+    }
+  }
+
+  IconData _getCategoryIcon(String categoryName) {
+    switch (categoryName.toLowerCase()) {
+      case 'food': return Icons.restaurant;
+      case 'grocery': return Icons.shopping_bag;
+      case 'medicine': return Icons.local_pharmacy;
+      case 'electronics': return Icons.devices;
+      default: return Icons.category;
+    }
+  }
+
+  Color _getCategoryColorFromName(String categoryName) {
+    switch (categoryName.toLowerCase()) {
+      case 'food': return ColorManager.primary;
+      case 'grocery': return const Color(0xFF4CAF50);
+      case 'medicine': return const Color(0xFF2196F3);
+      case 'electronics': return const Color(0xFFE91E63);
+      default: return ColorManager.primary;
+    }
+  }
+
+  void _navigateToOrderDetails(BuildContext context, RecentOrderModel order) {
+    // Navigate to order details page
+    Navigator.pushNamed(
+      context,
+      Routes.orderDetails,
+      arguments: order.orderId,
+    );
   }
 }

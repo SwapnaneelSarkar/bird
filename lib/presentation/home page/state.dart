@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/restaurant_model.dart';
+import '../../models/recent_order_model.dart';
 
 abstract class HomeState extends Equatable {
   const HomeState();
@@ -25,6 +26,7 @@ class HomeLoaded extends HomeState {
   final String? selectedCategoryId;
   final String? selectedFoodTypeId;
   final List<Map<String, dynamic>> savedAddresses;
+  final List<RecentOrderModel> recentOrders;
   
   const HomeLoaded({
     required this.restaurants,
@@ -37,6 +39,7 @@ class HomeLoaded extends HomeState {
     this.selectedCategoryId,
     this.selectedFoodTypeId,
     this.savedAddresses = const [],
+    this.recentOrders = const [],
   });
   
   // Helper method to get filtered restaurants
@@ -101,6 +104,7 @@ class HomeLoaded extends HomeState {
     Object? selectedCategoryId = _noValue,
     Object? selectedFoodTypeId = _noValue,
     List<Map<String, dynamic>>? savedAddresses,
+    List<RecentOrderModel>? recentOrders,
   }) {
     return HomeLoaded(
       restaurants: restaurants ?? this.restaurants,
@@ -113,6 +117,7 @@ class HomeLoaded extends HomeState {
       selectedCategoryId: selectedCategoryId == _noValue ? this.selectedCategoryId : selectedCategoryId as String?,
       selectedFoodTypeId: selectedFoodTypeId == _noValue ? this.selectedFoodTypeId : selectedFoodTypeId as String?,
       savedAddresses: savedAddresses ?? this.savedAddresses,
+      recentOrders: recentOrders ?? this.recentOrders,
     );
   }
   
@@ -128,6 +133,7 @@ class HomeLoaded extends HomeState {
     selectedCategoryId,
     selectedFoodTypeId,
     savedAddresses,
+    recentOrders,
   ];
 }
 

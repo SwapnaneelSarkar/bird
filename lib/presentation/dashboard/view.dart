@@ -431,8 +431,8 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
 
   Widget _buildCategoriesSection(List<CategoryModel> categories) {
     // Determine if we should show "View All" button
-    final shouldShowViewAll = categories.length > 4;
-    final displayCategories = shouldShowViewAll ? categories.take(4).toList() : categories;
+    final shouldShowViewAll = categories.length > 8;
+    final displayCategories = shouldShowViewAll ? categories.take(8).toList() : categories;
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -490,40 +490,38 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
             ),
           ),
           const SizedBox(height: 16),
-          // Dynamic height based on number of categories
-          Stack(
+          // Two rows of categories with horizontal scrolling
+          Column(
             children: [
+              // First row
               SizedBox(
-                height: displayCategories.length <= 3 ? 140 : 160, // Adjust height based on category count
+                height: 140,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  itemCount: displayCategories.length,
+                  itemCount: (displayCategories.length / 2).ceil(),
                   itemBuilder: (context, index) {
                     final category = displayCategories[index];
                     return _buildCategoryCard(category, index, totalCategories: displayCategories.length);
                   },
                 ),
               ),
-              // Scroll indicator for many categories
-              if (displayCategories.length > 3)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 20,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Colors.white.withOpacity(0.0),
-                          Colors.white.withOpacity(0.8),
-                        ],
-                      ),
-                    ),
+              const SizedBox(height: 12),
+              // Second row (if there are more than 4 categories)
+              if (displayCategories.length > 4)
+                SizedBox(
+                  height: 140,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    itemCount: displayCategories.length - (displayCategories.length / 2).ceil(),
+                    itemBuilder: (context, index) {
+                      final actualIndex = (displayCategories.length / 2).ceil() + index;
+                      final category = displayCategories[actualIndex];
+                      return _buildCategoryCard(category, actualIndex, totalCategories: displayCategories.length);
+                    },
                   ),
                 ),
             ],
@@ -546,12 +544,12 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     final gradient = gradients[index % gradients.length];
     final accentColor = gradient[1];
 
-    // Dynamic sizing based on total categories
-    final totalCats = totalCategories ?? 2;
-    final cardWidth = totalCats <= 3 ? 100.0 : 90.0; // Smaller cards if more categories
-    final imageSize = totalCats <= 3 ? 70.0 : 60.0; // Smaller images if more categories
-    final innerImageSize = totalCats <= 3 ? 66.0 : 56.0; // Smaller inner images if more categories
-    final fontSize = totalCats <= 3 ? 11.0 : 10.0; // Smaller font if more categories
+    // Optimized sizing for 2-row layout
+    final totalCats = totalCategories ?? 8;
+    final cardWidth = 100.0; // Fixed width for consistent layout
+    final imageSize = 70.0; // Fixed image size
+    final innerImageSize = 66.0; // Fixed inner image size
+    final fontSize = 11.0; // Fixed font size
 
     // Debug print to verify what is being passed
     debugPrint('Dashboard: Showing card for ${category.name} (id: ${category.id}) with image: ${category.image}');
@@ -570,7 +568,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
       },
       child: Container(
         width: cardWidth,
-        margin: EdgeInsets.symmetric(horizontal: totalCats <= 3 ? 6 : 4), // Tighter spacing for more categories
+        margin: const EdgeInsets.symmetric(horizontal: 6), // Consistent spacing for 2-row layout
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -661,7 +659,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                                   child: Icon(
                                     _getCategoryIcon(category.name),
                                     color: Colors.white,
-                                    size: totalCats <= 3 ? 28 : 24,
+                                    size: 28,
                                   ),
                                 ),
                                 errorWidget: (context, error) {
@@ -677,7 +675,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                                     child: Icon(
                                       _getCategoryIcon(category.name),
                                       color: Colors.white,
-                                      size: totalCats <= 3 ? 28 : 24,
+                                      size: 28,
                                     ),
                                   );
                                 },
@@ -693,19 +691,19 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                             child: Icon(
                               _getCategoryIcon(category.name),
                               color: Colors.white,
-                              size: totalCats <= 3 ? 28 : 24,
+                              size: 28,
                             ),
                           ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: totalCats <= 3 ? 8 : 6), // Tighter spacing for more categories
+            const SizedBox(height: 8), // Consistent spacing for 2-row layout
             // Category name container
             Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: totalCats <= 3 ? 7 : 5, 
-                vertical: totalCats <= 3 ? 4 : 3
+              padding: const EdgeInsets.symmetric(
+                horizontal: 7, 
+                vertical: 4
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -731,7 +729,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                maxLines: totalCats <= 3 ? 2 : 1, // Single line for more categories
+                maxLines: 2, // Allow 2 lines for better readability in 2-row layout
               ),
             ),
           ],

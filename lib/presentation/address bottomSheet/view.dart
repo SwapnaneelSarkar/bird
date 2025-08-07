@@ -937,18 +937,6 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
           ),
           actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                if (widget.onAddressSelected != null) {
-                  widget.onAddressSelected!(address, 'Other', latitude, longitude);
-                }
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: ColorManager.primary,
-              ),
-              child: const Text('Skip'),
-            ),
             ElevatedButton(
               onPressed: () {
                 final enteredName = nameController.text.trim();

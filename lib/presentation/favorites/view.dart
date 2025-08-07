@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../constants/color/colorConstant.dart';
+import '../../constants/router/router.dart';
 import '../../widgets/cached_image.dart';
 import '../restaurant_menu/view.dart';
 import 'bloc.dart';
@@ -366,7 +367,13 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(screenWidth * 0.03),
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    // Navigate to home page instead of just popping back
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      Routes.home,
+                      (route) => false, // Remove all previous routes
+                    );
+                  },
                   child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,

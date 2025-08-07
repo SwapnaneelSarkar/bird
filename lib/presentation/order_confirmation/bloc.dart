@@ -562,17 +562,144 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
     UpdateOrderQuantity event,
     Emitter<OrderConfirmationState> emit,
   ) async {
-    // Note: We can't access state directly in event handlers
-    // This will be handled by the view passing the current state
     debugPrint('OrderConfirmationBloc: Update quantity requested for item ${event.itemId} to ${event.newQuantity}');
+    
+    if (state is OrderConfirmationLoaded) {
+      final currentState = state as OrderConfirmationLoaded;
+      final updatedItems = List<OrderItem>.from(currentState.orderSummary.items);
+      
+      // Find and update the item quantity
+      final itemIndex = updatedItems.indexWhere((item) => item.id == event.itemId);
+      if (itemIndex != -1) {
+        final item = updatedItems[itemIndex];
+        
+        // Update cart service first
+        final partnerId = currentState.cartMetadata['partner_id']?.toString() ?? '';
+        final restaurantName = currentState.cartMetadata['restaurant_name']?.toString() ?? '';
+        
+        final cartResult = await CartService.addItemToCart(
+          partnerId: partnerId,
+          restaurantName: restaurantName,
+          menuId: item.id,
+          itemName: item.name,
+          price: item.price,
+          quantity: event.newQuantity,
+          imageUrl: item.imageUrl,
+          attributes: item.attributes.isNotEmpty ? item.attributes : null,
+        );
+        
+        if (cartResult['success'] == true) {
+          // Update local state
+          final updatedItem = OrderItem(
+            id: item.id,
+            name: item.name,
+            imageUrl: item.imageUrl,
+            quantity: event.newQuantity,
+            price: item.price,
+            attributes: item.attributes,
+          );
+          updatedItems[itemIndex] = updatedItem;
+          
+          // Remove item if quantity is 0
+          if (event.newQuantity == 0) {
+            updatedItems.removeAt(itemIndex);
+          }
+          
+          // Recalculate totals
+          final deliveryFee = currentState.orderSummary.deliveryFee;
+          final taxAmount = currentState.orderSummary.taxAmount;
+          final discountAmount = currentState.orderSummary.discountAmount;
+          
+          final updatedOrderSummary = OrderSummary(
+            items: updatedItems,
+            deliveryFee: deliveryFee,
+            taxAmount: taxAmount,
+            discountAmount: discountAmount,
+          );
+          
+          emit(OrderConfirmationLoaded(
+            orderSummary: updatedOrderSummary,
+            cartMetadata: currentState.cartMetadata,
+            selectedPaymentMode: currentState.selectedPaymentMode,
+          ));
+          
+          debugPrint('OrderConfirmationBloc: ✅ Quantity updated successfully in both cart and state');
+        } else {
+          debugPrint('OrderConfirmationBloc: ❌ Failed to update cart: ${cartResult['message']}');
+          // Don't update state if cart update failed
+        }
+      } else {
+        debugPrint('OrderConfirmationBloc: ❌ Item not found with ID: ${event.itemId}');
+      }
+    } else {
+      debugPrint('OrderConfirmationBloc: ❌ Current state is not OrderConfirmationLoaded');
+    }
   }
 
   Future<void> _onRemoveOrderItem(
     RemoveOrderItem event,
     Emitter<OrderConfirmationState> emit,
   ) async {
-    // Note: We can't access state directly in event handlers
-    // This will be handled by the view passing the current state
     debugPrint('OrderConfirmationBloc: Remove item requested for item ${event.itemId}');
+    
+    if (state is OrderConfirmationLoaded) {
+      final currentState = state as OrderConfirmationLoaded;
+      final updatedItems = List<OrderItem>.from(currentState.orderSummary.items);
+      
+      // Find the item to remove
+      final itemToRemove = updatedItems.firstWhere(
+        (item) => item.id == event.itemId,
+        orElse: () => OrderItem(id: '', name: '', imageUrl: '', quantity: 0, price: 0.0),
+      );
+      
+      if (itemToRemove.id.isNotEmpty) {
+        // Update cart service first (set quantity to 0 to remove)
+        final partnerId = currentState.cartMetadata['partner_id']?.toString() ?? '';
+        final restaurantName = currentState.cartMetadata['restaurant_name']?.toString() ?? '';
+        
+        final cartResult = await CartService.addItemToCart(
+          partnerId: partnerId,
+          restaurantName: restaurantName,
+          menuId: itemToRemove.id,
+          itemName: itemToRemove.name,
+          price: itemToRemove.price,
+          quantity: 0, // Set to 0 to remove
+          imageUrl: itemToRemove.imageUrl,
+          attributes: itemToRemove.attributes.isNotEmpty ? itemToRemove.attributes : null,
+        );
+        
+        if (cartResult['success'] == true) {
+          // Remove the item from local state
+          updatedItems.removeWhere((item) => item.id == event.itemId);
+          
+          // Recalculate totals
+          final deliveryFee = currentState.orderSummary.deliveryFee;
+          final taxAmount = currentState.orderSummary.taxAmount;
+          final discountAmount = currentState.orderSummary.discountAmount;
+          
+          final updatedOrderSummary = OrderSummary(
+            items: updatedItems,
+            deliveryFee: deliveryFee,
+            taxAmount: taxAmount,
+            discountAmount: discountAmount,
+          );
+          
+          emit(OrderConfirmationLoaded(
+            orderSummary: updatedOrderSummary,
+            cartMetadata: currentState.cartMetadata,
+            selectedPaymentMode: currentState.selectedPaymentMode,
+          ));
+          
+          debugPrint('OrderConfirmationBloc: ✅ Item removed successfully from both cart and state');
+        } else {
+          debugPrint('OrderConfirmationBloc: ❌ Failed to remove from cart: ${cartResult['message']}');
+          // Don't update state if cart update failed
+        }
+      } else {
+        debugPrint('OrderConfirmationBloc: ❌ Item not found with ID: ${event.itemId}');
+      }
+    } else {
+      debugPrint('OrderConfirmationBloc: ❌ Current state is not OrderConfirmationLoaded');
+    }
   }
 } 

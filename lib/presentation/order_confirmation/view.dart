@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
@@ -67,7 +68,10 @@ class _OrderConfirmationContent extends StatelessWidget {
         listener: (context, state) {
           debugPrint('_OrderConfirmationContent: State changed to ${state.runtimeType}');
           
-          if (state is OrderConfirmationSuccess) {
+          if (state is OrderConfirmationProcessing) {
+            debugPrint('_OrderConfirmationContent: Order is being processed, showing loading dialog');
+            _showProcessingDialog(context);
+          } else if (state is OrderConfirmationSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -86,6 +90,10 @@ class _OrderConfirmationContent extends StatelessWidget {
             print('🚨🚨🚨 ORDER CONFIRMATION: Order ID being passed: ${state.orderId} 🚨🚨🚨');
             Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
           } else if (state is OrderConfirmationError) {
+            // Dismiss processing dialog if it's showing
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -93,6 +101,11 @@ class _OrderConfirmationContent extends StatelessWidget {
                 duration: const Duration(seconds: 3),
               ),
             );
+          } else if (state is OrderConfirmationSuccess || state is ChatRoomCreated) {
+            // Dismiss processing dialog if it's showing
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
           }
         },
         builder: (context, state) {
@@ -245,7 +258,7 @@ class _OrderConfirmationContent extends StatelessWidget {
         children: [
           _buildRestaurantInfo(state, screenWidth, screenHeight),
           SizedBox(height: screenHeight * 0.02),
-          _buildOrderItems(state, screenWidth, screenHeight),
+          _buildOrderItems(context, state, screenWidth, screenHeight),
           SizedBox(height: screenHeight * 0.02),
           _buildOrderSummary(state, screenWidth, screenHeight),
           SizedBox(height: screenHeight * 0.04),
@@ -322,6 +335,7 @@ class _OrderConfirmationContent extends StatelessWidget {
   }
 
   Widget _buildOrderItems(
+    BuildContext context,
     OrderConfirmationLoaded state,
     double screenWidth,
     double screenHeight,
@@ -363,7 +377,9 @@ class _OrderConfirmationContent extends StatelessWidget {
               itemId: item.id,
               attributes: item.attributes,
               onQuantityChanged: (itemId, newQuantity) {
-                // Handle quantity change
+                context.read<OrderConfirmationBloc>().add(
+                  UpdateOrderQuantity(itemId: itemId, newQuantity: newQuantity),
+                );
               },
             );
           }).toList(),
@@ -405,7 +421,6 @@ class _OrderConfirmationContent extends StatelessWidget {
           ),
           SizedBox(height: screenHeight * 0.02),
           _buildSummaryRow('Subtotal', '₹${state.orderSummary.subtotal.toStringAsFixed(2)}', screenWidth),
-          _buildSummaryRow('Delivery Fee', '₹${state.orderSummary.deliveryFee.toStringAsFixed(2)}', screenWidth),
           if (state.orderSummary.taxAmount > 0)
             _buildSummaryRow('Tax', '₹${state.orderSummary.taxAmount.toStringAsFixed(2)}', screenWidth),
           if (state.orderSummary.discountAmount > 0)
@@ -494,6 +509,16 @@ class _OrderConfirmationContent extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final orderBloc = context.read<OrderConfirmationBloc>();
+    
+    // Auto-place order timer (8 seconds)
+    Timer? autoPlaceTimer;
+    autoPlaceTimer = Timer(const Duration(seconds: 8), () {
+      if (context.mounted) {
+        debugPrint('PaymentDialog: Auto-place order timeout reached, using default payment method');
+        Navigator.of(context).pop();
+        orderBloc.add(const PlaceOrder(paymentMode: 'cash'));
+      }
+    });
 
     showDialog(
       context: context,
@@ -507,17 +532,11 @@ class _OrderConfirmationContent extends StatelessWidget {
               builder: (context, state) {
                 debugPrint('PaymentDialog: Current state: ${state.runtimeType}');
                 
+
+                
                 // Always trigger LoadPaymentMethods when dialog opens, unless already loaded
                 if (state is! PaymentMethodsLoaded) {
                   debugPrint('PaymentDialog: Triggering LoadPaymentMethods');
-                  // Add a timeout to prevent infinite loading
-                  Future.delayed(const Duration(seconds: 10), () {
-                    if (context.mounted && state is! PaymentMethodsLoaded) {
-                      debugPrint('PaymentDialog: Timeout reached, using default payment method');
-                      Navigator.of(context).pop();
-                      orderBloc.add(const PlaceOrder(paymentMode: 'cash'));
-                    }
-                  });
                   context.read<OrderConfirmationBloc>().add(LoadPaymentMethods());
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -557,6 +576,7 @@ class _OrderConfirmationContent extends StatelessWidget {
                               screenWidth: screenWidth,
                               screenHeight: screenHeight,
                               paymentId: method.id,
+                              autoPlaceTimer: autoPlaceTimer,
                             ),
                             SizedBox(height: screenHeight * 0.015),
                           ],
@@ -614,6 +634,7 @@ class _OrderConfirmationContent extends StatelessWidget {
     required double screenWidth,
     required double screenHeight,
     required String paymentId,
+    Timer? autoPlaceTimer,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -629,6 +650,7 @@ class _OrderConfirmationContent extends StatelessWidget {
         child: InkWell(
           onTap: () {
             debugPrint('PaymentDialog: Selected payment method: $paymentId');
+            autoPlaceTimer?.cancel();
             Navigator.of(context).pop();
             orderBloc.add(PlaceOrder(paymentMode: paymentId));
           },
@@ -684,6 +706,49 @@ class _OrderConfirmationContent extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showProcessingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Processing your order...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: ColorManager.black,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please wait while we place your order',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 } 

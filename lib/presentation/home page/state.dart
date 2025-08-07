@@ -27,6 +27,8 @@ class HomeLoaded extends HomeState {
   final String? selectedFoodTypeId;
   final List<Map<String, dynamic>> savedAddresses;
   final List<RecentOrderModel> recentOrders;
+  final bool isLocationServiceable;
+  final String? locationServiceabilityMessage;
   
   const HomeLoaded({
     required this.restaurants,
@@ -40,6 +42,8 @@ class HomeLoaded extends HomeState {
     this.selectedFoodTypeId,
     this.savedAddresses = const [],
     this.recentOrders = const [],
+    this.isLocationServiceable = true,
+    this.locationServiceabilityMessage,
   });
   
   // Helper method to get filtered restaurants
@@ -68,22 +72,35 @@ class HomeLoaded extends HomeState {
     
     // Filter by food type if selected
     if (selectedFoodTypeId != null) {
-      filtered = filtered.where((restaurant) {
-        // Check if restaurant has the selected food type in availableFoodTypes
-        final hasFoodType = restaurant.availableFoodTypes.contains(selectedFoodTypeId);
-        debugPrint('HomeState: Restaurant ${restaurant.name} - availableFoodTypes: ${restaurant.availableFoodTypes}, contains $selectedFoodTypeId: $hasFoodType');
-        
-        // Only show restaurants that have the selected food type
-        if (hasFoodType) {
-          debugPrint('HomeState: Restaurant ${restaurant.name} has the selected food type, showing it');
-          return true;
-        }
-        
-        // If restaurant doesn't have the selected food type, don't show it
-        debugPrint('HomeState: Restaurant ${restaurant.name} does not have the selected food type, hiding it');
-        return false;
-      }).toList();
-      debugPrint('HomeState: After food type filter: ${filtered.length} restaurants');
+      // Get the food type name from the foodTypes list using the selectedFoodTypeId
+      final selectedFoodType = foodTypes.firstWhere(
+        (foodType) => foodType['restaurant_food_type_id']?.toString() == selectedFoodTypeId,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      final selectedFoodTypeName = selectedFoodType['name']?.toString() ?? '';
+      debugPrint('HomeState: Selected food type ID: $selectedFoodTypeId, Name: $selectedFoodTypeName');
+      
+      if (selectedFoodTypeName.isNotEmpty) {
+        filtered = filtered.where((restaurant) {
+          // Check if restaurant has the selected food type name in availableFoodTypes
+          final hasFoodType = restaurant.availableFoodTypes.contains(selectedFoodTypeName);
+          debugPrint('HomeState: Restaurant ${restaurant.name} - availableFoodTypes: ${restaurant.availableFoodTypes}, contains "$selectedFoodTypeName": $hasFoodType');
+          
+          // Only show restaurants that have the selected food type
+          if (hasFoodType) {
+            debugPrint('HomeState: Restaurant ${restaurant.name} has the selected food type, showing it');
+            return true;
+          }
+          
+          // If restaurant doesn't have the selected food type, don't show it
+          debugPrint('HomeState: Restaurant ${restaurant.name} does not have the selected food type, hiding it');
+          return false;
+        }).toList();
+        debugPrint('HomeState: After food type filter: ${filtered.length} restaurants');
+      } else {
+        debugPrint('HomeState: Could not find food type name for ID: $selectedFoodTypeId');
+      }
     }
     
     debugPrint('HomeState: Final filtered results: ${filtered.length} restaurants');
@@ -105,6 +122,8 @@ class HomeLoaded extends HomeState {
     Object? selectedFoodTypeId = _noValue,
     List<Map<String, dynamic>>? savedAddresses,
     List<RecentOrderModel>? recentOrders,
+    bool? isLocationServiceable,
+    String? locationServiceabilityMessage,
   }) {
     return HomeLoaded(
       restaurants: restaurants ?? this.restaurants,
@@ -118,6 +137,8 @@ class HomeLoaded extends HomeState {
       selectedFoodTypeId: selectedFoodTypeId == _noValue ? this.selectedFoodTypeId : selectedFoodTypeId as String?,
       savedAddresses: savedAddresses ?? this.savedAddresses,
       recentOrders: recentOrders ?? this.recentOrders,
+      isLocationServiceable: isLocationServiceable ?? this.isLocationServiceable,
+      locationServiceabilityMessage: locationServiceabilityMessage ?? this.locationServiceabilityMessage,
     );
   }
   
@@ -134,6 +155,8 @@ class HomeLoaded extends HomeState {
     selectedFoodTypeId,
     savedAddresses,
     recentOrders,
+    isLocationServiceable,
+    locationServiceabilityMessage,
   ];
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bird/constants/router/router.dart';
 import '../../service/token_service.dart';
+import '../../service/app_startup_service.dart';
 import 'dart:math' as math;
 
 class SplashScreen extends StatefulWidget {
@@ -149,10 +150,38 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         _updateStatusMessage('Welcome back!');
         await Future.delayed(const Duration(milliseconds: 500));
         
+        // Initialize app services including location fetching
+        _updateStatusMessage('Updating location...');
+        debugPrint('🚀 SplashScreen: Starting location initialization...');
+        final initResult = await AppStartupService.forceFreshLocationFetch();
+        
+        debugPrint('🚀 SplashScreen: Location initialization result: $initResult');
+        
+        if (initResult['locationUpdated'] == true) {
+          _updateStatusMessage('Location updated!');
+          debugPrint('🚀 SplashScreen: Location was updated successfully');
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // Refresh user data to get the updated location
+          _updateStatusMessage('Refreshing profile...');
+          debugPrint('🚀 SplashScreen: Refreshing profile data...');
+          await Future.delayed(const Duration(milliseconds: 300));
+        } else {
+          _updateStatusMessage('Location ready!');
+          debugPrint('🚀 SplashScreen: Location was not updated (${initResult['message']})');
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+        
         final userData = await TokenService.getUserData();
         final token = await TokenService.getToken();
         
+        debugPrint('🚀 SplashScreen: Final user data before navigation:');
+        debugPrint('  📍 Address: ${userData?['address']}');
+        debugPrint('  📍 Latitude: ${userData?['latitude']}');
+        debugPrint('  📍 Longitude: ${userData?['longitude']}');
+        
         if (mounted) {
+          debugPrint('🚀 SplashScreen: Navigating to dashboard...');
           Navigator.pushReplacementNamed(
             context,
             Routes.dashboard,

@@ -14,6 +14,7 @@ import 'state.dart';
 import '../../widgets/shimmer_helper.dart';
 import '../address bottomSheet/view.dart';
 import '../../service/address_service.dart';
+import '../../service/app_startup_service.dart';
 import '../../widgets/verification_dialog.dart';
 import '../../widgets/account_deletion_verification_dialog.dart';
 
@@ -50,6 +51,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   bool _isPhoneVerified = false;
   String _originalEmail = '';
   String _originalPhone = '';
+  // --- END ADDED ---
+  
+  // --- ADDED: Location settings tracking ---
+  bool _isAutoLocationEnabled = true;
+  bool _isUpdatingLocation = false;
   // --- END ADDED ---
   
   @override
@@ -103,7 +109,24 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       debugPrint('SettingsView: Failed to load saved addresses: $e');
     }
     // --- END ADDED ---
+    
+    // --- ADDED: Load location settings ---
+    _loadLocationSettings();
+    // --- END ADDED ---
   }
+  
+  // --- ADDED: Load location settings ---
+  Future<void> _loadLocationSettings() async {
+    try {
+      final isEnabled = await AppStartupService.isAutoLocationEnabled();
+      setState(() {
+        _isAutoLocationEnabled = isEnabled;
+      });
+    } catch (e) {
+      debugPrint('SettingsView: Error loading location settings: $e');
+    }
+  }
+  // --- END ADDED ---
   
   Future<void> _pickImage() async {
     HapticFeedback.mediumImpact(); // Add haptic feedback
@@ -215,6 +238,72 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       );
     }
   }
+  
+  // --- ADDED: Location update methods ---
+  Future<void> _updateLocationNow() async {
+    setState(() {
+      _isUpdatingLocation = true;
+    });
+    
+    try {
+      final result = await AppStartupService.manualLocationUpdate();
+      
+      if (result['success'] == true) {
+        if (result['locationUpdated'] == true) {
+          _showSnackBar(
+            message: 'Location updated successfully!',
+            isError: false,
+          );
+          
+          // Update the address controller with new location
+          if (result['address'] != null) {
+            setState(() {
+              _addressController.text = result['address'];
+            });
+          }
+        } else {
+          _showSnackBar(
+            message: result['message'] ?? 'Location is up to date',
+            isError: false,
+          );
+        }
+      } else {
+        _showSnackBar(
+          message: result['message'] ?? 'Failed to update location',
+          isError: true,
+        );
+      }
+    } catch (e) {
+      _showSnackBar(
+        message: 'Error updating location. Please try again.',
+        isError: true,
+      );
+    } finally {
+      setState(() {
+        _isUpdatingLocation = false;
+      });
+    }
+  }
+  
+  Future<void> _toggleAutoLocation(bool value) async {
+    try {
+      await AppStartupService.setAutoLocationEnabled(value);
+      setState(() {
+        _isAutoLocationEnabled = value;
+      });
+      
+      _showSnackBar(
+        message: 'Auto location updates ${value ? 'enabled' : 'disabled'}',
+        isError: false,
+      );
+    } catch (e) {
+      _showSnackBar(
+        message: 'Failed to update location settings',
+        isError: true,
+      );
+    }
+  }
+  // --- END ADDED ---
 
   // Helper method to show snackbar
   void _showSnackBar({required String message, required bool isError}) {
@@ -501,6 +590,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             
                             // Address Field with location picker
                             _buildAddressField(responsiveTextScale, 400),
+                            
+                            // Location Settings Section
+                            _buildLocationSettingsSection(responsiveTextScale, 450),
                           ],
                         ),
                       ),
@@ -659,6 +751,119 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       ),
     ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
   }
+
+  // --- ADDED: Location settings section ---
+  Widget _buildLocationSettingsSection(double responsiveTextScale, int animationDelay) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Location Settings',
+            style: TextStyle(
+              fontSize: FontSize.s12 * responsiveTextScale,
+              color: Colors.grey,
+              fontFamily: FontFamily.Montserrat,
+            ),
+          ),
+          SizedBox(height: 8 * responsiveTextScale),
+          
+          // Auto location updates toggle
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 8 * responsiveTextScale),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(6 * responsiveTextScale),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                  ),
+                  child: Icon(
+                    Icons.location_on,
+                    color: Colors.blue,
+                    size: 18 * responsiveTextScale,
+                  ),
+                ),
+                SizedBox(width: 8 * responsiveTextScale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Auto Location Updates',
+                        style: TextStyle(
+                          color: ColorManager.black,
+                          fontSize: FontSize.s14 * responsiveTextScale,
+                          fontFamily: FontFamily.Montserrat,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        'Automatically update location when app starts',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: FontSize.s12 * responsiveTextScale,
+                          fontFamily: FontFamily.Montserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _isAutoLocationEnabled,
+                  onChanged: _toggleAutoLocation,
+                  activeColor: Colors.blue,
+                  activeTrackColor: Colors.blue.withOpacity(0.3),
+                ),
+              ],
+            ),
+          ),
+          
+          // Manual location update button
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.only(top: 8 * responsiveTextScale),
+            child: ElevatedButton.icon(
+              onPressed: _isUpdatingLocation ? null : _updateLocationNow,
+              icon: _isUpdatingLocation 
+                ? SizedBox(
+                    width: 16 * responsiveTextScale,
+                    height: 16 * responsiveTextScale,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Icon(Icons.refresh, size: 18 * responsiveTextScale),
+              label: Text(
+                _isUpdatingLocation ? 'Updating...' : 'Update Location Now',
+                style: TextStyle(
+                  fontSize: FontSize.s14 * responsiveTextScale,
+                  fontFamily: FontFamily.Montserrat,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16 * responsiveTextScale,
+                  vertical: 12 * responsiveTextScale,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: animationDelay.ms, duration: 500.ms).slideX(begin: 0.02, end: 0);
+  }
+  // --- END ADDED ---
 
   // Helper method to build settings field
   Widget _buildSettingsField({

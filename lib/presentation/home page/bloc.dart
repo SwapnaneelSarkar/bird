@@ -11,6 +11,7 @@ import '../../../service/update_user_service.dart';
 import '../../../service/currency_service.dart';
 import '../../../service/category_recommendation_service.dart';
 import '../../../service/food_type_service.dart';
+import '../../../service/location_validation_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../models/restaurant_model.dart';
 import '../../models/recent_order_model.dart';
@@ -59,8 +60,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final userId = await TokenService.getUserId();
       final token = await TokenService.getToken();
       
-      debugPrint('HomeBloc: Loading home data with token: ${token != null ? 'Found' : 'Not found'}');
-      debugPrint('HomeBloc: Selected supercategory ID: $_selectedSupercategoryId');
+      debugPrint('🏠 HomeBloc: Loading home data with token: ${token != null ? 'Found' : 'Not found'}');
+      debugPrint('🏠 HomeBloc: Selected supercategory ID: $_selectedSupercategoryId');
+      debugPrint('🏠 HomeBloc: User ID: $userId');
       
       String userAddress = 'Add delivery address';
       double? latitude;
@@ -68,8 +70,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       List<Map<String, dynamic>> savedAddresses = [];
       
       if (userId != null && token != null) {
-        // Fetch user profile data from API first
-        debugPrint('HomeBloc: Fetching user profile from API...');
+        // Always fetch fresh location data when home page loads
+        debugPrint('🏠 HomeBloc: Fetching fresh location data for home page...');
+        
+        // Force refresh user profile data from API to get latest location
+        debugPrint('🏠 HomeBloc: Force refreshing user profile from API...');
+        
+        // Add a small delay to ensure any pending location updates are completed
+        await Future.delayed(const Duration(milliseconds: 100));
+        
         final profileResult = await _profileApiService.getUserProfile(
           token: token,
           userId: userId,
@@ -78,18 +87,30 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         if (profileResult['success'] == true) {
           final userData = profileResult['data'] as Map<String, dynamic>;
           
+          debugPrint('🏠 HomeBloc: Fresh profile data received:');
+          debugPrint('  📍 Address: ${userData['address']}');
+          debugPrint('  📍 Latitude: ${userData['latitude']}');
+          debugPrint('  📍 Longitude: ${userData['longitude']}');
+          debugPrint('  📍 Updated At: ${userData['updated_at']}');
+          
+          // Update user data in TokenService to ensure consistency
+          await TokenService.saveUserData(userData);
+          debugPrint('🏠 HomeBloc: Updated user data in TokenService');
+          
           // Use profile address as primary address
           if (userData['address'] != null && userData['address'].toString().isNotEmpty) {
             userAddress = userData['address'].toString();
-            debugPrint('HomeBloc: Using profile address: $userAddress');
+            debugPrint('🏠 HomeBloc: Using fresh profile address: $userAddress');
             
             // Get coordinates from profile
             if (userData['latitude'] != null && userData['longitude'] != null) {
               latitude = double.tryParse(userData['latitude'].toString());
               longitude = double.tryParse(userData['longitude'].toString());
-              debugPrint('HomeBloc: Profile coordinates - Lat: $latitude, Long: $longitude');
+              debugPrint('🏠 HomeBloc: Fresh profile coordinates - Lat: $latitude, Long: $longitude');
             }
           }
+        } else {
+          debugPrint('🏠 HomeBloc: Failed to fetch fresh profile data, using cached data');
         }
         
         // Load saved addresses for the address picker
@@ -111,6 +132,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         }
       }
       
+      debugPrint('🏠 HomeBloc: Final fresh location data for restaurant fetching:');
+      debugPrint('  📍 Address: $userAddress');
+      debugPrint('  📍 Latitude: $latitude');
+      debugPrint('  📍 Longitude: $longitude');
+      
       // Fetch restaurants, categories, food types, and recent orders in parallel
       final restaurantsFuture = (latitude != null && longitude != null) 
           ? _fetchRestaurants(latitude, longitude)
@@ -127,8 +153,37 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       
       // Use all restaurants since filtering is now handled by the API
       List<Restaurant> filteredRestaurants = allRestaurants;
-      debugPrint('HomeBloc: Fetched ${allRestaurants.length} restaurants from API');
-      debugPrint('HomeBloc: Fetched ${categories.length} categories, and ${foodTypes.length} food types');
+      debugPrint('🏠 HomeBloc: Fetched ${allRestaurants.length} restaurants from API with fresh location');
+      debugPrint('🏠 HomeBloc: Fetched ${categories.length} categories, and ${foodTypes.length} food types');
+      
+      // Check location serviceability if we have coordinates and no restaurants
+      bool isLocationServiceable = true;
+      String? locationServiceabilityMessage;
+      
+      if (latitude != null && longitude != null && userAddress != 'Add delivery address' && allRestaurants.isEmpty) {
+        debugPrint('🏠 HomeBloc: No restaurants found, checking location serviceability...');
+        
+        final serviceabilityResult = await LocationValidationService.checkLocationServiceabilityWithDetails(
+          latitude: latitude,
+          longitude: longitude,
+          address: userAddress,
+        );
+        
+        isLocationServiceable = serviceabilityResult['isServiceable'] ?? true;
+        locationServiceabilityMessage = serviceabilityResult['detailedMessage'];
+        
+        debugPrint('🏠 HomeBloc: Location serviceability check result:');
+        debugPrint('  📍 Is serviceable: $isLocationServiceable');
+        debugPrint('  📍 Message: $locationServiceabilityMessage');
+      }
+      
+      debugPrint('🏠 HomeBloc: === FRESH LOCATION FLOW SUMMARY ===');
+      debugPrint('🏠 HomeBloc: Final address: $userAddress');
+      debugPrint('🏠 HomeBloc: Final coordinates: ($latitude, $longitude)');
+      debugPrint('🏠 HomeBloc: Restaurants found: ${filteredRestaurants.length}');
+      debugPrint('🏠 HomeBloc: Categories found: ${categories.length}');
+      debugPrint('🏠 HomeBloc: Location serviceable: $isLocationServiceable');
+      debugPrint('🏠 HomeBloc: === END FRESH LOCATION FLOW SUMMARY ===');
       
       emit(HomeLoaded(
         restaurants: filteredRestaurants,
@@ -139,6 +194,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         userLongitude: longitude,
         savedAddresses: savedAddresses,
         recentOrders: recentOrders,
+        isLocationServiceable: isLocationServiceable,
+        locationServiceabilityMessage: locationServiceabilityMessage,
       ));
       
     } catch (e) {
@@ -359,7 +416,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<List<Restaurant>> _fetchRestaurants(double latitude, double longitude) async {
     try {
-      debugPrint('HomeBloc: Fetching restaurants with coordinates - Lat: $latitude, Long: $longitude');
+      debugPrint('🏠 HomeBloc: Fetching restaurants with coordinates - Lat: $latitude, Long: $longitude');
       
       final token = await TokenService.getToken();
       if (token == null) {
@@ -373,7 +430,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         urlString += '&supercategory=$_selectedSupercategoryId';
       }
       final url = Uri.parse(urlString);
-      debugPrint('HomeBloc: Trying restaurant endpoint: $url');
+      debugPrint('🏠 HomeBloc: Restaurant API URL: $url');
       
       final response = await http.get(
         url,

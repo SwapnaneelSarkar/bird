@@ -13,7 +13,10 @@ import 'state.dart';
 import '../home page/view.dart';
 import '../home page/bloc.dart';
 import '../home page/event.dart';
+
 import '../../widgets/cached_image.dart';
+import '../../service/location_validation_service.dart';
+import '../../service/token_service.dart';
 
 class CategoryHomepage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -44,6 +47,11 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     with TickerProviderStateMixin {
   late AnimationController _headerAnimationController;
   late AnimationController _categoryAnimationController;
+  
+  // Location validation state
+  bool _isCheckingLocation = false;
+  bool _isLocationServiceable = true;
+  String _currentAddress = '';
 
   @override
   void initState() {
@@ -73,6 +81,9 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     _headerAnimationController.forward().then((_) {
       _categoryAnimationController.forward();
     });
+    
+    // Check location serviceability
+    _checkLocationServiceability();
   }
 
   @override
@@ -108,7 +119,13 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
         body: BlocConsumer<CategoryHomepageBloc, CategoryHomepageState>(
           listener: (context, state) {
             if (state is CategorySelected) {
-              debugPrint('CategoryHomepage: Navigating with supercategory ID: ${state.categoryId}');
+              debugPrint('🏠 Dashboard: Navigating with supercategory ID: ${state.categoryId}');
+              
+              // Check if location is serviceable before allowing navigation
+              if (!_isLocationServiceable) {
+                debugPrint('❌ Dashboard: Location not serviceable, blocking navigation');
+                return;
+              }
               
               // Always navigate to home page with the selected category
               // Don't try to find existing home route since we're coming from dashboard
@@ -229,6 +246,16 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 duration: 600.ms,
                 curve: Curves.easeOutCubic,
               ).fadeIn(duration: 600.ms),
+            ),
+            
+            // Location Warning Section
+            SliverToBoxAdapter(
+              child: _buildLocationWarning().animate().slideY(
+                begin: 0.2,
+                end: 0,
+                duration: 500.ms,
+                curve: Curves.easeOutCubic,
+              ).fadeIn(delay: 100.ms, duration: 400.ms),
             ),
             
             // Categories Section
@@ -490,17 +517,17 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
             ),
           ),
           const SizedBox(height: 16),
-          // Two rows of categories with horizontal scrolling
+          // Two rows of super categories with horizontal scrolling
           Column(
             children: [
-              // First row
+              // First row - Always show first row
               SizedBox(
-                height: 140,
+                height: _getRowHeight(displayCategories.length),
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  itemCount: (displayCategories.length / 2).ceil(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _getFirstRowCount(displayCategories.length),
                   itemBuilder: (context, index) {
                     final category = displayCategories[index];
                     return _buildCategoryCard(category, index, totalCategories: displayCategories.length);
@@ -508,17 +535,17 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 ),
               ),
               const SizedBox(height: 12),
-              // Second row (if there are more than 4 categories)
-              if (displayCategories.length > 4)
+              // Second row - Show if there are more categories than can fit in first row
+              if (displayCategories.length > _getFirstRowCount(displayCategories.length))
                 SizedBox(
-                  height: 140,
+                  height: _getRowHeight(displayCategories.length),
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    itemCount: displayCategories.length - (displayCategories.length / 2).ceil(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: displayCategories.length - _getFirstRowCount(displayCategories.length),
                     itemBuilder: (context, index) {
-                      final actualIndex = (displayCategories.length / 2).ceil() + index;
+                      final actualIndex = _getFirstRowCount(displayCategories.length) + index;
                       final category = displayCategories[actualIndex];
                       return _buildCategoryCard(category, actualIndex, totalCategories: displayCategories.length);
                     },
@@ -546,10 +573,10 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
 
     // Optimized sizing for 2-row layout
     final totalCats = totalCategories ?? 8;
-    final cardWidth = 100.0; // Fixed width for consistent layout
-    final imageSize = 70.0; // Fixed image size
-    final innerImageSize = 66.0; // Fixed inner image size
-    final fontSize = 11.0; // Fixed font size
+    final cardWidth = 110.0; // Slightly wider for better spacing
+    final imageSize = 75.0; // Slightly larger image
+    final innerImageSize = 71.0; // Slightly larger inner image
+    final fontSize = 12.0; // Slightly larger font for better readability
 
     // Debug print to verify what is being passed
     debugPrint('Dashboard: Showing card for ${category.name} (id: ${category.id}) with image: ${category.image}');
@@ -568,7 +595,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
       },
       child: Container(
         width: cardWidth,
-        margin: const EdgeInsets.symmetric(horizontal: 6), // Consistent spacing for 2-row layout
+        margin: const EdgeInsets.symmetric(horizontal: 8), // Better spacing for 2-row layout
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -698,25 +725,25 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 ),
               ],
             ),
-            const SizedBox(height: 8), // Consistent spacing for 2-row layout
+            const SizedBox(height: 10), // Better spacing for 2-row layout
             // Category name container
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: 7, 
-                vertical: 4
+                horizontal: 8, 
+                vertical: 5
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1.5),
+                    color: Colors.grey.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   )
                 ],
                 border: Border.all(
-                  color: accentColor.withOpacity(0.3),
+                  color: accentColor.withOpacity(0.2),
                   width: 1,
                 ),
               ),
@@ -724,7 +751,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 category.name,
                 style: GoogleFonts.poppins(
                   fontSize: _getResponsiveFontSize(fontSize),
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: Colors.grey[800],
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -756,6 +783,21 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     return 'Hello';
   }
 
+  // Calculate how many categories should be in the first row
+  int _getFirstRowCount(int totalCategories) {
+    // For optimal 2-row layout, put roughly half in first row
+    // If total is even, split evenly; if odd, put one extra in first row
+    return (totalCategories / 2).ceil();
+  }
+
+  // Calculate the height for each row based on number of categories
+  double _getRowHeight(int totalCategories) {
+    // Adjust height based on number of categories for better visual balance
+    if (totalCategories <= 4) return 130.0; // Smaller height for fewer categories
+    if (totalCategories <= 6) return 140.0; // Standard height for medium categories
+    return 150.0; // Larger height for many categories
+  }
+
   IconData _getCategoryIcon(String categoryName) {
     switch (categoryName.toLowerCase()) {
       case 'food':
@@ -769,6 +811,131 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
       default:
         return Icons.category;
     }
+  }
+
+  // Location validation methods
+  Future<void> _checkLocationServiceability() async {
+    setState(() {
+      _isCheckingLocation = true;
+    });
+
+    try {
+      final userData = await TokenService.getUserData();
+      if (userData != null && userData['address'] != null) {
+        _currentAddress = userData['address'].toString();
+      }
+
+      final result = await LocationValidationService.checkCurrentLocationServiceability();
+      
+      setState(() {
+        _isCheckingLocation = false;
+        _isLocationServiceable = result['isServiceable'] ?? true;
+        // _locationMessage = result['message'] ?? ''; // Removed unused field
+      });
+
+      debugPrint('🔍 Dashboard: Location serviceability check result: $result');
+    } catch (e) {
+      debugPrint('❌ Dashboard: Error checking location serviceability: $e');
+      setState(() {
+        _isCheckingLocation = false;
+        _isLocationServiceable = true; // Default to true to avoid blocking the UI
+      });
+    }
+  }
+
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh location check when dependencies change (e.g., when returning to dashboard)
+    if (!_isCheckingLocation) {
+      _checkLocationServiceability();
+    }
+  }
+
+  Widget _buildLocationWarning() {
+    if (_isCheckingLocation) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Checking location serviceability...',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.blue[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_isLocationServiceable) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.location_off,
+                  color: Colors.orange[700],
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Location Not Serviceable',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              LocationValidationService.getUnserviceableLocationMessage(_currentAddress),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.orange[700],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
 

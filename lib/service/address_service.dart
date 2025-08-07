@@ -12,11 +12,31 @@ class AddressService {
     try {
       debugPrint('AddressService: Fetching all addresses...');
       
-      final token = await TokenService.getToken();
-      final userId = await TokenService.getUserId();
+      // Add retry logic for new users who might have timing issues
+      String? token;
+      String? userId;
+      int retryCount = 0;
+      const maxRetries = 3;
       
-      if (token == null || userId == null) {
-        debugPrint('AddressService: No token or userId available');
+      while (retryCount < maxRetries) {
+        token = await TokenService.getToken();
+        userId = await TokenService.getUserId();
+        
+        debugPrint('AddressService: Attempt ${retryCount + 1} - Token: ${token != null ? "Found" : "Not found"}, UserID: $userId');
+        
+        if (token != null && userId != null && userId.isNotEmpty) {
+          break;
+        }
+        
+        retryCount++;
+        if (retryCount < maxRetries) {
+          debugPrint('AddressService: Waiting before retry...');
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
+        }
+      }
+      
+      if (token == null || userId == null || userId.isEmpty) {
+        debugPrint('AddressService: No token or userId available after $maxRetries attempts');
         return {
           'success': false,
           'message': 'Authentication required. Please login again.',
@@ -94,11 +114,31 @@ class AddressService {
     try {
       debugPrint('AddressService: Saving new address...');
       
-      final token = await TokenService.getToken();
-      final userId = await TokenService.getUserId();
+      // Add retry logic for new users who might have timing issues
+      String? token;
+      String? userId;
+      int retryCount = 0;
+      const maxRetries = 3;
       
-      if (token == null || userId == null) {
-        debugPrint('AddressService: No token or userId available');
+      while (retryCount < maxRetries) {
+        token = await TokenService.getToken();
+        userId = await TokenService.getUserId();
+        
+        debugPrint('AddressService: Attempt ${retryCount + 1} - Token: ${token != null ? "Found" : "Not found"}, UserID: $userId');
+        
+        if (token != null && userId != null && userId.isNotEmpty) {
+          break;
+        }
+        
+        retryCount++;
+        if (retryCount < maxRetries) {
+          debugPrint('AddressService: Waiting before retry...');
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
+        }
+      }
+      
+      if (token == null || userId == null || userId.isEmpty) {
+        debugPrint('AddressService: No token or userId available after $maxRetries attempts');
         return {
           'success': false,
           'message': 'Authentication required. Please login again.',

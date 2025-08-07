@@ -62,13 +62,8 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
         return;
       }
       
-      if (event.email.isEmpty) {
-        emit(const ProfileFailure('Please enter your email'));
-        return;
-      }
-      
-      // Basic email validation
-      if (!_isValidEmail(event.email)) {
+      // Email is optional, but if provided, validate it
+      if (event.email != null && event.email!.isNotEmpty && !_isValidEmail(event.email!)) {
         emit(const ProfileFailure('Please enter a valid email address'));
         return;
       }
@@ -87,7 +82,7 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
         
         final success = await ProfileService.saveProfileData(
           name: event.name,
-          email: event.email,
+          email: event.email ?? '',
           photo: event.avatar,
           address: event.address,
           latitude: event.latitude,
@@ -105,7 +100,7 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
         // Just save name, email and photo if no address/coordinates
         final success = await ProfileService.saveProfileData(
           name: event.name,
-          email: event.email,
+          email: event.email ?? '',
           photo: event.avatar,
         );
         

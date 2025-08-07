@@ -135,17 +135,37 @@ static Future<bool> saveUserId(String userId) async {
   // Save complete auth data (token + user data)
   static Future<bool> saveAuthData(String token, Map<String, dynamic> userData) async {
     try {
+      debugPrint('TokenService: Saving complete auth data...');
+      
       final tokenSaved = await saveToken(token);
       final userDataSaved = await saveUserData(userData);
       
       // UPDATED: Extract and save the user_id as string
+      bool userIdSaved = false;
       if (userData['user_id'] != null) {
-        final userIdSaved = await saveUserId(userData['user_id'].toString());
+        userIdSaved = await saveUserId(userData['user_id'].toString());
         debugPrint('Saved user_id from API response: ${userData['user_id']}');
-        return tokenSaved && userDataSaved && userIdSaved;
       }
       
-      return tokenSaved && userDataSaved;
+      // Verify all data was saved correctly
+      final verificationToken = await getToken();
+      final verificationUserId = await getUserId();
+      final verificationUserData = await getUserData();
+      
+      debugPrint('TokenService: Verification after save:');
+      debugPrint('  Token: ${verificationToken != null ? "Found" : "Not found"}');
+      debugPrint('  User ID: $verificationUserId');
+      debugPrint('  User Data: ${verificationUserData != null ? "Found" : "Not found"}');
+      
+      final success = tokenSaved && userDataSaved && (userData['user_id'] == null || userIdSaved);
+      
+      if (success) {
+        debugPrint('TokenService: All auth data saved successfully');
+      } else {
+        debugPrint('TokenService: Failed to save some auth data');
+      }
+      
+      return success;
     } catch (e) {
       debugPrint('Error saving auth data: $e');
       return false;

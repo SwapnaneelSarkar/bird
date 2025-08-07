@@ -38,12 +38,21 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_phone', phoneNumber);
           
-          // Save user ID and auth token
+          // Save user ID and auth token with better error handling
           await prefs.setString('user_id', userId);
           await prefs.setString('auth_token', token);
           
+          // Verify the data was saved correctly
+          final savedUserId = prefs.getString('user_id');
+          final savedToken = prefs.getString('auth_token');
+          
           debugPrint('Auth successful - User ID: $userId');
           debugPrint('Token received: ${token.substring(0, 20)}...');
+          debugPrint('Verification - Saved User ID: $savedUserId');
+          debugPrint('Verification - Saved Token: ${savedToken != null ? "Found" : "Not found"}');
+          
+          // Add a small delay to ensure data is properly written
+          await Future.delayed(const Duration(milliseconds: 100));
           
           return {
             'success': true,

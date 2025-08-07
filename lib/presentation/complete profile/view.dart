@@ -121,7 +121,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
 
               // Subtitle
               Text(
-                'Add a photo and your name to get started',
+                'Add your name and optionally a photo to get started',
                 style: GoogleFonts.poppins(
                   fontSize: FontSize.s14,
                   fontWeight: FontWeightManager.regular,
@@ -157,7 +157,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                                     color: ColorManager.black.withOpacity(0.1),
                                     child: Center(
                                       child: Text(
-                                        'Image',
+                                        'Optional',
                                         style: GoogleFonts.poppins(
                                           fontSize: FontSize.s14,
                                           fontWeight:
@@ -235,7 +235,6 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                   controller: _emailCtrl,
                   hint: 'Enter your email',
                   keyboardType: TextInputType.emailAddress,
-                  isRequired: true,
                 ),
               ),
 
@@ -247,7 +246,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                   if (state is ProfileSuccess) {
                     Navigator.of(context).pushReplacementNamed('/address', arguments: {
                       'name': _nameCtrl.text.trim(),
-                      'email': _emailCtrl.text.trim(),
+                      'email': _emailCtrl.text.trim().isEmpty ? '' : _emailCtrl.text.trim(),
                       'photoPath': _avatarFile?.path,
                       'userData': widget.userData,
                       'token': widget.token,
@@ -273,7 +272,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                         context.read<CompleteProfileBloc>().add(
                               SubmitProfile(
                                 name: _nameCtrl.text.trim(),
-                                email: _emailCtrl.text.trim(),
+                                email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
                                 avatar: _avatarFile,
                               ),
                             );

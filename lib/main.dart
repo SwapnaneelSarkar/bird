@@ -11,6 +11,7 @@ import 'firebase_options.dart';
 import 'presentation/restaurant_profile/bloc.dart';
 import 'presentation/splash_screen/view.dart';
 import 'service/firebase_services.dart';
+import 'service/app_startup_service.dart';
 import 'utils/timezone_utils.dart';
 
 void main() async {
@@ -24,6 +25,9 @@ void main() async {
   );
   
   await NotificationService().initialize();
+  
+  // Reset app startup flag to ensure location fetching on app launch
+  await AppStartupService.resetAppStartupFlag();
   
   // Your existing SVG configuration
   svg.cacheColorFilterOverride = false;

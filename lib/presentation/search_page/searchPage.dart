@@ -7,12 +7,18 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import '../../../constants/color/colorConstant.dart';
-import '../../../widgets/restaurant_card.dart';
+import '../../../widgets/search_restaurant_card.dart';
 import '../../../widgets/responsive_text.dart';
 import '../restaurant_menu/view.dart';
+import '../home page/home_favorites_bloc.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+
+// Add the isFoodSupercategory function
+bool isFoodSupercategory(String? id) {
+  return id == null || id == 'food' || id == '1' || id == '7acc47a2fa5a4eeb906a753b3';
+}
 
 class SearchPage extends StatefulWidget {
   final double? userLatitude;
@@ -209,27 +215,30 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(0),
-        child: AppBar(
-          backgroundColor: const Color(0xFFF8F9FF),
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
+    return BlocProvider(
+      create: (context) => HomeFavoritesBloc(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FF),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(0),
+          child: AppBar(
+            backgroundColor: const Color(0xFFF8F9FF),
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.dark,
+            ),
+            elevation: 0,
           ),
-          elevation: 0,
         ),
-      ),
-      body: Column(
-        children: [
-          _buildSearchBar(screenWidth, screenHeight),
-          _buildResultsHeader(screenWidth, screenHeight),
-          Expanded(
-            child: _buildSearchResults(screenWidth, screenHeight),
-          ),
-        ],
+        body: Column(
+          children: [
+            _buildSearchBar(screenWidth, screenHeight),
+            _buildResultsHeader(screenWidth, screenHeight),
+            Expanded(
+              child: _buildSearchResults(screenWidth, screenHeight),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -695,47 +704,188 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     }
     
     // 4. Render all restaurants with responsive grid
-    return GridView.builder(
-      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.03, vertical: screenHeight * 0.015),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1,
-        childAspectRatio: 1.8,
-        mainAxisSpacing: screenHeight * 0.01,
-        crossAxisSpacing: screenWidth * 0.01,
-        mainAxisExtent: screenHeight * 0.32, // Increased height for better fit
-      ),
-      itemCount: allRestaurants.length,
-      itemBuilder: (context, index) {
-        final restaurant = allRestaurants[index];
-        final restaurantLat = restaurant['latitude'] != null 
-            ? double.tryParse(restaurant['latitude'].toString())
-            : null;
-        final restaurantLng = restaurant['longitude'] != null 
-            ? double.tryParse(restaurant['longitude'].toString())
-            : null;
-        final sanitizedName = _sanitizeRestaurantName(restaurant['name']);
-        final uniqueHeroTag = 'search-result-${restaurant['partner_id']}-$sanitizedName';
-        return Hero(
-          tag: uniqueHeroTag,
-          child: RestaurantCard(
-            name: restaurant['name'],
-            imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
-            cuisine: restaurant['cuisine'],
-            rating: restaurant['rating'] ?? 0.0,
-            isVeg: restaurant['isVegetarian'] as bool? ?? false,
-            restaurantLatitude: restaurantLat,
-            restaurantLongitude: restaurantLng,
-            userLatitude: widget.userLatitude,
-            userLongitude: widget.userLongitude,
-            restaurantType: restaurant['restaurant_type'],
-            isAcceptingOrder: restaurant['isAcceptingOrder'],
-            onTap: () => _navigateToRestaurantDetails(context, restaurant),
-          ).animate(controller: _animationController)
-            .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
-            .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
-        );
-      },
-    );
+    final isFood = isFoodSupercategory(widget.supercategoryId);
+    
+    if (isFood) {
+      // Food supercategory: Use list layout with same cards as homepage
+      return ListView.builder(
+        padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02, vertical: screenHeight * 0.015),
+        itemCount: allRestaurants.length,
+        itemBuilder: (context, index) {
+          final restaurant = allRestaurants[index];
+          final restaurantLat = restaurant['latitude'] != null 
+              ? double.tryParse(restaurant['latitude'].toString())
+              : null;
+          final restaurantLng = restaurant['longitude'] != null 
+              ? double.tryParse(restaurant['longitude'].toString())
+              : null;
+          final sanitizedName = _sanitizeRestaurantName(restaurant['name']);
+          final uniqueHeroTag = 'search-result-${restaurant['partner_id']}-$sanitizedName';
+          return BlocBuilder<HomeFavoritesBloc, HomeFavoritesState>(
+            builder: (context, favoritesState) {
+              bool isFavorite = false;
+              bool isLoading = false;
+              
+              // Get cached status first
+              final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(restaurant['partner_id']);
+              if (cachedStatus != null) {
+                isFavorite = cachedStatus;
+              }
+              
+              // Check if this restaurant's favorite status has been checked
+              if (favoritesState is HomeFavoriteStatusChecked && 
+                  favoritesState.partnerId == restaurant['partner_id']) {
+                isFavorite = favoritesState.isFavorite;
+              } else if (favoritesState is HomeFavoriteToggled && 
+                         favoritesState.partnerId == restaurant['partner_id']) {
+                isFavorite = favoritesState.isNowFavorite;
+              } else if (favoritesState is HomeFavoriteToggling && 
+                         favoritesState.partnerId == restaurant['partner_id']) {
+                isLoading = true;
+                // Show optimistic update
+                isFavorite = favoritesState.isAdding;
+              }
+              
+              // Check favorite status when restaurant is first displayed (only once)
+              if (restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty && cachedStatus == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  context.read<HomeFavoritesBloc>().add(
+                    CheckHomeFavoriteStatus(partnerId: restaurant['partner_id']),
+                  );
+                });
+              }
+              
+              return Hero(
+                tag: uniqueHeroTag,
+                child: SearchRestaurantCard(
+                  name: restaurant['name'],
+                  imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
+                  cuisine: restaurant['cuisine'],
+                  rating: restaurant['rating'] ?? 0.0,
+                  isVeg: restaurant['isVegetarian'] as bool? ?? false,
+                  restaurantLatitude: restaurantLat,
+                  restaurantLongitude: restaurantLng,
+                  userLatitude: widget.userLatitude,
+                  userLongitude: widget.userLongitude,
+                  restaurantType: restaurant['restaurant_type'],
+                  isAcceptingOrder: restaurant['isAcceptingOrder'],
+                  partnerId: restaurant['partner_id'],
+                  isFavorite: isFavorite,
+                  isLoading: isLoading,
+                  isFoodSupercategory: true,
+                  onFavoriteToggle: restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty ? () {
+                    context.read<HomeFavoritesBloc>().add(
+                      ToggleHomeFavorite(
+                        partnerId: restaurant['partner_id'],
+                        isCurrentlyFavorite: isFavorite,
+                      ),
+                    );
+                  } : null,
+                  onTap: () => _navigateToRestaurantDetails(context, restaurant),
+                ).animate(controller: _animationController)
+                  .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+                  .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
+              );
+            },
+          );
+        },
+      );
+    } else {
+      // Non-food supercategory: Use grid layout with original homepage cards but reduced bottom padding
+      return GridView.builder(
+        padding: EdgeInsets.only(
+          left: screenWidth * 0.02, 
+          right: screenWidth * 0.02, 
+          top: screenHeight * 0.015,
+          bottom: screenHeight * 0.005, // Reduced bottom padding
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          mainAxisSpacing: screenHeight * 0.003, // Further reduced spacing
+          crossAxisSpacing: screenWidth * 0.02,
+        ),
+        itemCount: allRestaurants.length,
+        itemBuilder: (context, index) {
+          final restaurant = allRestaurants[index];
+          final restaurantLat = restaurant['latitude'] != null 
+              ? double.tryParse(restaurant['latitude'].toString())
+              : null;
+          final restaurantLng = restaurant['longitude'] != null 
+              ? double.tryParse(restaurant['longitude'].toString())
+              : null;
+          final sanitizedName = _sanitizeRestaurantName(restaurant['name']);
+          final uniqueHeroTag = 'search-result-${restaurant['partner_id']}-$sanitizedName';
+          return BlocBuilder<HomeFavoritesBloc, HomeFavoritesState>(
+            builder: (context, favoritesState) {
+              bool isFavorite = false;
+              bool isLoading = false;
+              
+              // Get cached status first
+              final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(restaurant['partner_id']);
+              if (cachedStatus != null) {
+                isFavorite = cachedStatus;
+              }
+              
+              // Check if this restaurant's favorite status has been checked
+              if (favoritesState is HomeFavoriteStatusChecked && 
+                  favoritesState.partnerId == restaurant['partner_id']) {
+                isFavorite = favoritesState.isFavorite;
+              } else if (favoritesState is HomeFavoriteToggled && 
+                         favoritesState.partnerId == restaurant['partner_id']) {
+                isFavorite = favoritesState.isNowFavorite;
+              } else if (favoritesState is HomeFavoriteToggling && 
+                         favoritesState.partnerId == restaurant['partner_id']) {
+                isLoading = true;
+                // Show optimistic update
+                isFavorite = favoritesState.isAdding;
+              }
+              
+              // Check favorite status when restaurant is first displayed (only once)
+              if (restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty && cachedStatus == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  context.read<HomeFavoritesBloc>().add(
+                    CheckHomeFavoriteStatus(partnerId: restaurant['partner_id']),
+                  );
+                });
+              }
+              
+              return Hero(
+                tag: uniqueHeroTag,
+                child: SearchRestaurantCard(
+                  name: restaurant['name'],
+                  imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
+                  cuisine: restaurant['cuisine'],
+                  rating: restaurant['rating'] ?? 0.0,
+                  isVeg: restaurant['isVegetarian'] as bool? ?? false,
+                  restaurantLatitude: restaurantLat,
+                  restaurantLongitude: restaurantLng,
+                  userLatitude: widget.userLatitude,
+                  userLongitude: widget.userLongitude,
+                  restaurantType: restaurant['restaurant_type'],
+                  isAcceptingOrder: restaurant['isAcceptingOrder'],
+                  partnerId: restaurant['partner_id'],
+                  isFavorite: isFavorite,
+                  isLoading: isLoading,
+                  isFoodSupercategory: false,
+                  onFavoriteToggle: restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty ? () {
+                    context.read<HomeFavoritesBloc>().add(
+                      ToggleHomeFavorite(
+                        partnerId: restaurant['partner_id'],
+                        isCurrentlyFavorite: isFavorite,
+                      ),
+                    );
+                  } : null,
+                  onTap: () => _navigateToRestaurantDetails(context, restaurant),
+                ).animate(controller: _animationController)
+                  .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+                  .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad),
+              );
+            },
+          );
+        },
+      );
+    }
   }
 
   // Helper method to sanitize restaurant names for Hero tags

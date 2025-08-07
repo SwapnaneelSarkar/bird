@@ -13,6 +13,7 @@ import '../search_page/bloc.dart';
 import '../search_page/searchPage.dart';
 import '../../utils/currency_utils.dart';
 import '../../models/recent_order_model.dart';
+import '../../service/app_startup_service.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -282,6 +283,75 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     }
   }
   
+  // --- ADDED: Location update from home page ---
+  Future<void> _updateLocationFromHome(BuildContext context) async {
+    try {
+      debugPrint('HomePage: Manual location update triggered from home page');
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
+      
+      // Force ultra fresh location fetch
+      final result = await AppStartupService.forceUltraFreshLocationFetch();
+      
+      // Hide loading indicator
+      Navigator.of(context).pop();
+      
+      if (result['success'] == true) {
+        debugPrint('HomePage: Ultra fresh location update successful');
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location updated successfully! ${result['isUltraFresh'] == true ? '(Ultra Fresh)' : ''}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        
+        // Reload home data with fresh location
+        context.read<HomeBloc>().add(LoadHomeData());
+        
+      } else {
+        debugPrint('HomePage: Location update failed: ${result['message']}');
+        
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update location: ${result['message']}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('HomePage: Error during location update: $e');
+      
+      // Hide loading indicator if still showing
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error updating location. Please try again.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+  // --- END ADDED ---
+  
   Widget _buildHomeContent(BuildContext context, HomeLoaded state) {
     debugPrint('UI: Showing home content with \\${state.restaurants.length} restaurants');
     
@@ -289,7 +359,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
     // Only hide categories/toggles if there are NO restaurants at all for this location
     // NOT when filters result in no restaurants
     final isOutsideServiceableArea = state.userAddress != 'Add delivery address' && 
-                                   state.restaurants.isEmpty;
+                                   state.restaurants.isEmpty &&
+                                   !state.isLocationServiceable;
     
     return Stack(
       children: [
@@ -433,6 +504,19 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                                 color: Colors.grey[800],
                               ),
                               overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Ultra fresh location update button
+                          GestureDetector(
+                            onTap: () => _updateLocationFromHome(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200], 
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.my_location, color: ColorManager.primary, size: isWide ? 18 : 16),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -1068,11 +1152,8 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                           ),
                           child: Center(
                             child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                  : null,
-                              strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                              strokeWidth: 2,
                             ),
                           ),
                         );
@@ -1713,80 +1794,171 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
   }
 
   Widget _buildOutsideServiceableArea(BuildContext context) {
+    final state = context.read<HomeBloc>().state;
+    final detailedMessage = state is HomeLoaded ? state.locationServiceabilityMessage : null;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(
-            'assets/images/duckling.jpg',
+          // Enhanced illustration
+          Container(
             width: 200,
             height: 200,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset(
+                'assets/images/duckling.jpg',
+                width: 200,
+                height: 200,
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
+          
+          // Main heading
           Text(
             'Outside Service Area',
             style: GoogleFonts.poppins(
-              fontSize: getResponsiveFontSize(context, 32),
+              fontSize: getResponsiveFontSize(context, 28),
               fontWeight: FontWeight.bold,
               color: Colors.grey[800],
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
+          
+          // Detailed message from state or fallback
           Text(
-            'We haven\'t spread our wings to this area yet.',
+            detailedMessage ?? 'We haven\'t spread our wings to this area yet.',
             style: GoogleFonts.poppins(
-              fontSize: getResponsiveFontSize(context, 18),
+              fontSize: getResponsiveFontSize(context, 16),
               fontWeight: FontWeight.w500,
               color: Colors.grey[600],
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
+          
           Text(
-            'Please try a different location within our service area.',
+            'Please try a different location within our service area to continue ordering.',
             style: GoogleFonts.poppins(
-              fontSize: getResponsiveFontSize(context, 18),
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
+              fontSize: getResponsiveFontSize(context, 14),
+              fontWeight: FontWeight.w400,
+              color: Colors.grey[500],
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () {
-              final state = context.read<HomeBloc>().state;
-              if (state is HomeLoaded) {
-                _showAddressPicker(context, state);
-              }
-            },
-            icon: const Icon(Icons.place, color: Colors.white),
-            label: Text(
-              'Change Location',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                fontSize: getResponsiveFontSize(context, 16),
-                color: Colors.white,
+          
+          // Action buttons
+          Column(
+            children: [
+              // Change Location Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final state = context.read<HomeBloc>().state;
+                    if (state is HomeLoaded) {
+                      _showAddressPicker(context, state);
+                    }
+                  },
+                  icon: const Icon(Icons.place, color: Colors.white, size: 20),
+                  label: Text(
+                    'Change Location',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: getResponsiveFontSize(context, 16),
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE17A47),
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 54),
+                  ),
+                ),
               ),
+              const SizedBox(height: 12),
+              
+              // Update Current Location Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _updateLocationFromHome(context),
+                  icon: const Icon(Icons.my_location, color: Color(0xFFE17A47), size: 20),
+                  label: Text(
+                    'Update Current Location',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      fontSize: getResponsiveFontSize(context, 14),
+                      color: const Color(0xFFE17A47),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFE17A47),
+                    side: const BorderSide(color: Color(0xFFE17A47), width: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 54),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Additional info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.2)),
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFCF7C42),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              minimumSize: const Size(double.infinity, 54),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'We\'re constantly expanding our service areas. Check back soon!',
+                    style: GoogleFonts.poppins(
+                      fontSize: getResponsiveFontSize(context, 12),
+                      fontWeight: FontWeight.w400,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
-
-
 
   void _navigateToRestaurantDetails(BuildContext context, dynamic restaurant) {
     debugPrint('HomePage: Navigating to restaurant details');

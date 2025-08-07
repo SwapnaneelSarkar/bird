@@ -456,7 +456,7 @@ class RestaurantCard extends StatelessWidget {
                   // Store Image
                   SizedBox(
                     width: double.infinity,
-                    height: 90 * scale,
+                    height: 120 * scale, // Increased image height for homepage
                     child: _buildImage(imageUrl),
                   ),
                   

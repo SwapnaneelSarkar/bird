@@ -10,7 +10,7 @@ abstract class CompleteProfileEvent extends Equatable {
 
 class SubmitProfile extends CompleteProfileEvent {
   final String name;
-  final String email;
+  final String? email;
   final File? avatar;
   final String? address;
   final double? latitude;
@@ -18,7 +18,7 @@ class SubmitProfile extends CompleteProfileEvent {
 
   const SubmitProfile({
     required this.name,
-    required this.email,
+    this.email,
     this.avatar,
     this.address,
     this.latitude,

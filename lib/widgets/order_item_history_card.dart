@@ -266,12 +266,18 @@ class OrderItemCard extends StatelessWidget {
   }
 
   Widget _buildActionButtons(BuildContext context, double screenWidth, double screenHeight) {
-    return Row(
+    return Column(
       children: [
-        _buildViewDetailsButton(screenWidth, screenHeight),
-        SizedBox(width: screenWidth * 0.03),
-        if (_shouldShowReorderButton()) _buildReorderButton(context, screenWidth, screenHeight),
-        if (_shouldShowReorderButton()) SizedBox(width: screenWidth * 0.03),
+        // Main action buttons row
+        Row(
+          children: [
+            _buildViewDetailsButton(screenWidth, screenHeight),
+            SizedBox(width: screenWidth * 0.03),
+            if (_shouldShowReorderButton()) _buildReorderButton(context, screenWidth, screenHeight),
+          ],
+        ),
+        // Chat button below the main action buttons
+        SizedBox(height: screenHeight * 0.015),
         _buildChatButton(context, screenWidth, screenHeight),
       ],
     );
@@ -334,17 +340,35 @@ class OrderItemCard extends StatelessWidget {
   }
 
   Widget _buildChatButton(BuildContext context, double screenWidth, double screenHeight) {
-    return Container(
-      height: screenHeight * 0.045,
-      width: screenHeight * 0.045,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE17A47),
-        borderRadius: BorderRadius.circular(screenWidth * 0.02),
-      ),
-      child: IconButton(
-        icon: Icon(Icons.chat, color: Colors.white, size: screenWidth * 0.06),
-        tooltip: 'Chat',
-        onPressed: () => _handleChat(context),
+    return GestureDetector(
+      onTap: () => _handleChat(context),
+      child: Container(
+        height: screenHeight * 0.045,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE17A47),
+          borderRadius: BorderRadius.circular(screenWidth * 0.02),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat,
+              color: Colors.white,
+              size: screenWidth * 0.05,
+            ),
+            SizedBox(width: screenWidth * 0.02),
+            Text(
+              'Chat',
+              style: TextStyle(
+                fontSize: screenWidth * 0.035,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                fontFamily: 'Roboto',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

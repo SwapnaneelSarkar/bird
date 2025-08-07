@@ -198,11 +198,11 @@ class Restaurant {
           final vegNonVeg = json['veg_nonveg']?.toString().toLowerCase();
           if (vegNonVeg != null && vegNonVeg.isNotEmpty) {
             if (vegNonVeg == 'veg' || vegNonVeg == 'vegetarian') {
-              availableFoodTypes = ['9e436ef0212145ba8b376b8e8']; // vegetarian food type ID
+              availableFoodTypes = ['Vegetarian']; // Use food type name instead of ID
             } else if (vegNonVeg == 'non-veg' || vegNonVeg == 'non-vegetarian') {
-              availableFoodTypes = ['d1e265a3724a4925960fede1e']; // non-vegetarian food type ID
+              availableFoodTypes = ['Non-Vegetarian']; // Use food type name instead of ID
             } else if (vegNonVeg == 'both' || vegNonVeg == 'veg & non-veg') {
-              availableFoodTypes = ['9e436ef0212145ba8b376b8e8', 'd1e265a3724a4925960fede1e']; // both IDs
+              availableFoodTypes = ['Vegetarian', 'Non-Vegetarian']; // Use food type names instead of IDs
             }
             debugPrint('Restaurant: Derived availableFoodTypes from veg_nonveg: $availableFoodTypes');
           }

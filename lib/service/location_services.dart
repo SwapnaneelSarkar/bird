@@ -36,16 +36,30 @@ class LocationService {
         return null;
       }
 
-      // Get current position
-      debugPrint('Getting current position...');
+      // Force fresh location by clearing any cached location first
+      debugPrint('LocationService: Clearing any cached location data...');
+      try {
+        await Geolocator.getLastKnownPosition();
+      } catch (e) {
+        debugPrint('LocationService: No cached location to clear');
+      }
+
+      // Get current position with high accuracy and force fresh data
+      debugPrint('LocationService: Getting fresh current position with high accuracy...');
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 30),
+        ),
       );
       
-      debugPrint('Current position: ${position.latitude}, ${position.longitude}');
+      debugPrint('LocationService: Fresh position obtained: ${position.latitude}, ${position.longitude}');
+      debugPrint('LocationService: Position accuracy: ${position.accuracy} meters');
+      debugPrint('LocationService: Position timestamp: ${position.timestamp}');
+      
       return position;
     } catch (e) {
-      debugPrint('Error getting current position: $e');
+      debugPrint('LocationService: Error getting current position: $e');
       return null;
     }
   }
@@ -236,6 +250,272 @@ class LocationService {
     } catch (e) {
       debugPrint('LocationService: Error getting location and address: $e');
       return null;
+    }
+  }
+  
+  // Force fresh location fetch with GPS cache clearing
+  Future<Map<String, dynamic>?> getFreshLocationAndAddress() async {
+    try {
+      debugPrint('LocationService: FORCE FRESH - Getting fresh location and address');
+      
+      // Clear any cached location data
+      debugPrint('LocationService: FORCE FRESH - Clearing GPS cache...');
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          debugPrint('LocationService: FORCE FRESH - Cleared last known position: ${lastKnown.latitude}, ${lastKnown.longitude}');
+        }
+      } catch (e) {
+        debugPrint('LocationService: FORCE FRESH - No last known position to clear');
+      }
+      
+      // Wait a moment for GPS to reset
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Get fresh position with maximum accuracy
+      debugPrint('LocationService: FORCE FRESH - Requesting fresh GPS position...');
+      Position? position = await getCurrentPosition();
+      
+      if (position == null) {
+        debugPrint('LocationService: FORCE FRESH - Failed to get fresh position');
+        return null;
+      }
+      
+      debugPrint('LocationService: FORCE FRESH - Fresh position obtained:');
+      debugPrint('  📍 Latitude: ${position.latitude}');
+      debugPrint('  📍 Longitude: ${position.longitude}');
+      debugPrint('  📍 Accuracy: ${position.accuracy} meters');
+      debugPrint('  📍 Timestamp: ${position.timestamp}');
+      debugPrint('  📍 Speed: ${position.speed} m/s');
+      debugPrint('  📍 Altitude: ${position.altitude} meters');
+
+      // Get address for the fresh coordinates
+      String? address = await getAddressFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (address == null || address.isEmpty) {
+        address = "Near ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+        debugPrint('LocationService: FORCE FRESH - Using fallback address: $address');
+      } else {
+        debugPrint('LocationService: FORCE FRESH - Address obtained: $address');
+      }
+
+      final result = {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'address': address,
+        'accuracy': position.accuracy,
+        'timestamp': position.timestamp?.toIso8601String(),
+        'speed': position.speed,
+        'altitude': position.altitude,
+      };
+      
+      debugPrint('LocationService: FORCE FRESH - Fresh location data ready:');
+      debugPrint('  📍 Final Latitude: ${result['latitude']}');
+      debugPrint('  📍 Final Longitude: ${result['longitude']}');
+      debugPrint('  📍 Final Address: ${result['address']}');
+      debugPrint('  📍 Accuracy: ${result['accuracy']} meters');
+      
+      return result;
+    } catch (e) {
+      debugPrint('LocationService: FORCE FRESH - Error getting fresh location: $e');
+      return null;
+    }
+  }
+  
+  // Ultra aggressive fresh location fetch - completely bypasses all caching
+  Future<Map<String, dynamic>?> getUltraFreshLocationAndAddress() async {
+    try {
+      debugPrint('LocationService: ULTRA FRESH - Getting ultra fresh location and address');
+      
+      // Step 1: Clear all possible cached data
+      debugPrint('LocationService: ULTRA FRESH - Step 1: Clearing all cached data...');
+      await _clearAllCachedData();
+      
+      // Step 2: Wait for GPS to completely reset
+      debugPrint('LocationService: ULTRA FRESH - Step 2: Waiting for GPS reset...');
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Step 3: Force location services to restart
+      debugPrint('LocationService: ULTRA FRESH - Step 3: Restarting location services...');
+      await _restartLocationServices();
+      
+      // Step 4: Get position with different accuracy settings to force fresh fix
+      debugPrint('LocationService: ULTRA FRESH - Step 4: Getting ultra fresh position...');
+      Position? position = await _getUltraFreshPosition();
+      
+      if (position == null) {
+        debugPrint('LocationService: ULTRA FRESH - Failed to get ultra fresh position');
+        return null;
+      }
+      
+      debugPrint('LocationService: ULTRA FRESH - Ultra fresh position obtained:');
+      debugPrint('  📍 Latitude: ${position.latitude}');
+      debugPrint('  📍 Longitude: ${position.longitude}');
+      debugPrint('  📍 Accuracy: ${position.accuracy} meters');
+      debugPrint('  📍 Timestamp: ${position.timestamp}');
+      debugPrint('  📍 Speed: ${position.speed} m/s');
+      debugPrint('  📍 Altitude: ${position.altitude} meters');
+      debugPrint('  📍 Heading: ${position.heading} degrees');
+
+      // Step 5: Get fresh address
+      String? address = await getAddressFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (address == null || address.isEmpty) {
+        address = "Near ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}";
+        debugPrint('LocationService: ULTRA FRESH - Using fallback address: $address');
+      } else {
+        debugPrint('LocationService: ULTRA FRESH - Address obtained: $address');
+      }
+
+      final result = {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'address': address,
+        'accuracy': position.accuracy,
+        'timestamp': position.timestamp?.toIso8601String(),
+        'speed': position.speed,
+        'altitude': position.altitude,
+        'heading': position.heading,
+        'isUltraFresh': true,
+      };
+      
+      debugPrint('LocationService: ULTRA FRESH - Ultra fresh location data ready:');
+      debugPrint('  📍 Final Latitude: ${result['latitude']}');
+      debugPrint('  📍 Final Longitude: ${result['longitude']}');
+      debugPrint('  📍 Final Address: ${result['address']}');
+      debugPrint('  📍 Accuracy: ${result['accuracy']} meters');
+      debugPrint('  📍 Is Ultra Fresh: ${result['isUltraFresh']}');
+      
+      return result;
+    } catch (e) {
+      debugPrint('LocationService: ULTRA FRESH - Error getting ultra fresh location: $e');
+      return null;
+    }
+  }
+  
+  // Clear all possible cached data
+  Future<void> _clearAllCachedData() async {
+    try {
+      debugPrint('LocationService: Clearing all cached data...');
+      
+      // Clear last known position multiple times
+      for (int i = 0; i < 3; i++) {
+        try {
+          final lastKnown = await Geolocator.getLastKnownPosition();
+          if (lastKnown != null) {
+            debugPrint('LocationService: Cleared last known position (attempt ${i + 1}): ${lastKnown.latitude}, ${lastKnown.longitude}');
+          }
+        } catch (e) {
+          debugPrint('LocationService: No last known position to clear (attempt ${i + 1})');
+        }
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      
+      debugPrint('LocationService: All cached data cleared');
+    } catch (e) {
+      debugPrint('LocationService: Error clearing all cached data: $e');
+    }
+  }
+  
+  // Restart location services
+  Future<void> _restartLocationServices() async {
+    try {
+      debugPrint('LocationService: Restarting location services...');
+      
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint('LocationService: Location services enabled: $serviceEnabled');
+      
+      if (!serviceEnabled) {
+        debugPrint('LocationService: Location services are disabled');
+        return;
+      }
+      
+      // Check and request permissions again
+      LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('LocationService: Current permission: $permission');
+      
+      if (permission == LocationPermission.denied) {
+        debugPrint('LocationService: Requesting permission again...');
+        permission = await Geolocator.requestPermission();
+        debugPrint('LocationService: New permission: $permission');
+      }
+      
+      debugPrint('LocationService: Location services restarted');
+    } catch (e) {
+      debugPrint('LocationService: Error restarting location services: $e');
+    }
+  }
+  
+  // Get ultra fresh position with different settings
+  Future<Position?> _getUltraFreshPosition() async {
+    try {
+      debugPrint('LocationService: Getting ultra fresh position...');
+      
+      // Try different accuracy settings to force fresh fix
+      final accuracySettings = [
+        LocationAccuracy.best,
+        LocationAccuracy.high,
+        LocationAccuracy.medium,
+        LocationAccuracy.low,
+      ];
+      
+      for (int i = 0; i < accuracySettings.length; i++) {
+        try {
+          debugPrint('LocationService: Trying accuracy setting ${i + 1}: ${accuracySettings[i]}');
+          
+          Position position = await Geolocator.getCurrentPosition(
+            locationSettings: LocationSettings(
+              accuracy: accuracySettings[i],
+              timeLimit: const Duration(seconds: 15),
+            ),
+          );
+          
+          debugPrint('LocationService: Successfully got position with ${accuracySettings[i]} accuracy');
+          return position;
+        } catch (e) {
+          debugPrint('LocationService: Failed with ${accuracySettings[i]} accuracy: $e');
+          if (i < accuracySettings.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        }
+      }
+      
+      debugPrint('LocationService: All accuracy settings failed');
+      return null;
+    } catch (e) {
+      debugPrint('LocationService: Error getting ultra fresh position: $e');
+      return null;
+    }
+  }
+  
+  // Clear GPS cache and force complete reset
+  Future<void> clearGPSCache() async {
+    try {
+      debugPrint('LocationService: Clearing GPS cache completely...');
+      
+      // Clear last known position
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          debugPrint('LocationService: Cleared last known position: ${lastKnown.latitude}, ${lastKnown.longitude}');
+        }
+      } catch (e) {
+        debugPrint('LocationService: No last known position to clear');
+      }
+      
+      // Wait for GPS to reset
+      await Future.delayed(const Duration(seconds: 1));
+      
+      debugPrint('LocationService: GPS cache cleared successfully');
+    } catch (e) {
+      debugPrint('LocationService: Error clearing GPS cache: $e');
     }
   }
 }

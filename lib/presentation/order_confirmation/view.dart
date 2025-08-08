@@ -121,6 +121,11 @@ class _OrderConfirmationContent extends StatelessWidget {
             return _buildErrorView(context, state.message, screenWidth, screenHeight);
           }
           
+          if (state is OrderConfirmationEmptyCart) {
+            debugPrint('_OrderConfirmationContent: Showing empty cart view');
+            return _buildEmptyCartView(context, screenWidth, screenHeight);
+          }
+          
           if (state is OrderConfirmationLoaded) {
             debugPrint('_OrderConfirmationContent: Showing loaded view with ${state.orderSummary.items.length} items');
             return _buildLoadedView(context, state, screenWidth, screenHeight);
@@ -238,6 +243,107 @@ class _OrderConfirmationContent extends StatelessWidget {
                 foregroundColor: isDeliveryAddressError ? Colors.grey[600] : Colors.white,
               ),
               child: Text(isDeliveryAddressError ? 'Try Again' : 'Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCartView(BuildContext context, double screenWidth, double screenHeight) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(screenWidth * 0.06),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Empty cart icon
+            Container(
+              width: screenWidth * 0.3,
+              height: screenWidth * 0.3,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.shopping_cart_outlined,
+                size: screenWidth * 0.15,
+                color: Colors.grey[400],
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.03),
+            
+            // Main message
+            Text(
+              'Your cart is empty',
+              style: TextStyle(
+                fontSize: screenWidth * 0.06,
+                fontWeight: FontWeightManager.bold,
+                fontFamily: FontFamily.Montserrat,
+                color: ColorManager.black,
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            
+            // Subtitle message
+            Text(
+              'Add some products to cart to place an order',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: screenWidth * 0.04,
+                fontWeight: FontWeightManager.regular,
+                fontFamily: FontFamily.Montserrat,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.04),
+            
+            // Navigate to dashboard button
+            Container(
+              width: double.infinity,
+              height: screenHeight * 0.06,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  debugPrint('OrderConfirmationView: Navigating to dashboard from empty cart');
+                  Navigator.of(context).pushReplacementNamed('/dashboard');
+                },
+                icon: Icon(
+                  Icons.home,
+                  size: screenWidth * 0.05,
+                ),
+                label: Text(
+                  'Browse Products',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.045,
+                    fontWeight: FontWeightManager.bold,
+                    fontFamily: FontFamily.Montserrat,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorManager.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            
+            // Secondary button to go back
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'Go Back',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.04,
+                  fontWeight: FontWeightManager.medium,
+                  fontFamily: FontFamily.Montserrat,
+                  color: Colors.grey[600],
+                ),
+              ),
             ),
           ],
         ),
@@ -542,7 +648,7 @@ class _OrderConfirmationContent extends StatelessWidget {
                 }
 
                 // At this point, state is guaranteed to be PaymentMethodsLoaded
-                final paymentState = state as PaymentMethodsLoaded;
+                final paymentState = state;
                 return Container(
                   padding: EdgeInsets.all(screenWidth * 0.06),
                   decoration: BoxDecoration(

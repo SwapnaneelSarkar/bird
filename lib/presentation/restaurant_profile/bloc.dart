@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import '../../../service/token_service.dart';
+import '../../../service/partner_review_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../../models/restaurant_model.dart';
 import '../../../utils/distance_util.dart';
@@ -84,10 +85,27 @@ class RestaurantProfileBloc extends Bloc<RestaurantProfileEvent, RestaurantProfi
             }
           }
           
-          debugPrint('RestaurantProfileBloc: Restaurant loaded successfully: ${restaurant.name}');
+          // Fetch review count for the restaurant
+          Restaurant updatedRestaurant = restaurant;
+          try {
+            final reviewResult = await PartnerReviewService.fetchPartnerReviews(event.restaurantId);
+            if (reviewResult['success'] == true) {
+              final data = reviewResult['data'] as Map<String, dynamic>;
+              final reviewCount = data['total'] as int? ?? 0;
+              debugPrint('RestaurantProfileBloc: Fetched review count: $reviewCount');
+              
+              // Update restaurant with review count
+              updatedRestaurant = restaurant.copyWith(reviewCount: reviewCount);
+            }
+          } catch (e) {
+            debugPrint('RestaurantProfileBloc: Error fetching review count: $e');
+            // Continue without review count if there's an error
+          }
+          
+          debugPrint('RestaurantProfileBloc: Restaurant loaded successfully: ${updatedRestaurant.name}');
           
           emit(RestaurantProfileLoaded(
-            restaurant: restaurant,
+            restaurant: updatedRestaurant,
             calculatedDistance: calculatedDistance,
           ));
         } else {

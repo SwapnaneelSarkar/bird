@@ -15,20 +15,23 @@ import '../home page/bloc.dart';
 import '../home page/event.dart';
 
 import '../../widgets/cached_image.dart';
+import '../../widgets/location_status_widget.dart';
 import '../../service/location_validation_service.dart';
 import '../../service/token_service.dart';
+import '../../service/app_startup_service.dart';
 
 class CategoryHomepage extends StatelessWidget {
   final Map<String, dynamic>? userData;
   final String? token;
+  final Map<String, dynamic>? locationInitResult;
 
-  const CategoryHomepage({Key? key, this.userData, this.token}) : super(key: key);
+  const CategoryHomepage({Key? key, this.userData, this.token, this.locationInitResult}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => CategoryHomepageBloc()..add(const LoadCategoryHomepage()),
-      child: _CategoryHomepageContent(userData: userData, token: token),
+      child: _CategoryHomepageContent(userData: userData, token: token, locationInitResult: locationInitResult),
     );
   }
 }
@@ -36,8 +39,9 @@ class CategoryHomepage extends StatelessWidget {
 class _CategoryHomepageContent extends StatefulWidget {
   final Map<String, dynamic>? userData;
   final String? token;
+  final Map<String, dynamic>? locationInitResult;
 
-  const _CategoryHomepageContent({Key? key, this.userData, this.token}) : super(key: key);
+  const _CategoryHomepageContent({Key? key, this.userData, this.token, this.locationInitResult}) : super(key: key);
 
   @override
   State<_CategoryHomepageContent> createState() => _CategoryHomepageContentState();
@@ -109,8 +113,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
         final bloc = context.read<CategoryHomepageBloc>();
         // If not already loading, reset to initial and reload
         if (bloc.state is! CategoryHomepageLoading) {
-          bloc.emit(const CategoryHomepageInitial());
-          bloc.add(const LoadCategoryHomepage());
+          bloc.add(const RefreshCategoryHomepage());
         }
         return true;
       },
@@ -248,9 +251,9 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
               ).fadeIn(duration: 600.ms),
             ),
             
-            // Location Warning Section
+            // Location Status Section
             SliverToBoxAdapter(
-              child: _buildLocationWarning().animate().slideY(
+              child: _buildLocationStatus().animate().slideY(
                 begin: 0.2,
                 end: 0,
                 duration: 500.ms,
@@ -279,9 +282,12 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
   }
 
   Widget _buildHeader(CategoryHomepageLoaded state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
+      margin: EdgeInsets.all(screenWidth * 0.05), // 5% of screen width
+      padding: EdgeInsets.all(screenWidth * 0.06), // 6% of screen width
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -291,13 +297,13 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
             ColorManager.primary.withOpacity(0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(screenWidth * 0.06), // Responsive border radius
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 2,
+            blurRadius: screenWidth * 0.05, // Responsive blur
+            offset: Offset(0, screenWidth * 0.02), // Responsive offset
+            spreadRadius: screenWidth * 0.005, // Responsive spread
           ),
         ],
         border: Border.all(
@@ -315,31 +321,24 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.03, // Responsive horizontal padding
+                        vertical: screenHeight * 0.005, // Responsive vertical padding
+                      ),
                       decoration: BoxDecoration(
                         color: ColorManager.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(screenWidth * 0.05), // Responsive border radius
                       ),
                       child: Text(
-                        _getGreeting(),
+                        'Welcome ${state.userName}',
                         style: GoogleFonts.poppins(
-                          fontSize: _getResponsiveFontSize(12),
+                          fontSize: _getResponsiveFontSize(16),
                           color: ColorManager.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.userName,
-                      style: GoogleFonts.poppins(
-                        fontSize: _getResponsiveFontSize(28),
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: screenHeight * 0.005), // Responsive spacing
                     Text(
                       'What would you like to order today?',
                       style: GoogleFonts.poppins(
@@ -457,12 +456,15 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
   }
 
   Widget _buildCategoriesSection(List<CategoryModel> categories) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     // Determine if we should show "View All" button
     final shouldShowViewAll = categories.length > 8;
     final displayCategories = shouldShowViewAll ? categories.take(8).toList() : categories;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05), // Responsive horizontal padding
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -486,10 +488,13 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                     debugPrint('Dashboard: View all categories tapped');
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.03, // Responsive horizontal padding
+                      vertical: screenHeight * 0.007, // Responsive vertical padding
+                    ),
                     decoration: BoxDecoration(
                       color: ColorManager.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.05), // Responsive border radius
                       border: Border.all(
                         color: ColorManager.primary.withOpacity(0.3),
                         width: 1,
@@ -507,7 +512,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: screenHeight * 0.005), // Responsive spacing
           Text(
             'Select a category to explore delicious options',
             style: GoogleFonts.poppins(
@@ -516,7 +521,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
               fontWeight: FontWeight.w400,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: screenHeight * 0.02), // Responsive spacing
           // Two rows of super categories with horizontal scrolling
           Column(
             children: [
@@ -526,7 +531,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04), // Responsive padding
                   itemCount: _getFirstRowCount(displayCategories.length),
                   itemBuilder: (context, index) {
                     final category = displayCategories[index];
@@ -534,7 +539,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                   },
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: screenHeight * 0.015), // Responsive spacing between rows
               // Second row - Show if there are more categories than can fit in first row
               if (displayCategories.length > _getFirstRowCount(displayCategories.length))
                 SizedBox(
@@ -542,7 +547,7 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04), // Responsive padding
                     itemCount: displayCategories.length - _getFirstRowCount(displayCategories.length),
                     itemBuilder: (context, index) {
                       final actualIndex = _getFirstRowCount(displayCategories.length) + index;
@@ -779,9 +784,6 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
 
 
   // Helper Methods
-  String _getGreeting() {
-    return 'Hello';
-  }
 
   // Calculate how many categories should be in the first row
   int _getFirstRowCount(int totalCategories) {
@@ -854,7 +856,8 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     }
   }
 
-  Widget _buildLocationWarning() {
+  Widget _buildLocationStatus() {
+    // Show location serviceability warning if needed
     if (_isCheckingLocation) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -890,6 +893,47 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
       );
     }
 
+    // Show location availability status from startup
+    if (widget.locationInitResult != null) {
+      final locationAvailability = widget.locationInitResult!['locationAvailability'] as Map<String, bool>?;
+      final hasExistingLocation = widget.userData?['address'] != null && 
+                                  widget.userData?['latitude'] != null && 
+                                  widget.userData?['longitude'] != null;
+      final existingAddress = widget.userData?['address'] as String?;
+      
+      if (locationAvailability != null && locationAvailability['available'] != true) {
+        return LocationStatusWidget(
+          locationAvailability: locationAvailability,
+          hasExistingLocation: hasExistingLocation,
+          existingAddress: existingAddress,
+          onEnableLocation: () async {
+            // Try to refresh location
+            _updateStatusMessage('Refreshing location...');
+            final result = await AppStartupService.forceFreshLocationFetch();
+            if (result['locationUpdated'] == true) {
+              // Reload the page with updated data
+              if (mounted) {
+                final newUserData = await TokenService.getUserData();
+                final token = await TokenService.getToken();
+                Navigator.pushReplacementNamed(
+                  context,
+                  Routes.dashboard,
+                  arguments: {
+                    'userData': newUserData,
+                    'token': token,
+                    'locationInitResult': result,
+                  },
+                );
+              }
+            }
+          },
+          onSkip: null, // Don't show skip option in dashboard
+          showActions: true,
+        );
+      }
+    }
+
+    // Show location serviceability warning if location is not serviceable
     if (!_isLocationServiceable) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -936,6 +980,11 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     }
 
     return const SizedBox.shrink();
+  }
+  
+  void _updateStatusMessage(String message) {
+    // Helper method for status updates
+    debugPrint('Dashboard: $message');
   }
 
 

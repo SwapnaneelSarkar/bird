@@ -2737,16 +2737,16 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 120,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 130),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: filteredOrders.length,
               itemBuilder: (context, index) {
                 final order = filteredOrders[index];
                 return Container(
-                  margin: const EdgeInsets.only(right: 12),
+                  margin: EdgeInsets.only(right: index == filteredOrders.length - 1 ? 16 : 12),
                   child: _buildRecentOrderCard(context, order),
                 );
               },
@@ -2759,12 +2759,29 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
 
     Widget _buildRecentOrderCard(BuildContext context, RecentOrderModel order) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final availableWidth = screenWidth - 32; // Account for horizontal padding
+    
+    // More responsive card width calculation
+    double cardWidth;
+    if (screenWidth < 360) {
+      cardWidth = 120.0; // Very small phones
+    } else if (screenWidth < 480) {
+      cardWidth = 130.0; // Small phones
+    } else if (screenWidth < 768) {
+      cardWidth = 140.0; // Medium phones
+    } else {
+      cardWidth = 150.0; // Large phones and tablets
+    }
+    
+    // Ensure minimum width for readability
+    cardWidth = cardWidth.clamp(110.0, 150.0);
+    
     final scale = (screenWidth / 400).clamp(0.7, 1.0);
     
     return GestureDetector(
       onTap: () => _navigateToOrderDetails(context, order),
       child: Container(
-        width: 140 * scale,
+        width: cardWidth,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12 * scale),
@@ -2781,68 +2798,98 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
           padding: EdgeInsets.all(8 * scale),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Item name
-              Text(
-                order.supercategoryName ?? 'Unknown Item',
-                style: GoogleFonts.poppins(
-                  fontSize: 12 * scale,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+              // Restaurant name (highlighted)
+              Flexible(
+                child: Text(
+                  order.restaurantName ?? 'Unknown Restaurant',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11.5 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 4 * scale),
+              SizedBox(height: 2 * scale),
+              
+              // Supercategory name (underneath)
+              Flexible(
+                child: Text(
+                  order.supercategoryName ?? 'Unknown Category',
+                  style: GoogleFonts.poppins(
+                    fontSize: 9.5 * scale,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const Spacer(),
               
               // Price
               Row(
                 children: [
                   Icon(
                     Icons.currency_rupee,
-                    size: 10 * scale,
+                    size: 9.5 * scale,
                     color: ColorManager.instamartGreen,
                   ),
-                  Text(
-                    '${order.totalPrice ?? '0'}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: ColorManager.instamartGreen,
+                  Flexible(
+                    child: Text(
+                      '${order.totalPrice ?? '0'}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.5 * scale,
+                        fontWeight: FontWeight.w600,
+                        color: ColorManager.instamartGreen,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 4 * scale),
+              SizedBox(height: 2 * scale),
               
               // Date
-              Text(
-                _formatOrderDate(order.createdAt),
-                style: GoogleFonts.poppins(
-                  fontSize: 9 * scale,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.grey[600],
+              Flexible(
+                child: Text(
+                  _formatOrderDate(order.createdAt),
+                  style: GoogleFonts.poppins(
+                    fontSize: 8.5 * scale,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey[600],
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(height: 4 * scale),
+              SizedBox(height: 2 * scale),
               
               // Status badge
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
-                decoration: BoxDecoration(
-                  color: _getOrderStatusColor(order.orderStatus ?? '').withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6 * scale),
-                  border: Border.all(
-                    color: _getOrderStatusColor(order.orderStatus ?? '').withValues(alpha: 0.3),
-                    width: 0.5,
+              Flexible(
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
+                  decoration: BoxDecoration(
+                    color: _getOrderStatusColor(order.orderStatus ?? '').withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6 * scale),
+                    border: Border.all(
+                      color: _getOrderStatusColor(order.orderStatus ?? '').withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
                   ),
-                ),
-                child: Text(
-                  _formatOrderStatus(order.orderStatus ?? ''),
-                  style: GoogleFonts.poppins(
-                    fontSize: 8 * scale,
-                    fontWeight: FontWeight.w500,
-                    color: _getOrderStatusColor(order.orderStatus ?? ''),
+                  child: Text(
+                    _formatOrderStatus(order.orderStatus ?? ''),
+                    style: GoogleFonts.poppins(
+                      fontSize: 8 * scale,
+                      fontWeight: FontWeight.w500,
+                      color: _getOrderStatusColor(order.orderStatus ?? ''),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ),

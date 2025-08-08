@@ -493,6 +493,20 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                               color: Colors.black87,
                             ),
                           ),
+                          const SizedBox(width: 16),
+                          Icon(
+                            Icons.rate_review,
+                            color: Colors.grey[600],
+                            size: 18,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${restaurant.reviewCount ?? 0} reviews",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),

@@ -13,7 +13,6 @@ import '../../constants/router/router.dart';
 class AddressScreen extends StatefulWidget {
   final String? name;
   final String? email;
-  final String? photoPath;
   final Map<String, dynamic>? userData;
   final String? token;
 
@@ -21,7 +20,6 @@ class AddressScreen extends StatefulWidget {
     Key? key,
     this.name,
     this.email,
-    this.photoPath,
     this.userData,
     this.token,
   }) : super(key: key);
@@ -362,7 +360,7 @@ class _AddressScreenState extends State<AddressScreen> {
                                     ),
                                     child: Icon(
                                       Icons.location_on,
-                                      color: ColorManager.primary ?? const Color(0xFFE67E22),
+                                      color: ColorManager.primary,
                                       size: screenWidth * 0.05, // 5% of screen width
                                     ),
                                   ),
@@ -396,8 +394,8 @@ class _AddressScreenState extends State<AddressScreen> {
                                   ),
                                   if (state is AddressLoadingState)
                                     SizedBox(
-                                      width: 24,
-                                      height: 24,
+                                      width: screenWidth * 0.06, // Responsive size
+                                      height: screenWidth * 0.06, // Responsive size
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         color: ColorManager.primary,

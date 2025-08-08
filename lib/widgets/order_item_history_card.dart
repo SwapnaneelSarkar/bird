@@ -21,16 +21,16 @@ class OrderItemCard extends StatelessWidget {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      margin: EdgeInsets.only(bottom: screenHeight * 0.015),
-      padding: EdgeInsets.all(screenWidth * 0.04),
+      margin: EdgeInsets.only(bottom: screenHeight * 0.016),
+      padding: EdgeInsets.all(screenWidth * 0.045),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(screenWidth * 0.03),
+        borderRadius: BorderRadius.circular(screenWidth * 0.035),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -38,7 +38,7 @@ class OrderItemCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildOrderHeader(context, screenWidth, screenHeight),
-          SizedBox(height: screenHeight * 0.015),
+          SizedBox(height: screenHeight * 0.018),
           _buildActionButtons(context, screenWidth, screenHeight),
         ],
       ),
@@ -47,13 +47,20 @@ class OrderItemCard extends StatelessWidget {
 
   Widget _buildOrderHeader(BuildContext context, double screenWidth, double screenHeight) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildOrderImage(screenWidth),
-        SizedBox(width: screenWidth * 0.03),
+        SizedBox(width: screenWidth * 0.04),
         Expanded(
           child: _buildOrderDetails(context, screenWidth, screenHeight),
         ),
-        _buildOrderPrice(context, screenWidth),
+        SizedBox(width: screenWidth * 0.03),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _buildOrderPrice(context, screenWidth),
+          ],
+        ),
       ],
     );
   }
@@ -94,52 +101,58 @@ class OrderItemCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildRestaurantNameAndStatus(screenWidth, screenHeight),
-        SizedBox(height: screenHeight * 0.005),
+        SizedBox(height: screenHeight * 0.01),
         if (order.restaurantAddress != null && order.restaurantAddress!.isNotEmpty)
           _buildRestaurantAddress(screenWidth),
-        SizedBox(height: screenHeight * 0.005),
+        SizedBox(height: screenHeight * 0.008),
         _buildItemsDisplay(order.items, screenWidth),
-        SizedBox(height: screenHeight * 0.005),
+        SizedBox(height: screenHeight * 0.008),
         if (order.restaurantRating != null) _buildRestaurantRating(screenWidth),
-        SizedBox(height: screenHeight * 0.005),
+        SizedBox(height: screenHeight * 0.008),
         _buildDateAndDeliveryAddress(screenWidth, screenHeight),
       ],
     );
   }
 
   Widget _buildRestaurantNameAndStatus(double screenWidth, double screenHeight) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            order.restaurantName,
-            style: TextStyle(
-              fontSize: screenWidth * 0.04,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF2D2D2D),
-              fontFamily: 'Roboto',
-            ),
+        // Restaurant name on first line
+        Text(
+          order.restaurantName,
+          style: TextStyle(
+            fontSize: screenWidth * 0.042,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF2D2D2D),
+            fontFamily: 'Roboto',
+            height: 1.2,
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        SizedBox(width: screenWidth * 0.02),
-        Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.02,
-            vertical: screenHeight * 0.003,
-          ),
-          decoration: BoxDecoration(
-            color: _getStatusColor(order.status),
-            borderRadius: BorderRadius.circular(screenWidth * 0.01),
-          ),
-          child: Text(
-            order.status,
-            style: TextStyle(
-              fontSize: screenWidth * 0.025,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-              fontFamily: 'Roboto',
+        SizedBox(height: screenHeight * 0.006),
+        // Status badge on second line, aligned to start
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.03,
+              vertical: screenHeight * 0.005,
             ),
-            overflow: TextOverflow.ellipsis,
+            decoration: BoxDecoration(
+              color: _getStatusColor(order.status),
+              borderRadius: BorderRadius.circular(screenWidth * 0.02),
+            ),
+            child: Text(
+              _getFormattedStatus(order.status),
+              style: TextStyle(
+                fontSize: screenWidth * 0.028,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                fontFamily: 'Roboto',
+              ),
+            ),
           ),
         ),
       ],
@@ -150,37 +163,18 @@ class OrderItemCard extends StatelessWidget {
     return Text(
       order.restaurantAddress!,
       style: TextStyle(
-        fontSize: screenWidth * 0.03,
+        fontSize: screenWidth * 0.032,
         fontWeight: FontWeight.w400,
         color: const Color(0xFF666666),
         fontFamily: 'Roboto',
+        height: 1.3,
       ),
-      maxLines: 1,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
   }
 
-  Widget _buildRating(double screenWidth) {
-    return Row(
-      children: [
-        Icon(
-          Icons.star,
-          size: screenWidth * 0.03,
-          color: Colors.amber,
-        ),
-        SizedBox(width: screenWidth * 0.01),
-        Text(
-          '${order.rating!.toStringAsFixed(1)}',
-          style: TextStyle(
-            fontSize: screenWidth * 0.03,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF666666),
-            fontFamily: 'Roboto',
-          ),
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildRestaurantRating(double screenWidth) {
     return Row(
@@ -221,26 +215,43 @@ class OrderItemCard extends StatelessWidget {
         Text(
           order.date,
           style: TextStyle(
-            fontSize: screenWidth * 0.03,
+            fontSize: screenWidth * 0.032,
             fontWeight: FontWeight.w400,
             color: const Color(0xFF999999),
             fontFamily: 'Roboto',
+            height: 1.2,
           ),
           overflow: TextOverflow.ellipsis,
         ),
         if (order.deliveryAddress != null && order.deliveryAddress!.isNotEmpty)
           Padding(
-            padding: EdgeInsets.only(top: screenHeight * 0.003),
-            child: Text(
-              '📍 ${order.deliveryAddress!}',
-              style: TextStyle(
-                fontSize: screenWidth * 0.03,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF666666),
-                fontFamily: 'Roboto',
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            padding: EdgeInsets.only(top: screenHeight * 0.004),
+            child: Row(
+              children: [
+                Text(
+                  '📍 ',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.032,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF666666),
+                    fontFamily: 'Roboto',
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    order.deliveryAddress!,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.032,
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFF666666),
+                      fontFamily: 'Roboto',
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
       ],
@@ -272,12 +283,14 @@ class OrderItemCard extends StatelessWidget {
         Row(
           children: [
             _buildViewDetailsButton(screenWidth, screenHeight),
-            SizedBox(width: screenWidth * 0.03),
-            if (_shouldShowReorderButton()) _buildReorderButton(context, screenWidth, screenHeight),
+            if (_shouldShowReorderButton()) ...[
+              SizedBox(width: screenWidth * 0.03),
+              _buildReorderButton(context, screenWidth, screenHeight),
+            ],
           ],
         ),
         // Chat button below the main action buttons
-        SizedBox(height: screenHeight * 0.015),
+        SizedBox(height: screenHeight * 0.016),
         _buildChatButton(context, screenWidth, screenHeight),
       ],
     );
@@ -499,8 +512,9 @@ class OrderItemCard extends StatelessWidget {
         fontWeight: FontWeight.w400,
         color: const Color(0xFF666666),
         fontFamily: 'Roboto',
+        height: 1.3,
       ),
-      maxLines: 1,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -566,6 +580,40 @@ class OrderItemCard extends StatelessWidget {
         return Colors.purple;
       default:
         return const Color(0xFFE17A47);
+    }
+  }
+
+  String _getFormattedStatus(String status) {
+    switch (status.toUpperCase()) {
+      case 'DELIVERED':
+        return 'DELIVERED';
+      case 'COMPLETED':
+        return 'COMPLETED';
+      case 'CANCELLED':
+      case 'CANCELED':
+        return 'CANCELLED';
+      case 'PREPARING':
+        return 'PREPARING';
+      case 'PENDING':
+        return 'PENDING';
+      case 'ONGOING':
+        return 'ONGOING';
+      case 'IN_PROGRESS':
+        return 'IN PROGRESS';
+      case 'PROCESSING':
+        return 'PROCESSING';
+      case 'CONFIRMED':
+        return 'CONFIRMED';
+      case 'ACCEPTED':
+        return 'ACCEPTED';
+      case 'OUT_FOR_DELIVERY':
+        return 'OUT FOR DELIVERY';
+      case 'ON_THE_WAY':
+        return 'ON THE WAY';
+      case 'READY_FOR_DELIVERY':
+        return 'READY FOR DELIVERY';
+      default:
+        return status.toUpperCase();
     }
   }
 

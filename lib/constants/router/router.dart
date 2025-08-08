@@ -2,7 +2,7 @@
 import 'package:bird/presentation/DeliveryAddressPage/view.dart';
 import 'package:bird/presentation/chat/view.dart';
 import 'package:bird/presentation/complete%20profile/view.dart';
-import 'package:bird/presentation/dashboard/bloc.dart';
+
 import 'package:bird/presentation/dashboard/view.dart';
 import 'package:bird/presentation/favorites/view.dart';
 import 'package:bird/presentation/home%20page/bloc.dart';
@@ -59,6 +59,7 @@ class RouteGenerator {
             builder: (_) => CategoryHomepage(
               userData: args['userData'] as Map<String, dynamic>?,
               token: args['token'] as String?,
+              locationInitResult: args['locationInitResult'] as Map<String, dynamic>?,
             ),
           );
         }

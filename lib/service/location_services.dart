@@ -6,6 +6,36 @@ import 'dart:convert';
 
 class LocationService {
   final String _placesApiKey = 'AIzaSyBmRJ1-tX0oWD3FFKAuV8NB7Hg9h6NQXeU';
+  
+  /// Check if location services are available without requesting permissions
+  Future<Map<String, bool>> checkLocationAvailability() async {
+    try {
+      debugPrint('LocationService: Checking location availability...');
+      
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint('LocationService: Location services enabled: $serviceEnabled');
+      
+      // Check current permission status without requesting
+      LocationPermission permission = await Geolocator.checkPermission();
+      bool permissionGranted = permission == LocationPermission.always || 
+                              permission == LocationPermission.whileInUse;
+      debugPrint('LocationService: Permission granted: $permissionGranted ($permission)');
+      
+      return {
+        'serviceEnabled': serviceEnabled,
+        'permissionGranted': permissionGranted,
+        'available': serviceEnabled && permissionGranted,
+      };
+    } catch (e) {
+      debugPrint('LocationService: Error checking location availability: $e');
+      return {
+        'serviceEnabled': false,
+        'permissionGranted': false,
+        'available': false,
+      };
+    }
+  }
 
   // Get current position
   Future<Position?> getCurrentPosition() async {
@@ -307,7 +337,7 @@ class LocationService {
         'longitude': position.longitude,
         'address': address,
         'accuracy': position.accuracy,
-        'timestamp': position.timestamp?.toIso8601String(),
+        'timestamp': position.timestamp.toIso8601String(),
         'speed': position.speed,
         'altitude': position.altitude,
       };
@@ -378,7 +408,7 @@ class LocationService {
         'longitude': position.longitude,
         'address': address,
         'accuracy': position.accuracy,
-        'timestamp': position.timestamp?.toIso8601String(),
+        'timestamp': position.timestamp.toIso8601String(),
         'speed': position.speed,
         'altitude': position.altitude,
         'heading': position.heading,
@@ -517,5 +547,29 @@ class LocationService {
     } catch (e) {
       debugPrint('LocationService: Error clearing GPS cache: $e');
     }
+  }
+  
+  /// Get user-friendly message about location status
+  String getLocationStatusMessage(Map<String, bool> availability) {
+    if (availability['available'] == true) {
+      return 'Location services are working properly';
+    }
+    
+    if (!availability['serviceEnabled']! && !availability['permissionGranted']!) {
+      return 'Location services are disabled and permission is not granted. Please enable location services and grant permission in device settings.';
+    } else if (!availability['serviceEnabled']!) {
+      return 'Location services are disabled. Please enable location services in device settings.';
+    } else if (!availability['permissionGranted']!) {
+      return 'Location permission is not granted. Please grant location permission in app settings.';
+    }
+    
+    return 'Location services are not available';
+  }
+  
+  /// Check if we can prompt user to enable location
+  bool canPromptForLocation(Map<String, bool> availability) {
+    // We can prompt if services are disabled but permission is not permanently denied
+    return !availability['serviceEnabled']! || 
+           (!availability['permissionGranted']! && availability['serviceEnabled']!);
   }
 }

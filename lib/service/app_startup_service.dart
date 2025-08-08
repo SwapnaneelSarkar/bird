@@ -11,6 +11,162 @@ class AppStartupService {
   static final LocationService _locationService = LocationService();
   static final UpdateUserService _updateUserService = UpdateUserService();
   
+  /// Initialize app startup services with graceful location handling
+  static Future<Map<String, dynamic>> initializeAppGracefully() async {
+    try {
+      debugPrint('🔍 AppStartupService: Starting graceful app initialization...');
+      
+      // Check if user is logged in
+      final isLoggedIn = await TokenService.isLoggedIn();
+      debugPrint('🔍 AppStartupService: User logged in status: $isLoggedIn');
+      
+      if (!isLoggedIn) {
+        debugPrint('AppStartupService: User not logged in, skipping location fetch');
+        return {
+          'success': true,
+          'message': 'User not logged in',
+          'locationUpdated': false,
+        };
+      }
+      
+      // Get user data
+      final userData = await TokenService.getUserData();
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      debugPrint('🔍 AppStartupService: Current user data:');
+      debugPrint('  User ID: $userId');
+      debugPrint('  Token: ${token != null ? 'Found' : 'Not found'}');
+      debugPrint('  Current Address: ${userData?['address']}');
+      debugPrint('  Current Latitude: ${userData?['latitude']}');
+      debugPrint('  Current Longitude: ${userData?['longitude']}');
+      
+      if (token == null || userId == null) {
+        debugPrint('AppStartupService: No token or userId available');
+        return {
+          'success': false,
+          'message': 'Authentication required',
+          'locationUpdated': false,
+        };
+      }
+      
+      // Check location availability first
+      debugPrint('🔍 AppStartupService: Checking location availability...');
+      final locationAvailability = await _locationService.checkLocationAvailability();
+      debugPrint('🔍 AppStartupService: Location availability: $locationAvailability');
+      
+      if (!locationAvailability['available']!) {
+        debugPrint('🔄 AppStartupService: Location not available, using graceful fallback...');
+        
+        // Check if user has existing location data
+        final existingAddress = userData?['address'];
+        final existingLatitude = userData?['latitude'];
+        final existingLongitude = userData?['longitude'];
+        
+        if (existingAddress != null && existingLatitude != null && existingLongitude != null) {
+          debugPrint('🔄 AppStartupService: Using existing location data');
+          debugPrint('  📍 Existing Address: $existingAddress');
+          debugPrint('  📍 Existing Latitude: $existingLatitude');
+          debugPrint('  📍 Existing Longitude: $existingLongitude');
+          
+          return {
+            'success': true,
+            'message': 'Using saved location - location services unavailable',
+            'locationUpdated': false,
+            'fallbackUsed': true,
+            'locationAvailability': locationAvailability,
+          };
+        } else {
+          debugPrint('🔄 AppStartupService: No existing location data, proceeding without location');
+          return {
+            'success': true,
+            'message': 'Location services unavailable - continuing without location',
+            'locationUpdated': false,
+            'noLocationAccess': true,
+            'locationAvailability': locationAvailability,
+          };
+        }
+      }
+      
+      // Location is available, proceed with fresh fetch
+      debugPrint('🔍 AppStartupService: Location available, fetching fresh location...');
+      final locationData = await _locationService.getUltraFreshLocationAndAddress();
+      
+      if (locationData == null) {
+        debugPrint('❌ AppStartupService: Failed to fetch location despite availability check');
+        // Fall back to existing data or no location
+        final existingAddress = userData?['address'];
+        final existingLatitude = userData?['latitude'];
+        final existingLongitude = userData?['longitude'];
+        
+        if (existingAddress != null && existingLatitude != null && existingLongitude != null) {
+          return {
+            'success': true,
+            'message': 'Using saved location - fetch failed',
+            'locationUpdated': false,
+            'fallbackUsed': true,
+            'locationAvailability': locationAvailability,
+          };
+        } else {
+          return {
+            'success': true,
+            'message': 'Location fetch failed - continuing without location',
+            'locationUpdated': false,
+            'noLocationAccess': true,
+            'locationAvailability': locationAvailability,
+          };
+        }
+      }
+      
+      debugPrint('✅ AppStartupService: Fresh location fetched successfully');
+      debugPrint('  📍 New Latitude: ${locationData['latitude']}');
+      debugPrint('  📍 New Longitude: ${locationData['longitude']}');
+      debugPrint('  📍 New Address: ${locationData['address']}');
+      debugPrint('  📍 Accuracy: ${locationData['accuracy']} meters');
+      debugPrint('  📍 Timestamp: ${locationData['timestamp']}');
+      
+      // Update user profile with fresh location data
+      debugPrint('🔍 AppStartupService: Updating user profile with fresh location...');
+      final updateResult = await _updateUserService.updateUserProfileWithId(
+        token: token,
+        userId: userId,
+        address: locationData['address'],
+        latitude: locationData['latitude'],
+        longitude: locationData['longitude'],
+      );
+      
+      if (updateResult['success'] == true) {
+        debugPrint('✅ AppStartupService: User profile updated successfully with fresh location');
+        await _updateLastLocationFetchTime();
+        
+        return {
+          'success': true,
+          'message': 'Location updated successfully',
+          'locationUpdated': true,
+          'locationData': locationData,
+          'locationAvailability': locationAvailability,
+        };
+      } else {
+        debugPrint('❌ AppStartupService: Failed to update user profile: ${updateResult['message']}');
+        return {
+          'success': true,
+          'message': 'Location fetched but profile update failed',
+          'locationUpdated': false,
+          'locationData': locationData,
+          'locationAvailability': locationAvailability,
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ AppStartupService: Error in graceful initialization: $e');
+      return {
+        'success': true,
+        'message': 'Initialization completed with errors - continuing',
+        'locationUpdated': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
   /// Initialize app startup services including location fetching
   static Future<Map<String, dynamic>> initializeApp() async {
     try {
@@ -59,11 +215,32 @@ class AppStartupService {
       
       if (locationData == null) {
         debugPrint('❌ AppStartupService: Failed to fetch ultra fresh location');
-        return {
-          'success': true,
-          'message': 'Location services not available',
-          'locationUpdated': false,
-        };
+        // Check if user has existing location data to fall back to
+        final existingAddress = userData?['address'];
+        final existingLatitude = userData?['latitude'];
+        final existingLongitude = userData?['longitude'];
+        
+        if (existingAddress != null && existingLatitude != null && existingLongitude != null) {
+          debugPrint('🔄 AppStartupService: Using existing location data as fallback');
+          debugPrint('  📍 Existing Address: $existingAddress');
+          debugPrint('  📍 Existing Latitude: $existingLatitude');
+          debugPrint('  📍 Existing Longitude: $existingLongitude');
+          
+          return {
+            'success': true,
+            'message': 'Using existing location data - location services unavailable',
+            'locationUpdated': false,
+            'fallbackUsed': true,
+          };
+        } else {
+          debugPrint('🔄 AppStartupService: No existing location data, allowing app access without location');
+          return {
+            'success': true,
+            'message': 'Location services not available - continuing without location',
+            'locationUpdated': false,
+            'noLocationAccess': true,
+          };
+        }
       }
       
       debugPrint('✅ AppStartupService: Ultra fresh location fetched successfully');
@@ -447,11 +624,29 @@ class AppStartupService {
       
       if (locationData == null) {
         debugPrint('AppStartupService: Failed to get ultra fresh location data');
-        return {
-          'success': false,
-          'message': 'Failed to get current location',
-          'locationUpdated': false,
-        };
+        // Check if user has existing location data to fall back to
+        final userData = await TokenService.getUserData();
+        final existingAddress = userData?['address'];
+        final existingLatitude = userData?['latitude'];
+        final existingLongitude = userData?['longitude'];
+        
+        if (existingAddress != null && existingLatitude != null && existingLongitude != null) {
+          debugPrint('🔄 AppStartupService: Using existing location data as fallback for force update');
+          return {
+            'success': true,
+            'message': 'Using existing location data - location services unavailable',
+            'locationUpdated': false,
+            'fallbackUsed': true,
+          };
+        } else {
+          debugPrint('🔄 AppStartupService: No location data available, allowing app access');
+          return {
+            'success': true,
+            'message': 'Location services not available - continuing without location',
+            'locationUpdated': false,
+            'noLocationAccess': true,
+          };
+        }
       }
       
       // Update user profile with ultra fresh location data

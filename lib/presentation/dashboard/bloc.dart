@@ -38,7 +38,7 @@ class CategoryHomepageBloc extends Bloc<CategoryHomepageEvent, CategoryHomepageS
       final categories = await _fetchSupercategories(token);
 
       // Extract user info
-      final userName = userData?['name'] ?? userData?['full_name'] ?? 'Welcome Back';
+      final userName = userData?['username'] ?? userData?['name'] ?? userData?['full_name'] ?? 'User';
       final userAddress = userData?['address'] ?? 'Add delivery address';
 
       emit(CategoryHomepageLoaded(

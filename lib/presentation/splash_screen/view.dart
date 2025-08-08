@@ -31,7 +31,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   final Random _random = Random();
   
   // Status indicator
-  bool _isCheckingStatus = false;
   String _statusMessage = 'Preparing for takeoff...';
 
   @override
@@ -134,11 +133,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Wait for animations to complete
     await Future.delayed(const Duration(milliseconds: 2500));
     
-    if (mounted) {
-      setState(() {
-        _isCheckingStatus = true;
-      });
-    }
+    // Status checking begins
     
     _updateStatusMessage('Checking login status...');
     await Future.delayed(const Duration(milliseconds: 500));
@@ -150,10 +145,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         _updateStatusMessage('Welcome back!');
         await Future.delayed(const Duration(milliseconds: 500));
         
-        // Initialize app services including location fetching
-        _updateStatusMessage('Updating location...');
-        debugPrint('🚀 SplashScreen: Starting location initialization...');
-        final initResult = await AppStartupService.forceFreshLocationFetch();
+        // Initialize app services with graceful location handling
+        _updateStatusMessage('Checking location...');
+        debugPrint('🚀 SplashScreen: Starting graceful location initialization...');
+        final initResult = await AppStartupService.initializeAppGracefully();
         
         debugPrint('🚀 SplashScreen: Location initialization result: $initResult');
         
@@ -165,6 +160,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           // Refresh user data to get the updated location
           _updateStatusMessage('Refreshing profile...');
           debugPrint('🚀 SplashScreen: Refreshing profile data...');
+          await Future.delayed(const Duration(milliseconds: 300));
+        } else if (initResult['fallbackUsed'] == true) {
+          _updateStatusMessage('Using saved location!');
+          debugPrint('🚀 SplashScreen: Using existing location data as fallback');
+          await Future.delayed(const Duration(milliseconds: 300));
+        } else if (initResult['noLocationAccess'] == true) {
+          _updateStatusMessage('Ready without location!');
+          debugPrint('🚀 SplashScreen: Proceeding without location access');
           await Future.delayed(const Duration(milliseconds: 300));
         } else {
           _updateStatusMessage('Location ready!');
@@ -188,6 +191,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             arguments: {
               'userData': userData,
               'token': token,
+              'locationInitResult': initResult,
             },
           );
         }
@@ -245,96 +249,110 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           // Main Content
           SafeArea(
             child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Animated Logo
-                  ScaleTransition(
-                    scale: _logoScaleAnimation,
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(40),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.orange.withOpacity(0.2),
-                            blurRadius: 30,
-                            spreadRadius: 10,
-                          ),
-                        ],
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: size.width * 0.1),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Animated Logo - Responsive sizing
+                    ScaleTransition(
+                      scale: _logoScaleAnimation,
+                      child: Container(
+                        width: size.width * 0.45, // 45% of screen width
+                        height: size.width * 0.45, // Keep it square
+                        constraints: const BoxConstraints(
+                          minWidth: 120,
+                          maxWidth: 200,
+                          minHeight: 120,
+                          maxHeight: 200,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(size.width * 0.1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withOpacity(0.2),
+                              blurRadius: size.width * 0.075,
+                              spreadRadius: size.width * 0.025,
+                            ),
+                          ],
+                        ),
+                        child: _buildLogo(),
                       ),
-                      child: _buildLogo(),
                     ),
-                  ),
+                    
+                    SizedBox(height: size.height * 0.05), // 5% of screen height
                   
-                  const SizedBox(height: 40),
-                  
-                  // Animated Text
-                  FadeTransition(
-                    opacity: _textFadeAnimation,
-                    child: SlideTransition(
-                      position: Offset(0, _textSlideAnimation.value / 100).toSlidePosition(),
-                      child: Column(
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => LinearGradient(
-                              colors: [
-                                Color(0xFFFF9800),
-                                Color(0xFFFF5722),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ).createShader(bounds),
-                            child: Text(
-                              'BIRD',
-                              style: TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white, // Applied by shader
-                                letterSpacing: 8,
+                    // Animated Text
+                    FadeTransition(
+                      opacity: _textFadeAnimation,
+                      child: SlideTransition(
+                        position: Offset(0, _textSlideAnimation.value / 100).toSlidePosition(),
+                        child: Column(
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => LinearGradient(
+                                colors: [
+                                  Color(0xFFFF9800),
+                                  Color(0xFFFF5722),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Text(
+                                'BIRD',
+                                style: TextStyle(
+                                  fontSize: size.width * 0.12, // Responsive font size
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white, // Applied by shader
+                                  letterSpacing: size.width * 0.02, // Responsive letter spacing
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Delivery at Lightning Speed',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                              letterSpacing: 1,
+                            SizedBox(height: size.height * 0.01), // Responsive spacing
+                            Text(
+                              'Delivery at Lightning Speed',
+                              style: TextStyle(
+                                fontSize: size.width * 0.04, // Responsive font size
+                                color: Colors.grey[600],
+                                letterSpacing: 1,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                    
+                    SizedBox(height: size.height * 0.1), // 10% of screen height
                   
-                  const SizedBox(height: 80),
-                  
-                  // Loading Animation
-                  FadeTransition(
-                    opacity: _loadingAnimation,
-                    child: Container(
-                      width: 200,
-                      child: Column(
-                        children: [
-                          // Animated loading dots
-                          _buildLoadingDots(),
-                          const SizedBox(height: 24),
-                          Text(
-                            _statusMessage,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
+                    // Loading Animation
+                    FadeTransition(
+                      opacity: _loadingAnimation,
+                      child: Container(
+                        width: size.width * 0.5, // 50% of screen width
+                        constraints: const BoxConstraints(
+                          minWidth: 150,
+                          maxWidth: 250,
+                        ),
+                        child: Column(
+                          children: [
+                            // Animated loading dots
+                            _buildLoadingDots(),
+                            SizedBox(height: size.height * 0.03), // Responsive spacing
+                            Text(
+                              _statusMessage,
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: size.width * 0.035, // Responsive font size
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

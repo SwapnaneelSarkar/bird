@@ -9,6 +9,7 @@ class RecentOrderModel extends Equatable {
   final String createdAt;
   final String supercategoryName;
   final String? supercategoryId; // Add supercategory ID field
+  final String? restaurantName; // Add restaurant name field
 
   const RecentOrderModel({
     required this.orderId,
@@ -19,6 +20,7 @@ class RecentOrderModel extends Equatable {
     required this.createdAt,
     required this.supercategoryName,
     this.supercategoryId, // Add supercategory ID parameter
+    this.restaurantName, // Add restaurant name parameter
   });
 
   @override
@@ -31,6 +33,7 @@ class RecentOrderModel extends Equatable {
     createdAt,
     supercategoryName,
     supercategoryId, // Add supercategory ID to props
+    restaurantName, // Add restaurant name to props
   ];
 
   factory RecentOrderModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +63,7 @@ class RecentOrderModel extends Equatable {
       createdAt: json['created_at'] ?? '',
       supercategoryName: supercategoryName,
       supercategoryId: supercategoryId,
+      restaurantName: json['restaurant_name'], // Parse restaurant name
     );
   }
 } 

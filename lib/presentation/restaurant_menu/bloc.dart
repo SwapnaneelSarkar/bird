@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../../../service/token_service.dart';
 import '../../../service/cart_service.dart';
+import '../../../service/partner_review_service.dart';
 import '../../../constants/api_constant.dart';
 import '../../../utils/distance_util.dart';
 import 'event.dart';
@@ -271,6 +272,23 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
         }
         debugPrint('RestaurantDetailsBloc: Loaded cart with ${items.length} items');
       }
+      
+      // Fetch review count for the partner
+      int reviewCount = 0;
+      try {
+        final reviewResult = await PartnerReviewService.fetchPartnerReviews(partnerId);
+        if (reviewResult['success'] == true) {
+          final data = reviewResult['data'] as Map<String, dynamic>;
+          reviewCount = data['total'] as int? ?? 0;
+          debugPrint('RestaurantDetailsBloc: Fetched review count: $reviewCount');
+        }
+      } catch (e) {
+        debugPrint('RestaurantDetailsBloc: Error fetching review count: $e');
+        // Continue without review count if there's an error
+      }
+      
+      // Add review count to restaurant data
+      restaurant['reviewCount'] = reviewCount;
       
       emit(RestaurantDetailsLoaded(
         restaurant: restaurant,

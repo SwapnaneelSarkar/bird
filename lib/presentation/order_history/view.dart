@@ -240,6 +240,9 @@ class _OrderHistoryViewState extends State<OrderHistoryView> {
   }
 
   Widget _buildEmptyState(BuildContext context, String selectedFilter) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     String emptyMessage;
     switch (selectedFilter) {
       case 'Preparing':
@@ -256,63 +259,72 @@ class _OrderHistoryViewState extends State<OrderHistoryView> {
     }
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 80,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            emptyMessage,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
-              fontFamily: 'Montserrat',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your orders will appear here',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: Colors.grey.shade500,
-              fontFamily: 'Montserrat',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(BuildContext context, OrderHistoryError state) {
-    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
-              size: 80,
+              Icons.receipt_long_outlined,
+              size: screenWidth * 0.2,
               color: Colors.grey.shade400,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: screenHeight * 0.02),
             Text(
-              state.message,
+              emptyMessage,
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
+                fontSize: screenWidth * 0.045,
+                fontWeight: FontWeight.w500,
                 color: Colors.grey.shade600,
                 fontFamily: 'Montserrat',
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: screenHeight * 0.01),
+            Text(
+              'Your orders will appear here',
+              style: TextStyle(
+                fontSize: screenWidth * 0.035,
+                fontWeight: FontWeight.w400,
+                color: Colors.grey.shade500,
+                fontFamily: 'Montserrat',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, OrderHistoryError state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(screenWidth * 0.05),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: screenWidth * 0.2,
+              color: Colors.grey.shade400,
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            Text(
+              state.message,
+              style: TextStyle(
+                fontSize: screenWidth * 0.04,
+                fontWeight: FontWeight.w400,
+                color: Colors.grey.shade600,
+                fontFamily: 'Montserrat',
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: screenHeight * 0.03),
             ElevatedButton(
               onPressed: () {
                 context.read<OrderHistoryBloc>().add(const LoadOrderHistory());
@@ -320,18 +332,18 @@ class _OrderHistoryViewState extends State<OrderHistoryView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE17A47),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.08,
+                  vertical: screenHeight * 0.015,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.02),
                 ),
               ),
               child: Text(
                 'Retry',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: screenWidth * 0.035,
                   fontWeight: FontWeight.w500,
                   fontFamily: 'Montserrat',
                 ),

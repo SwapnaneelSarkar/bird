@@ -4,7 +4,7 @@ import 'package:bird/models/payment_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
-import 'package:equatable/equatable.dart';
+
 import '../../constants/api_constant.dart';
 import '../../service/cart_service.dart';
 import '../../service/order_service.dart';
@@ -152,7 +152,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       
       if (cart == null || cart['items'] == null || (cart['items'] as List).isEmpty) {
         debugPrint('ORDER CONFIRMATION BLOC: No cart data found or cart is empty');
-        emit(OrderConfirmationError('Your cart is empty. Please add items to continue.'));
+        emit(const OrderConfirmationEmptyCart());
         return;
       }
       
@@ -533,7 +533,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           emit(orderData);
         }
         
-      } catch (e, stackTrace) {
+      } catch (e) {
         debugPrint('OrderPlacement: ❌ Exception during order placement: $e');
         emit(const OrderConfirmationError('An error occurred while placing your order. Please try again.'));
         
@@ -603,6 +603,13 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           // Remove item if quantity is 0
           if (event.newQuantity == 0) {
             updatedItems.removeAt(itemIndex);
+          }
+          
+          // Check if cart is now empty after removing item
+          if (updatedItems.isEmpty) {
+            debugPrint('OrderConfirmationBloc: Cart is now empty after removing item');
+            emit(const OrderConfirmationEmptyCart());
+            return;
           }
           
           // Recalculate totals

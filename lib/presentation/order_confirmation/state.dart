@@ -87,3 +87,7 @@ class ChatRoomCreated extends OrderConfirmationState {
   @override
   List<Object?> get props => [orderId, roomId];
 }
+
+class OrderConfirmationEmptyCart extends OrderConfirmationState {
+  const OrderConfirmationEmptyCart();
+}

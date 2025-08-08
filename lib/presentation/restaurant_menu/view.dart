@@ -525,6 +525,19 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
             ),
           )
         else ...[
+          // Add spacing between SliverAppBar and menu content
+          SliverToBoxAdapter(
+            child: Builder(
+              builder: (context) {
+                final spacingHeight = MediaQuery.of(context).size.height;
+                return Container(
+                  height: spacingHeight < 700 ? 16 : 8, // More spacing on small screens
+                  color: Colors.white,
+                );
+              },
+            ),
+          ),
+          
           // Menu header with filter option
           SliverToBoxAdapter(
             child: Container(
@@ -677,8 +690,27 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     debugPrint('🏛️ VIEW: Restaurant data in AppBar: ${restaurant.keys.toList()}');
     debugPrint('🏛️ VIEW: Address in AppBar: "${restaurant['address']}"');
     
+    // Calculate responsive height based on screen size
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    // Base height with responsive adjustments
+    double expandedHeight = 320; // Increased base height
+    
+    // Adjust for smaller screens
+    if (screenHeight < 700) {
+      expandedHeight = 340; // More height for small screens
+    } else if (screenHeight < 600) {
+      expandedHeight = 360; // Even more for very small screens
+    }
+    
+    // Adjust for very wide screens (tablets in landscape)
+    if (screenWidth > 800) {
+      expandedHeight = 300; // Can be smaller on tablets
+    }
+    
     return SliverAppBar(
-      expandedHeight: 280,
+      expandedHeight: expandedHeight,
       floating: false,
       pinned: true,
       backgroundColor: Colors.white,
@@ -750,35 +782,44 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                ColorManager.primary,
-                ColorManager.primary.withOpacity(0.9),
-                Colors.white,
-              ],
-              stops: const [0.0, 0.3, 1.0],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  
-                  // Restaurant info
-                  _buildRestaurantInfo(restaurant),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Search bar
-                  Container(
-                    height: 48,
+        background: Builder(
+          builder: (context) {
+            final flexibleScreenHeight = MediaQuery.of(context).size.height;
+            
+            return Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    ColorManager.primary,
+                    ColorManager.primary.withOpacity(0.9),
+                    Colors.white,
+                  ],
+                  stops: const [0.0, 0.3, 1.0],
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20, 
+                    flexibleScreenHeight < 700 ? 50 : 60, // Less top padding on small screens
+                    20, 
+                    flexibleScreenHeight < 700 ? 30 : 20   // More bottom padding on small screens
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: flexibleScreenHeight < 700 ? 15 : 20), // Responsive spacing
+                      
+                      // Restaurant info
+                      _buildRestaurantInfo(restaurant),
+                      
+                      SizedBox(height: flexibleScreenHeight < 700 ? 25 : 20), // More space before search on small screens
+                      
+                      // Search bar
+                      Container(
+                        height: flexibleScreenHeight < 700 ? 52 : 48, // Slightly taller on small screens for better touch targets
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -802,7 +843,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                         ),
                         border: InputBorder.none,
                         prefixIcon: Icon(Icons.search, color: ColorManager.primary, size: 22),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        contentPadding: EdgeInsets.symmetric(
+                          vertical: flexibleScreenHeight < 700 ? 16 : 14, // Adjust padding for responsive height
+                        ),
                         suffixIcon: _searchQuery.isNotEmpty
                           ? GestureDetector(
                               onTap: () => _searchController.clear(),
@@ -820,10 +863,12 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                       style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500),
                     ),
                   ),
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -890,7 +935,7 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
           spacing: 10,
           runSpacing: 8,
           children: [
-            // Rating
+            // Rating and Review Count
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
@@ -915,6 +960,21 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
                       fontSize: 13, 
                       color: Colors.white, 
                       fontWeight: FontWeight.w700
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 1,
+                    height: 16,
+                    color: Colors.white.withOpacity(0.3),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${restaurant['reviewCount'] ?? 0} reviews',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11, 
+                      color: Colors.white, 
+                      fontWeight: FontWeight.w500
                     ),
                   ),
                 ],

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:bird/service/profile_service.dart';
 import 'package:bird/service/location_services.dart';
@@ -72,7 +71,6 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
       debugPrint('Saving profile data...');
       debugPrint('Name: ${event.name}');
       debugPrint('Email: ${event.email}');
-      debugPrint('Has photo: ${event.avatar != null}');
       
       // If address and coordinates are provided, save them too
       if (event.address != null && event.latitude != null && event.longitude != null) {
@@ -83,7 +81,6 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
         final success = await ProfileService.saveProfileData(
           name: event.name,
           email: event.email ?? '',
-          photo: event.avatar,
           address: event.address,
           latitude: event.latitude,
           longitude: event.longitude,
@@ -97,11 +94,10 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
           emit(const ProfileFailure('Failed to save profile data. Please try again.'));
         }
       } else {
-        // Just save name, email and photo if no address/coordinates
+        // Just save name and email if no address/coordinates
         final success = await ProfileService.saveProfileData(
           name: event.name,
           email: event.email ?? '',
-          photo: event.avatar,
         );
         
         if (success) {

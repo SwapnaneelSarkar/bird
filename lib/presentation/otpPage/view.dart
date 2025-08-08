@@ -94,26 +94,44 @@ class _OtpScreenState extends State<OtpScreen> {
           },
           builder: (context, state) {
             final isVerifying = state is OtpVerificationLoadingState;
+            final screenWidth = MediaQuery.of(context).size.width;
+            final screenHeight = MediaQuery.of(context).size.height;
             
             return SafeArea(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
+                  constraints: BoxConstraints(minHeight: screenHeight),
                   child: IntrinsicHeight(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06), // Responsive horizontal padding
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.1),
-                          Image.asset('assets/logo.png', height: 60, color: ColorManager.primary),
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                          const Text('Enter 6-digit OTP', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 8),
-                          Text('Sent to ${widget.phoneNumber}', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.04),
-                          _buildOtpField(context),
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                          SizedBox(height: screenHeight * 0.1),
+                          Image.asset(
+                            'assets/logo.png', 
+                            height: screenWidth * 0.15, // Responsive logo size
+                            color: ColorManager.primary
+                          ),
+                          SizedBox(height: screenHeight * 0.05),
+                          Text(
+                            'Enter 6-digit OTP', 
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.055, // Responsive font size
+                              fontWeight: FontWeight.w900
+                            )
+                          ),
+                          SizedBox(height: screenHeight * 0.01), // Responsive spacing
+                          Text(
+                            'Sent to ${widget.phoneNumber}', 
+                            style: TextStyle(
+                              color: Colors.grey.shade600, 
+                              fontSize: screenWidth * 0.035 // Responsive font size
+                            )
+                          ),
+                          SizedBox(height: screenHeight * 0.04),
+                          _buildOtpField(context, screenWidth, screenHeight),
+                          SizedBox(height: screenHeight * 0.05),
                           isVerifying 
                             ? CircularProgressIndicator(color: ColorManager.primary)
                             : CustomLargeButton(
@@ -122,9 +140,9 @@ class _OtpScreenState extends State<OtpScreen> {
                                   ? () => context.read<OtpBloc>().add(VerifyOtpEvent(otp: otpController.text, verificationId: widget.verificationId))
                                   : null,
                               ),
-                          const SizedBox(height: 24),
-                          _buildResendSection(context, isVerifying),
-                          const SizedBox(height: 40),
+                          SizedBox(height: screenHeight * 0.03), // Responsive spacing
+                          _buildResendSection(context, isVerifying, screenWidth),
+                          SizedBox(height: screenHeight * 0.05), // Responsive spacing
                         ],
                       ),
                     ),
@@ -138,10 +156,10 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
-  Widget _buildOtpField(BuildContext context) {
+  Widget _buildOtpField(BuildContext context, double screenWidth, double screenHeight) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05), // Responsive padding
       child: TextFormField(
         controller: otpController,
         onChanged: (val) => context.read<OtpBloc>().add(OtpChangedEvent(otp: val)),
@@ -149,44 +167,90 @@ class _OtpScreenState extends State<OtpScreen> {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: ColorManager.black, letterSpacing: 8.0),
+        style: GoogleFonts.poppins(
+          fontSize: screenWidth * 0.05, // Responsive font size
+          fontWeight: FontWeight.w600, 
+          color: ColorManager.black, 
+          letterSpacing: screenWidth * 0.02 // Responsive letter spacing
+        ),
         decoration: InputDecoration(
           hintText: "000000 *",
-          hintStyle: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w300, color: Colors.grey.shade400, letterSpacing: 8.0),
+          hintStyle: GoogleFonts.poppins(
+            fontSize: screenWidth * 0.05, // Responsive font size
+            fontWeight: FontWeight.w300, 
+            color: Colors.grey.shade400, 
+            letterSpacing: screenWidth * 0.02 // Responsive letter spacing
+          ),
           counterText: "",
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: ColorManager.primary.withOpacity(0.8), width: 1.5)),
-          errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.red)),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.04, // Responsive horizontal padding
+            vertical: screenHeight * 0.02 // Responsive vertical padding
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(screenWidth * 0.04), // Responsive border radius
+            borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1))
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(screenWidth * 0.04), // Responsive border radius
+            borderSide: BorderSide(color: ColorManager.black.withOpacity(0.1))
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(screenWidth * 0.04), // Responsive border radius
+            borderSide: BorderSide(color: ColorManager.primary.withOpacity(0.8), width: 1.5)
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(screenWidth * 0.04), // Responsive border radius
+            borderSide: const BorderSide(color: Colors.red)
+          ),
         ),
         autofocus: true,
       ),
     );
   }
 
-  Widget _buildResendSection(BuildContext context, bool isVerifying) {
+  Widget _buildResendSection(BuildContext context, bool isVerifying, double screenWidth) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text("Didn't receive code? ", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+        Text(
+          "Didn't receive code? ", 
+          style: TextStyle(
+            color: Colors.grey.shade600, 
+            fontSize: screenWidth * 0.035 // Responsive font size
+          )
+        ),
         GestureDetector(
           onTap: (_canResend && !isVerifying && !_isResendingInProgress) ? () => _handleResendTap(context) : null,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_isResendingInProgress) ...[
-                SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary))),
-                const SizedBox(width: 6),
-                Text('Sending...', style: TextStyle(color: ColorManager.primary, fontSize: 14, fontWeight: FontWeight.w500, decoration: TextDecoration.none)),
+                SizedBox(
+                  width: screenWidth * 0.03, 
+                  height: screenWidth * 0.03, 
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5, 
+                    valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary)
+                  )
+                ),
+                SizedBox(width: screenWidth * 0.015),
+                Text(
+                  'Sending...', 
+                  style: TextStyle(
+                    color: ColorManager.primary, 
+                    fontSize: screenWidth * 0.035, // Responsive font size
+                    fontWeight: FontWeight.w500, 
+                    decoration: TextDecoration.none
+                  )
+                ),
               ] else ...[
                 Text(
                   _canResend ? 'Resend' : 'Resend in ${_countdown}s',
                   style: TextStyle(
                     color: _canResend && !isVerifying ? ColorManager.primary : Colors.grey,
-                    fontSize: 14,
+                    fontSize: screenWidth * 0.035, // Responsive font size
                     fontWeight: FontWeight.w500,
                     decoration: TextDecoration.none,
                   ),

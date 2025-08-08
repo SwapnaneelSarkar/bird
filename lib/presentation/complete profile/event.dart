@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:equatable/equatable.dart';
 
 abstract class CompleteProfileEvent extends Equatable {
@@ -11,7 +10,6 @@ abstract class CompleteProfileEvent extends Equatable {
 class SubmitProfile extends CompleteProfileEvent {
   final String name;
   final String? email;
-  final File? avatar;
   final String? address;
   final double? latitude;
   final double? longitude;
@@ -19,14 +17,13 @@ class SubmitProfile extends CompleteProfileEvent {
   const SubmitProfile({
     required this.name,
     this.email,
-    this.avatar,
     this.address,
     this.latitude,
     this.longitude,
   });
 
   @override
-  List<Object?> get props => [name, email, avatar, address, latitude, longitude];
+  List<Object?> get props => [name, email, address, latitude, longitude];
 }
 
 class SelectPlace extends CompleteProfileEvent {

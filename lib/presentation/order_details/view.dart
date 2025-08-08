@@ -2,14 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/custom_button_large.dart';
 import '../../widgets/review_rating_widget.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/order_details_model.dart';
 import '../../models/menu_model.dart';
-import '../../service/currency_service.dart';
 import '../../service/reorder_service.dart';
 import '../../utils/currency_utils.dart';
 import '../../utils/timezone_utils.dart';
@@ -256,6 +254,8 @@ class _OrderDetailsContent extends StatelessWidget {
               _buildTrackOrderButton(context, orderDetails, screenWidth, screenHeight),
             if (_shouldShowTrackOrderButton(orderDetails))
               SizedBox(height: screenHeight * 0.02),
+            _buildChatButton(context, orderDetails, screenWidth, screenHeight),
+            SizedBox(height: screenHeight * 0.02),
           ],
         ),
       ),
@@ -1051,6 +1051,113 @@ class _OrderDetailsContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildChatButton(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(screenWidth * 0.04),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(screenWidth * 0.03),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.chat,
+                color: const Color(0xFFE17A47),
+                size: screenWidth * 0.06,
+              ),
+              SizedBox(width: screenWidth * 0.03),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Chat wit the Restaurant',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.045,
+                        fontWeight: FontWeightManager.bold,
+                        fontFamily: FontFamily.Montserrat,
+                        color: ColorManager.black,
+                      ),
+                    ),
+                    Text(
+                      'Get help with your order or ask questions',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: screenHeight * 0.02),
+          SizedBox(
+            width: double.infinity,
+            height: screenHeight * 0.055,
+            child: ElevatedButton(
+              onPressed: () => _handleChat(context, orderDetails),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE17A47),
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shadowColor: const Color(0xFFE17A47).withOpacity(0.3),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(screenWidth * 0.025),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.chat,
+                    size: screenWidth * 0.045,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: screenWidth * 0.02),
+                  Text(
+                    'Chat',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeightManager.semiBold,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleChat(BuildContext context, OrderDetails orderDetails) {
+    if (orderDetails.orderId.isNotEmpty) {
+      Navigator.of(context).pushNamed('/chat', arguments: orderDetails.orderId);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open chat: Order ID missing'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showTrackingDialog(BuildContext context, OrderDetails orderDetails, double screenWidth, double screenHeight) {

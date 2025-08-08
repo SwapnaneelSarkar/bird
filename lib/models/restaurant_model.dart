@@ -25,6 +25,7 @@ class Restaurant {
   final int? isAcceptingOrder;
   final Map<String, dynamic>? restaurantFoodType;
   final String? supercategory; // ADD SUPERCATEGORY FIELD
+  final int? reviewCount; // ADD REVIEW COUNT FIELD
 
   Restaurant({
     required this.id,
@@ -48,6 +49,7 @@ class Restaurant {
     this.isAcceptingOrder,
     this.restaurantFoodType,
     this.supercategory, // ADD SUPERCATEGORY PARAMETER
+    this.reviewCount, // ADD REVIEW COUNT PARAMETER
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -227,6 +229,22 @@ class Restaurant {
         restaurantFoodType = null;
       }
 
+      // Parse reviewCount field
+      int? reviewCount;
+      try {
+        final reviewCountField = json['reviewCount'];
+        if (reviewCountField != null) {
+          if (reviewCountField is int) {
+            reviewCount = reviewCountField;
+          } else if (reviewCountField is String) {
+            reviewCount = int.tryParse(reviewCountField);
+          }
+        }
+      } catch (e) {
+        debugPrint('Restaurant: Error parsing reviewCount: $e');
+        reviewCount = null;
+      }
+
       debugPrint('Restaurant.fromJson: Successfully parsed restaurant: $name (ID: $id, Supercategory: $supercategory)');
       
       return Restaurant(
@@ -251,6 +269,7 @@ class Restaurant {
         isAcceptingOrder: isAcceptingOrder,
         restaurantFoodType: restaurantFoodType,
         supercategory: supercategory, // ADD SUPERCATEGORY TO CONSTRUCTOR
+        reviewCount: reviewCount, // ADD REVIEW COUNT TO CONSTRUCTOR
       );
     } catch (e) {
       debugPrint('Restaurant.fromJson: Error parsing restaurant: $e');
@@ -463,6 +482,7 @@ class Restaurant {
       'isAcceptingOrder': isAcceptingOrder,
       'availableFoodTypes': availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO MAP
       'supercategory': supercategory, // ADD SUPERCATEGORY TO MAP
+      'reviewCount': reviewCount, // ADD REVIEW COUNT TO MAP
     };
   }
 
@@ -504,6 +524,7 @@ class Restaurant {
     List<String>? availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO COPYWITH
     int? isAcceptingOrder,
     String? supercategory, // ADD SUPERCATEGORY TO COPYWITH
+    int? reviewCount, // ADD REVIEW COUNT TO COPYWITH
   }) {
     return Restaurant(
       id: id ?? this.id,
@@ -523,9 +544,10 @@ class Restaurant {
       restaurantType: restaurantType ?? this.restaurantType,
       photos: photos ?? this.photos,
       availableCategories: availableCategories ?? this.availableCategories,
-      availableFoodTypes: availableFoodTypes ?? this.availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO COPYWITH
-      isAcceptingOrder: isAcceptingOrder ?? this.isAcceptingOrder,
-      supercategory: supercategory ?? this.supercategory, // ADD SUPERCATEGORY TO COPYWITH
-    );
+              availableFoodTypes: availableFoodTypes ?? this.availableFoodTypes, // ADD AVAILABLE FOOD TYPES TO COPYWITH
+        isAcceptingOrder: isAcceptingOrder ?? this.isAcceptingOrder,
+        supercategory: supercategory ?? this.supercategory, // ADD SUPERCATEGORY TO COPYWITH
+        reviewCount: reviewCount ?? this.reviewCount, // ADD REVIEW COUNT TO COPYWITH
+      );
   }
 }

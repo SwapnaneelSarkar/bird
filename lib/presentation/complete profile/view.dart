@@ -1,13 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../service/profile_service.dart';
-import '../../widgets/custom_button.dart';
 import '../../widgets/custom_button_large.dart';
 import '../../widgets/text_field2.dart';
 import 'bloc.dart';
@@ -31,8 +28,6 @@ class CompleteProfileView extends StatefulWidget {
 class _CompleteProfileViewState extends State<CompleteProfileView> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  File? _avatarFile;
-  final _picker = ImagePicker();
   bool _isLoading = false;
 
   @override
@@ -55,12 +50,6 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
       if (profileData['email'] != null) {
         _emailCtrl.text = profileData['email'];
       }
-      
-      if (profileData['photo'] != null) {
-        setState(() {
-          _avatarFile = profileData['photo'];
-        });
-      }
     } catch (e) {
       debugPrint('Error loading existing data: $e');
     } finally {
@@ -74,9 +63,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
     final h = MediaQuery.of(context).size.height;
 
     // padding & sizes
-    final hPad      = w * .05;
-    final avatarDim = w * .35;
-    final cornerRad = avatarDim * .4; // rounded-corner box
+    final hPad = w * .05;
 
     return BlocProvider(
       create: (_) => CompleteProfileBloc(),
@@ -85,7 +72,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          toolbarHeight: 48,
+          toolbarHeight: h < 700 ? 52 : 48, // Slightly taller on small screens
           leading: BackButton(color: ColorManager.black),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(1),
@@ -121,7 +108,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
 
               // Subtitle
               Text(
-                'Add your name and optionally a photo to get started',
+                'Add your name and email to get started',
                 style: GoogleFonts.poppins(
                   fontSize: FontSize.s14,
                   fontWeight: FontWeightManager.regular,
@@ -131,92 +118,11 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
 
               SizedBox(height: h * .03),
 
-              // ─── rounded-corner box avatar ───
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // box with rounded corners
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(cornerRad),
-                    child: Container(
-                      width: avatarDim,
-                      height: avatarDim,
-                      color: ColorManager.black.withOpacity(0.05),
-                      child: _avatarFile != null
-                          ? Image.file(
-                              _avatarFile!,
-                              fit: BoxFit.cover,
-                              width: avatarDim,
-                              height: avatarDim,
-                            )
-                          // two-tone placeholder
-                          : Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    color: ColorManager.black.withOpacity(0.1),
-                                    child: Center(
-                                      child: Text(
-                                        'Optional',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: FontSize.s14,
-                                          fontWeight:
-                                              FontWeightManager.regular,
-                                          color:
-                                              ColorManager.black.withOpacity(0.3),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Container(
-                                    color: Colors.white,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.person,
-                                        size: avatarDim * .4,
-                                        color: ColorManager.black
-                                            .withOpacity(0.3),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-
-                  // camera button
-                  Positioned(
-                    bottom: -(avatarDim * .07),
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        padding: EdgeInsets.all(avatarDim * .07),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: ColorManager.primary,
-                        ),
-                        child: Icon(
-                          Icons.camera_alt,
-                          size: avatarDim * .14,
-                          color: ColorManager.textWhite,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: h * .04),
-
               // Your Name
               _buildLabel('Your Name'),
               SizedBox(height: h * .008),
               SizedBox(
-                height: 50,
+                height: h < 700 ? 55 : 50, // Slightly taller on small screens
                 child: CustomTextField(
                   controller: _nameCtrl,
                   hint: 'Enter your name',
@@ -230,7 +136,7 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
               _buildLabel('Email'),
               SizedBox(height: h * .008),
               SizedBox(
-                height: 50,
+                height: h < 700 ? 55 : 50, // Slightly taller on small screens
                 child: CustomTextField(
                   controller: _emailCtrl,
                   hint: 'Enter your email',
@@ -247,7 +153,6 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                     Navigator.of(context).pushReplacementNamed('/address', arguments: {
                       'name': _nameCtrl.text.trim(),
                       'email': _emailCtrl.text.trim().isEmpty ? '' : _emailCtrl.text.trim(),
-                      'photoPath': _avatarFile?.path,
                       'userData': widget.userData,
                       'token': widget.token,
                     });
@@ -273,7 +178,6 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                               SubmitProfile(
                                 name: _nameCtrl.text.trim(),
                                 email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-                                avatar: _avatarFile,
                               ),
                             );
                       },
@@ -301,83 +205,6 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
           ),
         ),
       );
-
-  Future<void> _pickImage() async {
-    try {
-      // Show dialog to choose between camera and gallery
-      await showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (BuildContext context) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: SafeArea(
-              child: Wrap(
-                children: <Widget>[
-                  ListTile(
-                    leading: const Icon(Icons.photo_camera),
-                    title: const Text('Take Photo'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _getImage(ImageSource.camera);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.photo_library),
-                    title: const Text('Choose from Gallery'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _getImage(ImageSource.gallery);
-                    },
-                  ),
-                  if (_avatarFile != null)
-                    ListTile(
-                      leading: const Icon(Icons.delete),
-                      title: const Text('Remove Photo'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        setState(() => _avatarFile = null);
-                      },
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    } catch (e) {
-      debugPrint('Error showing image picker options: $e');
-    }
-  }
-
-  Future<void> _getImage(ImageSource source) async {
-    try {
-      final XFile? picked = await _picker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 800,
-        maxHeight: 800,
-      );
-      
-      if (picked != null) {
-        setState(() => _avatarFile = File(picked.path));
-      }
-    } catch (e) {
-      debugPrint('Error picking image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to pick image. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 
   @override
   void dispose() {

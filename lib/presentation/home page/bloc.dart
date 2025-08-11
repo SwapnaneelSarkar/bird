@@ -3,12 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../service/token_service.dart';
 import '../../../service/profile_get_service.dart';
 import '../../../service/address_service.dart';
 import '../../../service/update_user_service.dart';
-import '../../../service/currency_service.dart';
 import '../../../service/category_recommendation_service.dart';
 import '../../../service/food_type_service.dart';
 import '../../../service/location_validation_service.dart';
@@ -222,6 +220,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return;
       }
       
+      // OPTIMISTIC UPDATE: reflect address change immediately in UI
+      final optimisticState = currentState.copyWith(
+        userAddress: event.address,
+        userLatitude: event.latitude,
+        userLongitude: event.longitude,
+      );
+      emit(optimisticState);
+      debugPrint('HomeBloc: Emitted optimistic address update');
+
       // Load saved addresses first
       debugPrint('HomeBloc: Loading saved addresses...');
       final addressResult = await AddressService.getAllAddresses();
@@ -257,11 +264,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           debugPrint('HomeBloc: Re-filtered restaurants after address update: ${filteredRestaurants.length}');
         }
         
-        // Update state with new address and restaurants
-        emit(currentState.copyWith(
-          userAddress: event.address,
-          userLatitude: event.latitude,
-          userLongitude: event.longitude,
+        // Finalize by updating restaurants and saved addresses
+        emit(optimisticState.copyWith(
           restaurants: filteredRestaurants,
           savedAddresses: savedAddresses,
         ));

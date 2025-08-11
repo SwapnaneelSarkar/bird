@@ -181,7 +181,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
                        previous.selectedCategoryId != current.selectedCategoryId ||
                        previous.vegOnly != current.vegOnly ||
-                       previous.restaurants.length != current.restaurants.length;
+                       previous.restaurants.length != current.restaurants.length ||
+                       previous.userAddress != current.userAddress ||
+                       previous.userLatitude != current.userLatitude ||
+                       previous.userLongitude != current.userLongitude;
               }
               return true;
             },

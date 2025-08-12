@@ -19,6 +19,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
   final bool isFavorite;
   final int cartItemCount;
   final double cartTotal;
+  final Set<String> collapsedCategories;
   
   const RestaurantDetailsLoaded({
     required this.restaurant,
@@ -28,6 +29,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
     required this.isFavorite,
     this.cartItemCount = 0,
     this.cartTotal = 0.0,
+    this.collapsedCategories = const {},
   });
   
   @override
@@ -38,7 +40,8 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
     cartQuantities, 
     isFavorite, 
     cartItemCount, 
-    cartTotal
+    cartTotal,
+    collapsedCategories,
   ];
   
   RestaurantDetailsLoaded copyWith({
@@ -49,6 +52,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
     bool? isFavorite,
     int? cartItemCount,
     double? cartTotal,
+    Set<String>? collapsedCategories,
   }) {
     return RestaurantDetailsLoaded(
       restaurant: restaurant ?? this.restaurant,
@@ -58,6 +62,7 @@ class RestaurantDetailsLoaded extends RestaurantDetailsState {
       isFavorite: isFavorite ?? this.isFavorite,
       cartItemCount: cartItemCount ?? this.cartItemCount,
       cartTotal: cartTotal ?? this.cartTotal,
+      collapsedCategories: collapsedCategories ?? this.collapsedCategories,
     );
   }
 }

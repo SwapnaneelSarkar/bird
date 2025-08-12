@@ -44,4 +44,8 @@ class RemoveFromFavorites extends FavoritesEvent {
 
   @override
   List<Object?> get props => [partnerId];
-} 
+}
+
+class ClearAllFavorites extends FavoritesEvent {
+  const ClearAllFavorites();
+}

@@ -102,6 +102,7 @@ class Restaurant {
       final address = json['address']?.toString() ?? 'Address not available';
       
       final description = json['description']?.toString();
+      debugPrint('Restaurant: Parsed description: "$description" for restaurant: $name');
       
       final cuisine = json['category']?.toString() ?? 
                      json['cuisine']?.toString() ?? 

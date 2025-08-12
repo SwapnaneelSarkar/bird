@@ -66,3 +66,12 @@ class ToggleFavorite extends RestaurantDetailsEvent {
 class ClearCart extends RestaurantDetailsEvent {
   const ClearCart();
 }
+
+class ToggleCategoryCollapse extends RestaurantDetailsEvent {
+  final String categoryName;
+  
+  const ToggleCategoryCollapse(this.categoryName);
+  
+  @override
+  List<Object?> get props => [categoryName];
+}

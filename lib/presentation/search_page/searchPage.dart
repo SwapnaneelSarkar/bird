@@ -746,14 +746,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 isFavorite = favoritesState.isAdding;
               }
               
-              // Check favorite status when restaurant is first displayed (only once)
-              if (restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty && cachedStatus == null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  context.read<HomeFavoritesBloc>().add(
-                    CheckHomeFavoriteStatus(partnerId: restaurant['partner_id']),
-                  );
-                });
-              }
+              // Only check favorite status when user interacts with favorite button
+              // No automatic checking to prevent background API calls
               
               return Hero(
                 tag: uniqueHeroTag,
@@ -761,6 +755,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   name: restaurant['name'],
                   imageUrl: restaurant['imageUrl'] ?? 'assets/images/placeholder.jpg',
                   cuisine: restaurant['cuisine'],
+                  description: restaurant['description'],
                   rating: restaurant['rating'] ?? 0.0,
                   isVeg: restaurant['isVegetarian'] as bool? ?? false,
                   restaurantLatitude: restaurantLat,
@@ -775,10 +770,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   isFoodSupercategory: true,
                   onFavoriteToggle: restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty ? () {
                     context.read<HomeFavoritesBloc>().add(
-                      ToggleHomeFavorite(
-                        partnerId: restaurant['partner_id'],
-                        isCurrentlyFavorite: isFavorite,
-                      ),
+                      CheckAndToggleHomeFavorite(partnerId: restaurant['partner_id']),
                     );
                   } : null,
                   onTap: () => _navigateToRestaurantDetails(context, restaurant),
@@ -841,14 +833,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 isFavorite = favoritesState.isAdding;
               }
               
-              // Check favorite status when restaurant is first displayed (only once)
-              if (restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty && cachedStatus == null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  context.read<HomeFavoritesBloc>().add(
-                    CheckHomeFavoriteStatus(partnerId: restaurant['partner_id']),
-                  );
-                });
-              }
+              // Only check favorite status when user interacts with favorite button
+              // No automatic checking to prevent background API calls
               
               return Hero(
                 tag: uniqueHeroTag,
@@ -870,10 +856,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   isFoodSupercategory: false,
                   onFavoriteToggle: restaurant['partner_id'] != null && restaurant['partner_id'].isNotEmpty ? () {
                     context.read<HomeFavoritesBloc>().add(
-                      ToggleHomeFavorite(
-                        partnerId: restaurant['partner_id'],
-                        isCurrentlyFavorite: isFavorite,
-                      ),
+                      CheckAndToggleHomeFavorite(partnerId: restaurant['partner_id']),
                     );
                   } : null,
                   onTap: () => _navigateToRestaurantDetails(context, restaurant),

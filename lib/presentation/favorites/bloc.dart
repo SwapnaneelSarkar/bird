@@ -12,6 +12,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     on<RefreshFavorites>(_onRefreshFavorites);
     on<CheckFavoriteStatus>(_onCheckFavoriteStatus);
     on<RemoveFromFavorites>(_onRemoveFromFavorites);
+    on<ClearAllFavorites>(_onClearAllFavorites);
   }
 
   Future<void> _onLoadFavorites(LoadFavorites event, Emitter<FavoritesState> emit) async {
@@ -155,11 +156,15 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
 
       final updatedFavorites = favoritesData.map((json) => FavoriteModel.fromJson(json)).toList();
       
-      emit(FavoriteToggled(
-        partnerId: event.partnerId,
-        isNowFavorite: false,
-        updatedFavorites: updatedFavorites,
-      ));
+      if (updatedFavorites.isEmpty) {
+        emit(const FavoritesEmpty(message: 'No favorites yet. Tap the heart icon on any restaurant to add it to your favorites!'));
+      } else {
+        emit(FavoriteToggled(
+          partnerId: event.partnerId,
+          isNowFavorite: false,
+          updatedFavorites: updatedFavorites,
+        ));
+      }
 
     } catch (e) {
       debugPrint('FavoritesBloc: Error removing from favorites: $e');
@@ -169,4 +174,32 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       ));
     }
   }
-} 
+
+  Future<void> _onClearAllFavorites(ClearAllFavorites event, Emitter<FavoritesState> emit) async {
+    try {
+      emit(FavoritesLoading());
+
+      // Get current favorites list
+      final favoritesData = await FavoritesService.getFavorites();
+      
+      if (favoritesData == null || favoritesData.isEmpty) {
+        emit(const FavoritesEmpty(message: 'No favorites yet. Tap the heart icon on any restaurant to add it to your favorites!'));
+        return;
+      }
+
+      final favorites = favoritesData.map((json) => FavoriteModel.fromJson(json)).toList();
+      
+      // Remove each favorite one by one
+      for (final favorite in favorites) {
+        await FavoritesService.removeFromFavorites(favorite.partnerId);
+      }
+
+      // Show empty state after clearing all
+      emit(const FavoritesEmpty(message: 'All favorites cleared. Tap the heart icon on any restaurant to add it to your favorites!'));
+      
+    } catch (e) {
+      debugPrint('FavoritesBloc: Error clearing all favorites: $e');
+      emit(FavoritesError(message: 'Failed to clear all favorites: $e'));
+    }
+  }
+}

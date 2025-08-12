@@ -606,7 +606,15 @@ class _ChatViewState extends State<ChatView> {
               } else {
                 debugPrint('ChatView: ⚠️ Cannot emit ChatPageClosed from back button - chatBloc is null');
               }
-              Navigator.of(context).pop();
+              
+              // Check if this is a newly placed order
+              if (widget.isNewlyPlacedOrder) {
+                debugPrint('ChatView: 🏠 Navigating to dashboard for newly placed order');
+                Navigator.of(context).pushReplacementNamed('/dashboard');
+              } else {
+                debugPrint('ChatView: ⬅️ Popping back to previous page for order history');
+                Navigator.of(context).pop();
+              }
             },
             child: Container(
               padding: EdgeInsets.all(screenWidth * 0.018),

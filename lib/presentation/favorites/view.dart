@@ -115,6 +115,10 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
                   } else if (state is FavoriteToggling) {
                     return _buildLoadingState(screenWidth, screenHeight);
                   } else if (state is FavoriteToggled) {
+                    // Check if favorites list is empty after toggle
+                    if (state.updatedFavorites.isEmpty) {
+                      return _buildEmptyState('No favorites yet. Tap the heart icon on any restaurant to add it to your favorites!', screenWidth, screenHeight);
+                    }
                     return _buildFavoritesList(state.updatedFavorites, screenWidth, screenHeight);
                   }
                   
@@ -214,10 +218,18 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
               // Action Button
               BlocBuilder<FavoritesBloc, FavoritesState>(
                 builder: (context, state) {
+                  bool shouldShowClearAll = false;
+                  
                   if (state is FavoritesLoaded && state.favorites.isNotEmpty) {
-                                  return GestureDetector(
-                onTap: () => _showClearAllDialog(context, context.read<FavoritesBloc>()),
-                child: Container(
+                    shouldShowClearAll = true;
+                  } else if (state is FavoriteToggled && state.updatedFavorites.isNotEmpty) {
+                    shouldShowClearAll = true;
+                  }
+                  
+                  if (shouldShowClearAll) {
+                    return GestureDetector(
+                      onTap: () => _showClearAllDialog(context, context.read<FavoritesBloc>()),
+                      child: Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: screenWidth * 0.03,
                           vertical: screenHeight * 0.01,
@@ -944,17 +956,7 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                // Add clear all functionality here
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('All favorites cleared'),
-                    backgroundColor: const Color(0xFF10B981),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
+                bloc.add(const ClearAllFavorites());
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444),
@@ -982,4 +984,4 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
       },
     );
   }
-} 
+}

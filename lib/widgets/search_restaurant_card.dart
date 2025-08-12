@@ -10,6 +10,7 @@ class SearchRestaurantCard extends StatelessWidget {
   final String name;
   final String imageUrl;
   final String cuisine;
+  final String? description;
   final dynamic rating;
   final bool isVeg;
   final VoidCallback onTap;
@@ -30,6 +31,7 @@ class SearchRestaurantCard extends StatelessWidget {
     required this.name,
     required this.imageUrl,
     required this.cuisine,
+    this.description,
     required this.rating,
     this.isVeg = false,
     required this.onTap,
@@ -224,8 +226,20 @@ class SearchRestaurantCard extends StatelessWidget {
                         ],
                       ),
                       
-                      // Middle section: Cuisine
-                      if (cuisine.isNotEmpty)
+                      // Middle section: Description (preferred) or cuisine
+                      if (description != null && description!.isNotEmpty)
+                        ResponsiveText(
+                          text: description!,
+                          style: GoogleFonts.poppins(
+                            color: isNotAcceptingOrders ? Colors.grey[400] : Colors.grey[600],
+                            fontWeight: FontWeight.w400,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          maxFontSize: screenWidth * 0.025,
+                          minFontSize: screenWidth * 0.02,
+                        )
+                      else if (cuisine.isNotEmpty)
                         ResponsiveText(
                           text: cuisine,
                           style: GoogleFonts.poppins(
@@ -454,8 +468,19 @@ class SearchRestaurantCard extends StatelessWidget {
                     
                     SizedBox(height: 5 * scale), // More spacing between name and category
                     
-                    // Cuisine/category
-                    if (cuisine.isNotEmpty)
+                    // Description (preferred) or cuisine/category
+                    if (description != null && description!.isNotEmpty)
+                      Text(
+                        description!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12 * scale, // Larger font for search
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    else if (cuisine.isNotEmpty)
                       Text(
                         cuisine,
                         style: GoogleFonts.poppins(

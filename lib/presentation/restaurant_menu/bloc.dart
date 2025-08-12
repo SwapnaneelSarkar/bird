@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -21,6 +20,7 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
     on<LoadCartData>(_onLoadCartData);
     on<DismissCartConflict>(_onDismissCartConflict);
     on<ClearCart>(_onClearCart);
+    on<ToggleCategoryCollapse>(_onToggleCategoryCollapse);
   }
   
   Future<void> _onLoadRestaurantDetails(
@@ -555,6 +555,28 @@ class RestaurantDetailsBloc extends Bloc<RestaurantDetailsEvent, RestaurantDetai
       }
     } catch (e) {
       debugPrint('RestaurantDetailsBloc: Error toggling favorite: $e');
+    }
+  }
+  
+  void _onToggleCategoryCollapse(
+    ToggleCategoryCollapse event,
+    Emitter<RestaurantDetailsState> emit,
+  ) {
+    try {
+      if (state is RestaurantDetailsLoaded) {
+        final currentState = state as RestaurantDetailsLoaded;
+        final Set<String> updatedCollapsedCategories = Set.from(currentState.collapsedCategories);
+        
+        if (updatedCollapsedCategories.contains(event.categoryName)) {
+          updatedCollapsedCategories.remove(event.categoryName);
+        } else {
+          updatedCollapsedCategories.add(event.categoryName);
+        }
+        
+        emit(currentState.copyWith(collapsedCategories: updatedCollapsedCategories));
+      }
+    } catch (e) {
+      debugPrint('RestaurantDetailsBloc: Error toggling category collapse: $e');
     }
   }
 }

@@ -635,42 +635,47 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
           
           // Menu sections with separators
           ...groupedMenu.entries.map((entry) {
+            final categoryName = entry.key;
+            final menuItems = entry.value;
+            final isCollapsed = state.collapsedCategories.contains(categoryName);
+            
             return [
               // Section header with separator
               SliverToBoxAdapter(
-                child: _buildSectionHeader(entry.key, entry.value.length),
+                child: _buildSectionHeader(categoryName, menuItems.length, isCollapsed),
               ),
               
-              // Menu items for this section
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final menuItem = entry.value[index];
-                    final quantity = state.cartQuantities[menuItem['id']] ?? 0;
-                    
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: FoodItemCard(
-                        item: menuItem,
-                        quantity: quantity,
-                        onQuantityChanged: (newQuantity, {attributes}) {
-                          context.read<RestaurantDetailsBloc>().add(
-                            AddItemToCart(
-                              item: menuItem,
-                              quantity: newQuantity,
-                              attributes: attributes,
-                            ),
-                          );
-                          
-                          // Check if this is the first time adding this item
-                          _checkAndShowPopup(menuItem['id'], newQuantity, menuItem);
-                        },
-                      ),
-                    );
-                  },
-                  childCount: entry.value.length,
+              // Menu items for this section (only show if not collapsed)
+              if (!isCollapsed)
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final menuItem = menuItems[index];
+                      final quantity = state.cartQuantities[menuItem['id']] ?? 0;
+                      
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: FoodItemCard(
+                          item: menuItem,
+                          quantity: quantity,
+                          onQuantityChanged: (newQuantity, {attributes}) {
+                            context.read<RestaurantDetailsBloc>().add(
+                              AddItemToCart(
+                                item: menuItem,
+                                quantity: newQuantity,
+                                attributes: attributes,
+                              ),
+                            );
+                            
+                            // Check if this is the first time adding this item
+                            _checkAndShowPopup(menuItem['id'], newQuantity, menuItem);
+                          },
+                        ),
+                      );
+                    },
+                    childCount: menuItems.length,
+                  ),
                 ),
-              ),
             ];
           }).expand((widgets) => widgets).toList(),
           
@@ -1084,49 +1089,67 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
     );
   }
 
-  Widget _buildSectionHeader(String sectionName, int itemCount) {
+  Widget _buildSectionHeader(String sectionName, int itemCount, bool isCollapsed) {
     // Determine if this is the "Others" section
     final isOthersSection = sectionName == 'Others';
     
     return Container(
       margin: const EdgeInsets.only(top: 24, bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          // Simple colored line indicator
-          Container(
-            width: 3,
-            height: 20,
-            decoration: BoxDecoration(
-              color: isOthersSection ? Colors.grey[400] : ColorManager.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          
-          const SizedBox(width: 12),
-          
-          // Category name
-          Expanded(
-            child: Text(
-              sectionName,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+      child: InkWell(
+        onTap: () {
+          context.read<RestaurantDetailsBloc>().add(ToggleCategoryCollapse(sectionName));
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              // Simple colored line indicator
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: isOthersSection ? Colors.grey[400] : ColorManager.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
+              
+              const SizedBox(width: 12),
+              
+              // Category name
+              Expanded(
+                child: Text(
+                  sectionName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              
+              // Collapse/Expand icon
+              Icon(
+                isCollapsed ? Icons.expand_more : Icons.expand_less,
+                color: ColorManager.primary,
+                size: 24,
+              ),
+              
+              const SizedBox(width: 8),
+              
+              // Item count
+              Text(
+                '$itemCount ${itemCount == 1 ? 'item' : 'items'}',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          
-          // Item count
-          Text(
-            '$itemCount ${itemCount == 1 ? 'item' : 'items'}',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

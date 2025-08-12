@@ -54,7 +54,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 5)); // Add 5-second timeout
       
       debugPrint('PaymentMethods: Response Status: ${response.statusCode}');
       debugPrint('PaymentMethods: Response Body: ${response.body}');
@@ -113,7 +113,17 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
     } catch (e, stackTrace) {
       debugPrint('PaymentMethods: Exception: $e');
       debugPrint('PaymentMethods: Stack trace: $stackTrace');
-      emit(OrderConfirmationError('Network error: ${e.toString()}'));
+      
+      // Don't emit error state for payment methods loading failure
+      // Just log it and continue with default methods
+      if (e.toString().contains('TimeoutException')) {
+        debugPrint('PaymentMethods: API timeout, continuing with default methods');
+      } else {
+        debugPrint('PaymentMethods: API error, continuing with default methods');
+      }
+      
+      // Don't emit error state since we have default payment methods
+      // The dialog will continue to work with default methods
     }
     debugPrint('=== PAYMENT METHODS BLOC: LOAD END ===');
   }

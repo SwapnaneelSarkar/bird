@@ -660,132 +660,135 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
 
   return Container(
     margin: const EdgeInsets.only(top: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final double maxWidth = constraints.maxWidth;
-            final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(left: 16 * scale),
-                  child: Text(
-                    isStore ? 'Categories' : 'Popular Categories',
-                    style: GoogleFonts.poppins(
-                      fontSize: getResponsiveFontSize(context, 18 * scale),
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+    child: Padding(
+      padding: EdgeInsets.only(right:MediaQuery.of(context).size.width*0.05),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth;
+              final double scale = (maxWidth / 400).clamp(0.7, 1.0);
+      
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(left: 16 * scale),
+                    child: Text(
+                      isStore ? 'Categories' : 'Popular Categories',
+                      style: GoogleFonts.poppins(
+                        fontSize: getResponsiveFontSize(context, 18 * scale),
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (state.selectedCategoryId != null)
-                      Container(
-                        margin: EdgeInsets.only(right: 8 * scale),
-                        child: GestureDetector(
-                          onTap: () {
-                            debugPrint('HomePage: Clear button pressed to clear category filter');
-                            context.read<HomeBloc>().add(const FilterByCategory(null));
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 6 * scale),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(16 * scale),
-                              border: Border.all(color: Colors.grey[300]!),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.close, color: Colors.grey[600], size: 14 * scale),
-                                SizedBox(width: 4 * scale),
-                                Text(
-                                  'Clear',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12 * scale,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey[600],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (state.selectedCategoryId != null)
+                        Container(
+                          margin: EdgeInsets.only(right: 8 * scale),
+                          child: GestureDetector(
+                            onTap: () {
+                              debugPrint('HomePage: Clear button pressed to clear category filter');
+                              context.read<HomeBloc>().add(const FilterByCategory(null));
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 6 * scale),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(16 * scale),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.close, color: Colors.grey[600], size: 14 * scale),
+                                  SizedBox(width: 4 * scale),
+                                  Text(
+                                    'Clear',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12 * scale,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[600],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    GestureDetector(
-                      onTap: () => _showFuturisticFilterDialog(context),
-                      child: Container(
-                        padding: EdgeInsets.all(8 * scale),
-                        decoration: BoxDecoration(
-                          color: isStore ? ColorManager.instamartGreen.withOpacity(0.1) : ColorManager.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8 * scale),
-                          border: Border.all(
-                            color: isStore ? ColorManager.instamartGreen.withOpacity(0.3) : ColorManager.primary.withOpacity(0.3),
-                            width: 1,
+                      GestureDetector(
+                        onTap: () => _showFuturisticFilterDialog(context),
+                        child: Container(
+                          padding: EdgeInsets.all(8 * scale),
+                          decoration: BoxDecoration(
+                            color: isStore ? ColorManager.instamartGreen.withOpacity(0.1) : ColorManager.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8 * scale),
+                            border: Border.all(
+                              color: isStore ? ColorManager.instamartGreen.withOpacity(0.3) : ColorManager.primary.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.tune,
+                            color: isStore ? ColorManager.instamartGreen : ColorManager.primary,
+                            size: 18 * scale,
                           ),
                         ),
-                        child: Icon(
-                          Icons.tune,
-                          color: isStore ? ColorManager.instamartGreen : ColorManager.primary,
-                          size: 18 * scale,
-                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final double maxWidth = constraints.maxWidth;
-            final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-            final double itemWidth = isStore ? 80.0 * scale : 90.0 * scale;
-            final double itemHeight = isStore ? 90.0 * scale : 110.0 * scale;
-            final double screenWidth = constraints.maxWidth;
-            final int maxVisibleItems = (screenWidth / itemWidth).floor();
-            final bool shouldScroll = sortedCategories.length > maxVisibleItems;
-
-            final categoryItems = _getCategoryItems(
-              sortedCategories,
-              state.selectedCategoryId,
-              scale: scale,
-              itemWidth: itemWidth,
-              itemHeight: itemHeight,
-              isStore: isStore,
-            );
-
-            if (shouldScroll) {
-              return SizedBox(
-                height: itemHeight,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth;
+              final double scale = (maxWidth / 400).clamp(0.7, 1.0);
+              final double itemWidth = isStore ? 80.0 * scale : 90.0 * scale;
+              final double itemHeight = isStore ? 90.0 * scale : 110.0 * scale;
+              final double screenWidth = constraints.maxWidth;
+              final int maxVisibleItems = (screenWidth / itemWidth).floor();
+              final bool shouldScroll = sortedCategories.length > maxVisibleItems;
+      
+              final categoryItems = _getCategoryItems(
+                sortedCategories,
+                state.selectedCategoryId,
+                scale: scale,
+                itemWidth: itemWidth,
+                itemHeight: itemHeight,
+                isStore: isStore,
+              );
+      
+              if (shouldScroll) {
+                return SizedBox(
+                  height: itemHeight,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
+                    children: categoryItems,
+                  ),
+                );
+              } else {
+                return Container(
+                  height: itemHeight,
                   padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
-                  children: categoryItems,
-                ),
-              );
-            } else {
-              return Container(
-                height: itemHeight,
-                padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: categoryItems,
-                ),
-              );
-            }
-          },
-        ),
-      ],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: categoryItems,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -1620,19 +1623,14 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             isFavorite = favoritesState.isAdding;
           }
           
-          // Check favorite status when store is first displayed (only once)
-          if (store.id != null && store.id.isNotEmpty && cachedStatus == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.read<HomeFavoritesBloc>().add(
-                CheckHomeFavoriteStatus(partnerId: store.id),
-              );
-            });
-          }
+          // Only check favorite status when user interacts with favorite button
+          // No automatic checking to prevent background API calls
           
           return RestaurantCard(
             name: store.name,
             imageUrl: store.imageUrl ?? 'assets/images/placeholder.jpg',
             cuisine: store.cuisine,
+            description: store.description,
             rating: store.rating ?? 0.0,
             isVeg: store.isVeg,
             restaurantLatitude: store.latitude,
@@ -1647,10 +1645,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
             onFavoriteToggle: store.id != null && store.id.isNotEmpty ? () {
               context.read<HomeFavoritesBloc>().add(
-                ToggleHomeFavorite(
-                  partnerId: store.id,
-                  isCurrentlyFavorite: isFavorite,
-                ),
+                CheckAndToggleHomeFavorite(partnerId: store.id),
               );
             } : null,
             onTap: () => _navigateToRestaurantDetails(context, store),
@@ -1662,77 +1657,69 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
     );
   }
 
-  Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded state, int index, {bool isStore = false}) {
-    final sanitizedName = _sanitizeRestaurantName(restaurant.name);
-    
-    return Hero(
-      tag: 'restaurant-$sanitizedName',
-      child: BlocBuilder<HomeFavoritesBloc, HomeFavoritesState>(
-        builder: (context, favoritesState) {
-          bool isFavorite = false;
-          bool isLoading = false;
-          
-          // Get cached status first
-          final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(restaurant.id);
-          if (cachedStatus != null) {
-            isFavorite = cachedStatus;
-          }
-          
-          // Check if this restaurant's favorite status has been checked
-          if (favoritesState is HomeFavoriteStatusChecked && 
-              favoritesState.partnerId == restaurant.id) {
-            isFavorite = favoritesState.isFavorite;
-          } else if (favoritesState is HomeFavoriteToggled && 
-                     favoritesState.partnerId == restaurant.id) {
-            isFavorite = favoritesState.isNowFavorite;
-          } else if (favoritesState is HomeFavoriteToggling && 
-                     favoritesState.partnerId == restaurant.id) {
-            isLoading = true;
-            // Show optimistic update
-            isFavorite = favoritesState.isAdding;
-          }
-          
-          // Check favorite status when restaurant is first displayed (only once)
-          if (restaurant.id != null && restaurant.id.isNotEmpty && cachedStatus == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.read<HomeFavoritesBloc>().add(
-                CheckHomeFavoriteStatus(partnerId: restaurant.id),
-              );
-            });
-          }
-          
-          return RestaurantCard(
-            name: restaurant.name,
-            imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
-            cuisine: restaurant.cuisine,
-            rating: restaurant.rating ?? 0.0,
-            isVeg: restaurant.isVeg,
-            restaurantLatitude: restaurant.latitude,
-            restaurantLongitude: restaurant.longitude,
-            userLatitude: state.userLatitude,
-            userLongitude: state.userLongitude,
-            restaurantType: restaurant.restaurantType,
-            isAcceptingOrder: restaurant.isAcceptingOrder,
-            partnerId: restaurant.id,
-            isFavorite: isFavorite,
-            isLoading: isLoading,
-            isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
-            onFavoriteToggle: restaurant.id != null && restaurant.id.isNotEmpty ? () {
-              context.read<HomeFavoritesBloc>().add(
-                ToggleHomeFavorite(
-                  partnerId: restaurant.id,
-                  isCurrentlyFavorite: isFavorite,
-                ),
-              );
-            } : null,
-            onTap: () => _navigateToRestaurantDetails(context, restaurant),
-          ).animate(controller: _animationController)
-            .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
-            .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad);
-        },
-      ),
-    );
-  }
+Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded state, int index, {bool isStore = false}) {
+  final sanitizedName = _sanitizeRestaurantName(restaurant.name);
+  
+  return Hero(
+    tag: 'restaurant-$sanitizedName',
+    child: BlocBuilder<HomeFavoritesBloc, HomeFavoritesState>(
+      builder: (context, favoritesState) {
+        bool isFavorite = false;
+        bool isLoading = false;
+        
+        // Get cached status first
+        final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(restaurant.id);
+        if (cachedStatus != null) {
+          isFavorite = cachedStatus;
+        }
+        
+        // Check if this restaurant's favorite status has been checked
+        if (favoritesState is HomeFavoriteStatusChecked && 
+            favoritesState.partnerId == restaurant.id) {
+          isFavorite = favoritesState.isFavorite;
+        } else if (favoritesState is HomeFavoriteToggled && 
+                   favoritesState.partnerId == restaurant.id) {
+          isFavorite = favoritesState.isNowFavorite;
+        } else if (favoritesState is HomeFavoriteToggling && 
+                   favoritesState.partnerId == restaurant.id) {
+          isLoading = true;
+          // Show optimistic update
+          isFavorite = favoritesState.isAdding;
+        }
+        
+        // Only check favorite status when user interacts with favorite button
+        // No automatic checking to prevent background API calls
+        
+        return RestaurantCard(
+          name: restaurant.name,
+          imageUrl: restaurant.imageUrl ?? 'assets/images/placeholder.jpg',
+          cuisine: restaurant.cuisine,
+          description: restaurant.description,
+          rating: restaurant.rating ?? 0.0,
+          isVeg: restaurant.isVeg,
+          restaurantLatitude: restaurant.latitude,
+          restaurantLongitude: restaurant.longitude,
+          userLatitude: state.userLatitude,
+          userLongitude: state.userLongitude,
+          restaurantType: restaurant.restaurantType,
+          isAcceptingOrder: restaurant.isAcceptingOrder,
+          partnerId: restaurant.id,
+          isFavorite: isFavorite,
+          isLoading: isLoading,
+          isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
+          onFavoriteToggle: restaurant.id != null && restaurant.id.isNotEmpty ? () {
+            context.read<HomeFavoritesBloc>().add(
+              CheckAndToggleHomeFavorite(partnerId: restaurant.id),
+            );
+          } : null,
+          onTap: () => _navigateToRestaurantDetails(context, restaurant),
+        ).animate(controller: _animationController)
+          .fadeIn(duration: 400.ms, delay: (300 + (index * 75)).ms, curve: Curves.easeOut)
+          .slideY(begin: 0.1, end: 0, duration: 400.ms, delay: (300 + (index * 50)).ms, curve: Curves.easeOutQuad);
+      },
+    ),
+  );
+}
 
   Widget _buildNoResultsMessage(BuildContext context, HomeLoaded state) {
     return Container(
@@ -2088,7 +2075,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
   void _showFuturisticFilterDialog(BuildContext context) {
     final blocContext = context;
     FilterOptions tempFilters = FilterOptions(
-      vegOnly: filterOptions.vegOnly,
+      //vegOnly: filterOptions.vegOnly,
       priceLowToHigh: filterOptions.priceLowToHigh,
       priceHighToLow: filterOptions.priceHighToLow,
       ratingHighToLow: filterOptions.ratingHighToLow,
@@ -2113,7 +2100,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
               width: MediaQuery.of(context).size.width * 0.9,
               padding: const EdgeInsets.all(0),
               child: DefaultTabController(
-                length: 4,
+                length: 3,
                 child: StatefulBuilder(
                   builder: (statefulContext, setStateDialog) {
                     return Column(
@@ -2161,8 +2148,8 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                           tabs: [
                             const Tab(icon: Icon(Icons.attach_money), text: 'Price'),
                             const Tab(icon: Icon(Icons.timer), text: 'Time'),
-                            if (isFoodSupercategory(selectedSupercategoryId))
-                              const Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
+                            // if (isFoodSupercategory(selectedSupercategoryId))
+                            //   const Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
                             const Tab(icon: Icon(Icons.star), text: 'Rating'),
                           ],
                           indicatorColor: ColorManager.primary,
@@ -2178,8 +2165,8 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                             children: [
                               _buildPriceFilterTab(tempFilters, setStateDialog),
                               _buildTimeFilterTab(tempFilters, setStateDialog),
-                              if (isFoodSupercategory(selectedSupercategoryId))
-                                _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
+                              // if (isFoodSupercategory(selectedSupercategoryId))
+                              //   _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
                               _buildRatingFilterTab(tempFilters, setStateDialog),
                             ],
                           ),
@@ -2193,7 +2180,13 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                                 child: OutlinedButton(
                                   onPressed: () {
                                     debugPrint('HomePage: Resetting all filters');
-                                    tempFilters = FilterOptions(); // local dialog state
+                                    setStateDialog(() {
+                                      tempFilters = FilterOptions(); // local dialog state
+                                    });
+                                    // Update global filter options
+                                    setState(() {
+                                      filterOptions = FilterOptions();
+                                    });
                                     blocContext.read<HomeBloc>().add(const ResetFilters());
                                   },
                                   style: OutlinedButton.styleFrom(
@@ -2219,6 +2212,19 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
                                 child: ElevatedButton(
                                   onPressed: () {
                                     debugPrint('HomePage: Applying filters - vegOnly: ${tempFilters.vegOnly}, priceLowToHigh: ${tempFilters.priceLowToHigh}, priceHighToLow: ${tempFilters.priceHighToLow}, ratingHighToLow: ${tempFilters.ratingHighToLow}, ratingLowToHigh: ${tempFilters.ratingLowToHigh}, timeSort: ${tempFilters.timeSort}');
+                                    
+                                    // Update global filter options
+                                    setState(() {
+                                      filterOptions = FilterOptions(
+                                        vegOnly: tempFilters.vegOnly,
+                                        priceLowToHigh: tempFilters.priceLowToHigh,
+                                        priceHighToLow: tempFilters.priceHighToLow,
+                                        ratingHighToLow: tempFilters.ratingHighToLow,
+                                        ratingLowToHigh: tempFilters.ratingLowToHigh,
+                                        timeSort: tempFilters.timeSort,
+                                      );
+                                    });
+                                    
                                     final allCleared = !tempFilters.vegOnly && !tempFilters.priceLowToHigh && !tempFilters.priceHighToLow && !tempFilters.ratingHighToLow && !tempFilters.ratingLowToHigh && !tempFilters.timeSort;
                                     if (allCleared) {
                                       blocContext.read<HomeBloc>().add(const ResetFilters());

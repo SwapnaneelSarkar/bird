@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_card.dart';
+import '../../models/payment_mode.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -82,13 +83,19 @@ class _OrderConfirmationContent extends StatelessWidget {
             
             debugPrint('🚨🚨🚨 ORDER CONFIRMATION: Navigating to chat for order: ${state.orderId} 🚨🚨🚨');
             print('🚨🚨🚨 ORDER CONFIRMATION: Navigating to chat for order: ${state.orderId} 🚨🚨🚨');
-            Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
+            Navigator.of(context).pushReplacementNamed('/chat', arguments: {
+              'orderId': state.orderId,
+              'isNewlyPlacedOrder': true,
+            });
           } else if (state is ChatRoomCreated) {
             debugPrint('🚨🚨🚨 ORDER CONFIRMATION: Chat room created, navigating to chat... 🚨🚨🚨');
             print('🚨🚨🚨 ORDER CONFIRMATION: Chat room created, navigating to chat... 🚨🚨🚨');
             debugPrint('🚨🚨🚨 ORDER CONFIRMATION: Order ID being passed: ${state.orderId} 🚨🚨🚨');
             print('🚨🚨🚨 ORDER CONFIRMATION: Order ID being passed: ${state.orderId} 🚨🚨🚨');
-            Navigator.of(context).pushReplacementNamed('/chat', arguments: state.orderId);
+            Navigator.of(context).pushReplacementNamed('/chat', arguments: {
+              'orderId': state.orderId,
+              'isNewlyPlacedOrder': true,
+            });
           } else if (state is OrderConfirmationError) {
             // Dismiss processing dialog if it's showing
             if (Navigator.of(context).canPop()) {
@@ -638,17 +645,22 @@ class _OrderConfirmationContent extends StatelessWidget {
               builder: (context, state) {
                 debugPrint('PaymentDialog: Current state: ${state.runtimeType}');
                 
-
+                // Show default payment methods immediately, then load from API in background
+                List<PaymentMethod> paymentMethods = _getDefaultPaymentMethods();
                 
-                // Always trigger LoadPaymentMethods when dialog opens, unless already loaded
-                if (state is! PaymentMethodsLoaded) {
-                  debugPrint('PaymentDialog: Triggering LoadPaymentMethods');
-                  context.read<OrderConfirmationBloc>().add(LoadPaymentMethods());
-                  return const Center(child: CircularProgressIndicator());
+                // If we have loaded payment methods from API, use those instead
+                if (state is PaymentMethodsLoaded) {
+                  paymentMethods = state.methods;
+                } else {
+                  // Trigger API call in background to load actual payment methods
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted && state is! PaymentMethodsLoaded) {
+                      debugPrint('PaymentDialog: Triggering LoadPaymentMethods in background');
+                      context.read<OrderConfirmationBloc>().add(LoadPaymentMethods());
+                    }
+                  });
                 }
 
-                // At this point, state is guaranteed to be PaymentMethodsLoaded
-                final paymentState = state;
                 return Container(
                   padding: EdgeInsets.all(screenWidth * 0.06),
                   decoration: BoxDecoration(
@@ -667,7 +679,7 @@ class _OrderConfirmationContent extends StatelessWidget {
                       ),
                       SizedBox(height: screenHeight * 0.03),
 
-                      ...paymentState.methods.map((method) {
+                      ...paymentMethods.map((method) {
                         final icon = _getPaymentIcon(method.id);
                         final color = _getPaymentColor(method.id);
                         return Column(
@@ -702,6 +714,27 @@ class _OrderConfirmationContent extends StatelessWidget {
         );
       },
     );
+  }
+
+  // Helper method to get default payment methods
+  List<PaymentMethod> _getDefaultPaymentMethods() {
+    return [
+      PaymentMethod(
+        id: 'cash',
+        displayName: 'Cash on Delivery',
+        description: 'Pay when you receive your order',
+      ),
+      PaymentMethod(
+        id: 'upi',
+        displayName: 'UPI Payment',
+        description: 'Pay using UPI apps like Google Pay, PhonePe',
+      ),
+      PaymentMethod(
+        id: 'card',
+        displayName: 'Card Payment',
+        description: 'Pay using credit or debit card',
+      ),
+    ];
   }
 
   IconData _getPaymentIcon(String id) {

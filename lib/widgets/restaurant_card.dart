@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
+import 'package:geocoding/geocoding.dart';
 import '../constants/color/colorConstant.dart';
 import '../utils/distance_util.dart';
 import '../utils/delivery_time_util.dart';
 import 'responsive_text.dart';
 
-class RestaurantCard extends StatelessWidget {
+class RestaurantCard extends StatefulWidget {
   final String name;
   final String imageUrl;
   final String cuisine;
@@ -47,16 +48,88 @@ class RestaurantCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<RestaurantCard> createState() => _RestaurantCardState();
+}
+
+class _RestaurantCardState extends State<RestaurantCard> {
+  String? _restaurantAddress;
+  bool _isLoadingAddress = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRestaurantAddress();
+  }
+
+  Future<void> _loadRestaurantAddress() async {
+    if (widget.restaurantLatitude == null || widget.restaurantLongitude == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingAddress = true;
+    });
+
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        widget.restaurantLatitude!,
+        widget.restaurantLongitude!,
+      );
+
+      if (placemarks.isNotEmpty) {
+        final placemark = placemarks.first;
+        String address = '';
+        
+        // Build address from available components
+        if (placemark.street != null && placemark.street!.isNotEmpty) {
+          address += placemark.street!;
+        }
+        
+        if (placemark.subLocality != null && placemark.subLocality!.isNotEmpty) {
+          if (address.isNotEmpty) address += ', ';
+          address += placemark.subLocality!;
+        }
+        
+        if (placemark.locality != null && placemark.locality!.isNotEmpty) {
+          if (address.isNotEmpty) address += ', ';
+          address += placemark.locality!;
+        }
+
+        // If we have a very long address, truncate it intelligently
+        if (address.length > 50) {
+          List<String> parts = address.split(', ');
+          if (parts.length > 2) {
+            address = '${parts[0]}, ${parts[1]}';
+          } else if (address.length > 50) {
+            address = address.substring(0, 47) + '...';
+          }
+        }
+
+        setState(() {
+          _restaurantAddress = address.isNotEmpty ? address : 'Address not available';
+          _isLoadingAddress = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error getting restaurant address: $e');
+      setState(() {
+        _restaurantAddress = 'Address not available';
+        _isLoadingAddress = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    double ratingValue = _parseRating(rating);
+    double ratingValue = _parseRating(widget.rating);
     
     // Check if this is a store (non-food supercategory)
     // Use the explicit isFoodSupercategory parameter if provided, otherwise fall back to restaurantType
-    final isStore = isFoodSupercategory != null 
-        ? !isFoodSupercategory! 
-        : (restaurantType != null && restaurantType != 'restaurant');
+    final isStore = widget.isFoodSupercategory != null 
+        ? !widget.isFoodSupercategory! 
+        : (widget.restaurantType != null && widget.restaurantType != 'restaurant');
     
     if (isStore) {
       return _buildInstamartStoreCard(context, ratingValue, screenWidth, screenHeight);
@@ -74,10 +147,10 @@ class RestaurantCard extends StatelessWidget {
   }
 
   Widget _buildVerticalCard(BuildContext context, double ratingValue, double screenWidth, double screenHeight) {
-    final bool isNotAcceptingOrders = isAcceptingOrder == 0;
+    final bool isNotAcceptingOrders = widget.isAcceptingOrder == 0;
     
     return GestureDetector(
-      onTap: isNotAcceptingOrders ? null : onTap,
+      onTap: isNotAcceptingOrders ? null : widget.onTap,
       child: AnimatedContainer(
         duration: Duration(milliseconds: 200),
         margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.01),
@@ -116,7 +189,7 @@ class RestaurantCard extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     height: screenHeight * 0.176, // Reduced image height by 20%
-                    child: _buildImage(imageUrl),
+                    child: _buildImage(widget.imageUrl),
                   ),
                   
                   // Enhanced grey overlay when not accepting orders
@@ -233,14 +306,14 @@ class RestaurantCard extends StatelessWidget {
                   ),
                   
                   // Favorite button
-                  if (partnerId != null && onFavoriteToggle != null)
+                  if (widget.partnerId != null && widget.onFavoriteToggle != null)
                     Positioned(
                       top: screenHeight * 0.015,
                       left: screenWidth * 0.03,
                       child: GestureDetector(
                         onTap: () {
-                          if (onFavoriteToggle != null && !(isLoading == true)) {
-                            onFavoriteToggle!();
+                          if (widget.onFavoriteToggle != null && !(widget.isLoading == true)) {
+                            widget.onFavoriteToggle!();
                           }
                         },
                         child: Container(
@@ -256,20 +329,20 @@ class RestaurantCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: isLoading == true
+                          child: widget.isLoading == true
                               ? SizedBox(
                                   width: screenWidth * 0.035,
                                   height: screenWidth * 0.035,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      isFavorite == true ? Colors.red[400]! : Colors.grey[600]!,
+                                      widget.isFavorite == true ? Colors.red[400]! : Colors.grey[600]!,
                                     ),
                                   ),
                                 )
                               : Icon(
-                                  isFavorite == true ? Icons.favorite : Icons.favorite_border,
-                                  color: isFavorite == true ? Colors.red[400] : Colors.grey[600],
+                                  widget.isFavorite == true ? Icons.favorite : Icons.favorite_border,
+                                  color: widget.isFavorite == true ? Colors.red[400] : Colors.grey[600],
                                   size: screenWidth * 0.045,
                                 ),
                         ),
@@ -277,7 +350,7 @@ class RestaurantCard extends StatelessWidget {
                     ),
                   
                   // Restaurant Type badge - moved to bottom left of image
-                  if (restaurantType != null && restaurantType!.isNotEmpty)
+                  if (widget.restaurantType != null && widget.restaurantType!.isNotEmpty)
                     Positioned(
                       bottom: screenHeight * 0.015,
                       left: screenWidth * 0.03,
@@ -293,7 +366,7 @@ class RestaurantCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: _buildTypeTagBadge(restaurantType!, screenWidth),
+                        child: _buildTypeTagBadge(widget.restaurantType!, screenWidth),
                       ),
                     ),
                 ],
@@ -314,7 +387,7 @@ class RestaurantCard extends StatelessWidget {
                         // Restaurant name (flex to handle long names)
                         Expanded(
                           child: ResponsiveText(
-                            text: name,
+                            text: widget.name,
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.bold,
                               color: isNotAcceptingOrders ? Colors.grey[500] : Colors.black87,
@@ -356,7 +429,7 @@ class RestaurantCard extends StatelessWidget {
                         // Cuisine description (flex to handle variable length)
                         Expanded(
                           child: ResponsiveText(
-                            text: cuisine,
+                            text: widget.cuisine,
                             style: GoogleFonts.poppins(
                               color: isNotAcceptingOrders ? Colors.grey[400] : Colors.grey[600],
                               fontWeight: FontWeight.w400,
@@ -373,6 +446,57 @@ class RestaurantCard extends StatelessWidget {
                         _buildInfoItem(Icons.place_outlined, _getDistanceText(), isNotAcceptingOrders, screenWidth),
                       ],
                     ),
+                    
+                    // Address row
+                    if (_restaurantAddress != null || _isLoadingAddress) ...[
+                      SizedBox(height: screenHeight * 0.005),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined, 
+                            size: screenWidth * 0.032, 
+                            color: isNotAcceptingOrders ? Colors.grey[400] : Colors.grey[500]
+                          ),
+                          SizedBox(width: screenWidth * 0.01),
+                          Expanded(
+                            child: _isLoadingAddress
+                                ? Row(
+                                    children: [
+                                      SizedBox(
+                                        width: screenWidth * 0.025,
+                                        height: screenWidth * 0.025,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                                        ),
+                                      ),
+                                      SizedBox(width: screenWidth * 0.02),
+                                      ResponsiveText(
+                                        text: 'Loading address...',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.grey[400],
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                        maxFontSize: screenWidth * 0.025,
+                                        minFontSize: screenWidth * 0.022,
+                                      ),
+                                    ],
+                                  )
+                                : ResponsiveText(
+                                    text: _restaurantAddress!,
+                                    style: GoogleFonts.poppins(
+                                      color: isNotAcceptingOrders ? Colors.grey[400] : Colors.grey[500],
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    maxFontSize: screenWidth * 0.025,
+                                    minFontSize: screenWidth * 0.022,
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
                     
                     // Additional status indicator for not accepting orders
                     if (isNotAcceptingOrders) ...[
@@ -420,11 +544,11 @@ class RestaurantCard extends StatelessWidget {
   }
 
   Widget _buildInstamartStoreCard(BuildContext context, double ratingValue, double screenWidth, double screenHeight) {
-    final bool isNotAcceptingOrders = isAcceptingOrder == 0;
+    final bool isNotAcceptingOrders = widget.isAcceptingOrder == 0;
     final scale = (screenWidth / 400).clamp(0.7, 1.0);
     
     return GestureDetector(
-      onTap: isNotAcceptingOrders ? null : onTap,
+      onTap: isNotAcceptingOrders ? null : widget.onTap,
       child: Container(
         width: (screenWidth - 48) / 2, // 2 cards per row with margins
         margin: EdgeInsets.all(6 * scale),
@@ -457,7 +581,7 @@ class RestaurantCard extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     height: 120 * scale, // Increased image height for homepage
-                    child: _buildImage(imageUrl),
+                    child: _buildImage(widget.imageUrl),
                   ),
                   
                   // Enhanced grey overlay when not accepting orders
@@ -471,14 +595,14 @@ class RestaurantCard extends StatelessWidget {
                     ),
                   
                   // Favorite button
-                  if (partnerId != null && onFavoriteToggle != null)
+                  if (widget.partnerId != null && widget.onFavoriteToggle != null)
                     Positioned(
                       top: 8,
                       right: 8,
                       child: GestureDetector(
                         onTap: () {
-                          if (onFavoriteToggle != null && !(isLoading == true)) {
-                            onFavoriteToggle!();
+                          if (widget.onFavoriteToggle != null && !(widget.isLoading == true)) {
+                            widget.onFavoriteToggle!();
                           }
                         },
                         child: Container(
@@ -494,20 +618,20 @@ class RestaurantCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: isLoading == true
+                          child: widget.isLoading == true
                               ? SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      isFavorite == true ? Colors.red[400]! : Colors.grey[600]!,
+                                      widget.isFavorite == true ? Colors.red[400]! : Colors.grey[600]!,
                                     ),
                                   ),
                                 )
                               : Icon(
-                                  isFavorite == true ? Icons.favorite : Icons.favorite_border,
-                                  color: isFavorite == true ? Colors.red[400] : Colors.grey[600],
+                                  widget.isFavorite == true ? Icons.favorite : Icons.favorite_border,
+                                  color: widget.isFavorite == true ? Colors.red[400] : Colors.grey[600],
                                   size: 16,
                                 ),
                         ),
@@ -565,7 +689,7 @@ class RestaurantCard extends StatelessWidget {
                   children: [
                     // Store name
                     Text(
-                      name,
+                      widget.name,
                       style: GoogleFonts.poppins(
                         fontSize: 13 * scale,
                         fontWeight: FontWeight.w600,
@@ -578,9 +702,9 @@ class RestaurantCard extends StatelessWidget {
                     SizedBox(height: 4),
                     
                     // Cuisine/category
-                    if (cuisine.isNotEmpty)
+                    if (widget.cuisine.isNotEmpty)
                       Text(
-                        cuisine,
+                        widget.cuisine,
                         style: GoogleFonts.poppins(
                           fontSize: 11 * scale,
                           color: Colors.grey[600],
@@ -591,6 +715,34 @@ class RestaurantCard extends StatelessWidget {
                       ),
                     
                     SizedBox(height: 4 * scale),
+                    
+                    // Address for store card
+                    if (_restaurantAddress != null && !_isLoadingAddress)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 4 * scale),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              size: 10 * scale,
+                              color: Colors.grey[500],
+                            ),
+                            SizedBox(width: 3 * scale),
+                            Expanded(
+                              child: Text(
+                                _restaurantAddress!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9 * scale,
+                                  color: Colors.grey[500],
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     
                     // Delivery info row
                     Row(
@@ -633,12 +785,12 @@ class RestaurantCard extends StatelessWidget {
                     SizedBox(height: 4 * scale),
                     
                     // Add to cart button - only show for food supercategories
-                    if (!isNotAcceptingOrders && isFoodSupercategory == true)
+                    if (!isNotAcceptingOrders && widget.isFoodSupercategory == true)
                       Container(
                         width: double.infinity,
                         height: 26 * scale,
                         child: ElevatedButton(
-                          onPressed: onTap,
+                          onPressed: widget.onTap,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: ColorManager.instamartGreen,
                             foregroundColor: Colors.white,
@@ -658,7 +810,7 @@ class RestaurantCard extends StatelessWidget {
                           ),
                         ),
                       )
-                    else if (isNotAcceptingOrders && isFoodSupercategory == true)
+                    else if (isNotAcceptingOrders && widget.isFoodSupercategory == true)
                       Container(
                         width: double.infinity,
                         height: 26 * scale,
@@ -688,14 +840,14 @@ class RestaurantCard extends StatelessWidget {
   }
 
   String _calculateDistance() {
-    if (restaurantLatitude == null || restaurantLongitude == null || 
-        userLatitude == null || userLongitude == null) {
+    if (widget.restaurantLatitude == null || widget.restaurantLongitude == null || 
+        widget.userLatitude == null || widget.userLongitude == null) {
       return 'Distance N/A';
     }
     
     final distance = DistanceUtil.calculateDistance(
-      userLatitude!, userLongitude!,
-      restaurantLatitude!, restaurantLongitude!,
+      widget.userLatitude!, widget.userLongitude!,
+      widget.restaurantLatitude!, widget.restaurantLongitude!,
     );
     
     if (distance < 1) {
@@ -707,7 +859,7 @@ class RestaurantCard extends StatelessWidget {
 
   // Updated method to create the restaurant type badge with the app theme color
   Widget _buildTypeTagBadge(String type, double screenWidth) {
-    final bool isNotAcceptingOrders = isAcceptingOrder == 0;
+    final bool isNotAcceptingOrders = widget.isAcceptingOrder == 0;
     
     return ClipRRect(
       borderRadius: BorderRadius.circular(screenWidth * 0.02),
@@ -748,21 +900,21 @@ class RestaurantCard extends StatelessWidget {
 
   // Calculate and display distance instead of "Nearby"
   String _getDistanceText() {
-    if (userLatitude != null && userLongitude != null &&
-        restaurantLatitude != null && restaurantLongitude != null) {
+    if (widget.userLatitude != null && widget.userLongitude != null &&
+        widget.restaurantLatitude != null && widget.restaurantLongitude != null) {
       try {
-        debugPrint('RestaurantCard: Calculating distance for $name');
+        debugPrint('RestaurantCard: Calculating distance for ${widget.name}');
         // Calculate distance using the Haversine formula
         final distance = DistanceUtil.calculateDistance(
-          userLatitude!,
-          userLongitude!,
-          restaurantLatitude!,
-          restaurantLongitude!
+          widget.userLatitude!,
+          widget.userLongitude!,
+          widget.restaurantLatitude!,
+          widget.restaurantLongitude!
         );
         
         // Format the distance in a user-friendly way
         final formattedDistance = DistanceUtil.formatDistance(distance);
-        debugPrint('RestaurantCard: Distance for $name: $formattedDistance');
+        debugPrint('RestaurantCard: Distance for ${widget.name}: $formattedDistance');
         return formattedDistance;
       } catch (e) {
         debugPrint('RestaurantCard: Error calculating distance: $e');
@@ -771,26 +923,26 @@ class RestaurantCard extends StatelessWidget {
     }
     
     // If any of the required coordinates is missing, fall back to "Nearby"
-    debugPrint('RestaurantCard: Missing coordinates for $name, using "Nearby"');
+    debugPrint('RestaurantCard: Missing coordinates for ${widget.name}, using "Nearby"');
     return "Nearby";
   }
 
   // Calculate and display delivery time based on distance
   String _getDeliveryTimeText() {
-    if (userLatitude != null && userLongitude != null &&
-        restaurantLatitude != null && restaurantLongitude != null) {
+    if (widget.userLatitude != null && widget.userLongitude != null &&
+        widget.restaurantLatitude != null && widget.restaurantLongitude != null) {
       try {
         // Calculate distance using the Haversine formula
         final distance = DistanceUtil.calculateDistance(
-          userLatitude!,
-          userLongitude!,
-          restaurantLatitude!,
-          restaurantLongitude!
+          widget.userLatitude!,
+          widget.userLongitude!,
+          widget.restaurantLatitude!,
+          widget.restaurantLongitude!
         );
         
         // Calculate delivery time based on distance
         final deliveryTime = DeliveryTimeUtil.calculateDeliveryTime(distance);
-        debugPrint('RestaurantCard: Delivery time for $name: $deliveryTime (distance: ${distance.toStringAsFixed(2)} km)');
+        debugPrint('RestaurantCard: Delivery time for ${widget.name}: $deliveryTime (distance: ${distance.toStringAsFixed(2)} km)');
         return deliveryTime;
       } catch (e) {
         debugPrint('RestaurantCard: Error calculating delivery time: $e');
@@ -799,12 +951,12 @@ class RestaurantCard extends StatelessWidget {
     }
     
     // If any of the required coordinates is missing, fall back to default
-    debugPrint('RestaurantCard: Missing coordinates for $name, using default delivery time');
+    debugPrint('RestaurantCard: Missing coordinates for ${widget.name}, using default delivery time');
     return "20-30 mins";
   }
 
   Widget _buildYellowRatingBadge(double ratingValue, double screenWidth) {
-    final bool isNotAcceptingOrders = isAcceptingOrder == 0;
+    final bool isNotAcceptingOrders = widget.isAcceptingOrder == 0;
     
     return ClipRRect(
       borderRadius: BorderRadius.circular(screenWidth * 0.02),

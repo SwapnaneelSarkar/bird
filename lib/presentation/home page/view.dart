@@ -2197,7 +2197,13 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
                                 child: OutlinedButton(
                                   onPressed: () {
                                     debugPrint('HomePage: Resetting all filters');
-                                    tempFilters = FilterOptions(); // local dialog state
+                                    setStateDialog(() {
+                                      tempFilters = FilterOptions(); // local dialog state
+                                    });
+                                    // Update global filter options
+                                    setState(() {
+                                      filterOptions = FilterOptions();
+                                    });
                                     blocContext.read<HomeBloc>().add(const ResetFilters());
                                   },
                                   style: OutlinedButton.styleFrom(
@@ -2223,6 +2229,19 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
                                 child: ElevatedButton(
                                   onPressed: () {
                                     debugPrint('HomePage: Applying filters - vegOnly: ${tempFilters.vegOnly}, priceLowToHigh: ${tempFilters.priceLowToHigh}, priceHighToLow: ${tempFilters.priceHighToLow}, ratingHighToLow: ${tempFilters.ratingHighToLow}, ratingLowToHigh: ${tempFilters.ratingLowToHigh}, timeSort: ${tempFilters.timeSort}');
+                                    
+                                    // Update global filter options
+                                    setState(() {
+                                      filterOptions = FilterOptions(
+                                        vegOnly: tempFilters.vegOnly,
+                                        priceLowToHigh: tempFilters.priceLowToHigh,
+                                        priceHighToLow: tempFilters.priceHighToLow,
+                                        ratingHighToLow: tempFilters.ratingHighToLow,
+                                        ratingLowToHigh: tempFilters.ratingLowToHigh,
+                                        timeSort: tempFilters.timeSort,
+                                      );
+                                    });
+                                    
                                     final allCleared = !tempFilters.vegOnly && !tempFilters.priceLowToHigh && !tempFilters.priceHighToLow && !tempFilters.ratingHighToLow && !tempFilters.ratingLowToHigh && !tempFilters.timeSort;
                                     if (allCleared) {
                                       blocContext.read<HomeBloc>().add(const ResetFilters());

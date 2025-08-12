@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../constants/api_constant.dart';
 
 import 'package:http/http.dart' as http;
@@ -10,6 +11,7 @@ import '../../service/profile_get_service.dart';
 import '../../service/token_service.dart';
 import '../../service/update_user_service.dart';
 import '../../service/verification_service.dart';
+import '../../service/firebase_services.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -199,6 +201,16 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       final result = jsonDecode(response.body);
       
       if (response.statusCode == 200 && (result['status'] == true || result['success'] == true)) {
+        // Clear FCM tokens before clearing other data
+        debugPrint('SettingsBloc: Clearing FCM tokens on account deletion...');
+        try {
+          await NotificationService().clearFCMTokensOnLogout();
+          debugPrint('SettingsBloc: FCM tokens cleared successfully');
+        } catch (e) {
+          debugPrint('SettingsBloc: Error clearing FCM tokens: $e');
+          // Don't fail account deletion if FCM clearing fails
+        }
+        
         // Clear all saved data
         await TokenService.clearAll();
         
@@ -279,6 +291,16 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       final result = jsonDecode(response.body);
       
       if (response.statusCode == 200 && (result['status'] == true || result['success'] == true)) {
+        // Clear FCM tokens before clearing other data
+        debugPrint('SettingsBloc: Clearing FCM tokens on account deletion with OTP...');
+        try {
+          await NotificationService().clearFCMTokensOnLogout();
+          debugPrint('SettingsBloc: FCM tokens cleared successfully');
+        } catch (e) {
+          debugPrint('SettingsBloc: Error clearing FCM tokens: $e');
+          // Don't fail account deletion if FCM clearing fails
+        }
+        
         // Clear all saved data
         await TokenService.clearAll();
         

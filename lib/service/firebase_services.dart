@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_constant.dart';
 import '../utils/timezone_utils.dart';
+import 'token_service.dart';
 
 // At the top of your notification_service.dart file
 @pragma('vm:entry-point')
@@ -41,6 +42,16 @@ class NotificationService {
   Future<void> initialize() async {
     print('🔧 Initializing NotificationService...');
     
+    // Check if user is logged in before proceeding with FCM token generation
+    final isLoggedIn = await TokenService.isLoggedIn();
+    print('🔧 NotificationService: User logged in status: $isLoggedIn');
+    
+    if (!isLoggedIn) {
+      print('🔧 NotificationService: User not logged in, skipping FCM token generation');
+      print('✅ NotificationService initialization complete (without FCM token)');
+      return;
+    }
+    
     // Check and request permissions only if needed
     await _checkAndRequestPermissions();
     
@@ -56,7 +67,7 @@ class NotificationService {
       await Future.delayed(const Duration(seconds: 2));
     }
     
-    // Get and print the FCM token
+    // Get and print the FCM token (only if user is logged in)
     await _printFCMToken();
     
     print('✅ NotificationService initialization complete');
@@ -549,5 +560,55 @@ class NotificationService {
     await prefs.remove(_permissionRequestedKey);
     await prefs.remove(_permissionGrantedKey);
     print('🔄 Permission tracking reset');
+  }
+
+  /// Initialize FCM tokens when user logs in
+  Future<void> initializeFCMTokensOnLogin() async {
+    print('🔧 NotificationService: Initializing FCM tokens after login...');
+    
+    // Check if user is logged in
+    final isLoggedIn = await TokenService.isLoggedIn();
+    if (!isLoggedIn) {
+      print('🔧 NotificationService: User not logged in, skipping FCM token initialization');
+      return;
+    }
+    
+    // Check and request permissions
+    await _checkAndRequestPermissions();
+    
+    // Initialize local notifications if not already done
+    await _initializeLocalNotifications();
+    
+    // Configure Firebase Messaging if not already done
+    await _configureFirebaseMessaging();
+    
+    // On iOS, add a small delay to allow APNS token to be set
+    if (Platform.isIOS) {
+      print('⏳ Waiting for APNS token to be set...');
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
+    // Get and register the FCM token
+    await _printFCMToken();
+    
+    print('✅ NotificationService: FCM tokens initialized after login');
+  }
+
+  /// Clear FCM tokens when user logs out
+  Future<void> clearFCMTokensOnLogout() async {
+    print('🔧 NotificationService: Clearing FCM tokens on logout...');
+    
+    try {
+      // Delete the FCM token
+      await _firebaseMessaging.deleteToken();
+      
+      // Clear registered token from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('registered_fcm_token');
+      
+      print('✅ NotificationService: FCM tokens cleared on logout');
+    } catch (e) {
+      print('❌ NotificationService: Error clearing FCM tokens: $e');
+    }
   }
 }

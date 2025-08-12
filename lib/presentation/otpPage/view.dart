@@ -174,7 +174,7 @@ class _OtpScreenState extends State<OtpScreen> {
           letterSpacing: screenWidth * 0.02 // Responsive letter spacing
         ),
         decoration: InputDecoration(
-          hintText: "000000 *",
+          hintText: "000000",
           hintStyle: GoogleFonts.poppins(
             fontSize: screenWidth * 0.05, // Responsive font size
             fontWeight: FontWeight.w300, 

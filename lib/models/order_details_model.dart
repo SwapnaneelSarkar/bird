@@ -17,6 +17,7 @@ class OrderDetails {
   final String? restaurantAddress; // ADDED: Restaurant address
   final double? rating; // ADDED: Food rating
   final String? reviewText; // ADDED: Review text
+  final bool? isCancellable; // ADDED: Whether order can be cancelled from API
 
   OrderDetails({
     required this.orderId,
@@ -34,6 +35,7 @@ class OrderDetails {
     this.restaurantAddress, // ADDED
     this.rating, // ADDED
     this.reviewText, // ADDED
+    this.isCancellable, // ADDED
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -64,6 +66,7 @@ class OrderDetails {
       restaurantAddress: json['restaurant_address'], // ADDED
       rating: json['rating'] != null ? double.tryParse(json['rating'].toString()) : null, // ADDED
       reviewText: json['review_text']?.toString(), // ADDED
+      isCancellable: json['isCancellable'] as bool?, // ADDED
     );
   }
 
@@ -85,6 +88,7 @@ class OrderDetails {
       restaurantAddress: address,
       rating: rating,
       reviewText: reviewText,
+      isCancellable: isCancellable,
     );
   }
 
@@ -106,6 +110,7 @@ class OrderDetails {
       restaurantAddress: restaurantAddress,
       rating: rating,
       reviewText: reviewText,
+      isCancellable: isCancellable,
     );
   }
 
@@ -114,6 +119,11 @@ class OrderDetails {
   double get grandTotal => totalAmount + deliveryFees;
 
   bool get canBeCancelled {
+    // Use the isCancellable field from API if available, otherwise fall back to status-based logic
+    if (isCancellable != null) {
+      return isCancellable!;
+    }
+    // Fallback to status-based logic for backward compatibility
     return orderStatus.toLowerCase() == 'pending' ||
            orderStatus.toLowerCase() == 'preparing';
   }

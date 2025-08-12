@@ -58,6 +58,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   bool _isUpdatingLocation = false;
   // --- END ADDED ---
   
+  // --- ADDED: Field error tracking ---
+  Map<String, String> _fieldErrors = {};
+  // --- END ADDED ---
+  
   @override
   void initState() {
     super.initState();
@@ -89,6 +93,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     _phoneController.text = userData['mobile'] ?? '';
     _addressController.text = userData['address'] ?? '';
     
+    // Validate fields after loading data
+    _validateFieldsAfterLoad();
+    
     // Store original values for verification comparison
     _originalEmail = userData['email'] ?? '';
     _originalPhone = userData['mobile'] ?? '';
@@ -96,6 +103,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     // Store coordinates
     _latitude = userData['latitude'] != null ? double.tryParse(userData['latitude'].toString()) : null;
     _longitude = userData['longitude'] != null ? double.tryParse(userData['longitude'].toString()) : null;
+
+    // Clear any existing field errors when loading data
+    setState(() {
+      _fieldErrors.clear();
+    });
 
     // --- ADDED: Fetch saved addresses for address picker ---
     try {
@@ -182,6 +194,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         }
         _latitude = result['latitude'];
         _longitude = result['longitude'];
+        
+        // Validate address after setting it
+        if (_addressController.text.trim().isEmpty) {
+          _showFieldError('address', 'Address is required');
+        } else {
+          _clearFieldError('address');
+        }
       });
       
       // Show a success toast
@@ -194,6 +213,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   
   void _saveSettings() {
     HapticFeedback.mediumImpact(); // Add haptic feedback
+    
+    // Validate required fields before saving
+    if (!_validateRequiredFields()) {
+      return;
+    }
     
     // Check if verified fields have been modified and reset verification status
     _checkAndResetVerificationStatus();
@@ -212,6 +236,93 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       longitude: _longitude,
       imageFile: _profileImage, // Pass the image file here for saving
     ));
+  }
+
+  // Validate required fields and show errors if any are empty
+  bool _validateRequiredFields() {
+    bool isValid = true;
+    
+    // Validate name field
+    if (_nameController.text.trim().isEmpty) {
+      _showFieldError('name', 'Name is required');
+      isValid = false;
+    }
+    
+    // Validate email field
+    if (_emailController.text.trim().isEmpty) {
+      _showFieldError('email', 'Email is required');
+      isValid = false;
+    } else if (!_isValidEmail(_emailController.text.trim())) {
+      _showFieldError('email', 'Please enter a valid email address');
+      isValid = false;
+    }
+    
+    // Validate phone field
+    if (_phoneController.text.trim().isEmpty) {
+      _showFieldError('phone', 'Phone number is required');
+      isValid = false;
+    }
+    
+    // Validate address field
+    if (_addressController.text.trim().isEmpty) {
+      _showFieldError('address', 'Address is required');
+      isValid = false;
+    }
+    
+    if (!isValid) {
+      _showSnackBar(
+        message: 'Please fill in all required fields correctly',
+        isError: true,
+      );
+    }
+    
+    return isValid;
+  }
+
+  // Show error for specific field
+  void _showFieldError(String fieldName, String errorMessage) {
+    setState(() {
+      // Set error state for the specific field
+      _fieldErrors[fieldName] = errorMessage;
+    });
+  }
+
+  // Clear error for specific field
+  void _clearFieldError(String fieldName) {
+    setState(() {
+      _fieldErrors.remove(fieldName);
+    });
+  }
+
+  // Validate email format
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    return emailRegex.hasMatch(email);
+  }
+
+  // Validate fields after loading data
+  void _validateFieldsAfterLoad() {
+    // Validate name field
+    if (_nameController.text.trim().isEmpty) {
+      _showFieldError('name', 'Name is required');
+    }
+    
+    // Validate email field
+    if (_emailController.text.trim().isEmpty) {
+      _showFieldError('email', 'Email is required');
+    } else if (!_isValidEmail(_emailController.text.trim())) {
+      _showFieldError('email', 'Please enter a valid email address');
+    }
+    
+    // Validate phone field
+    if (_phoneController.text.trim().isEmpty) {
+      _showFieldError('phone', 'Phone number is required');
+    }
+    
+    // Validate address field
+    if (_addressController.text.trim().isEmpty) {
+      _showFieldError('address', 'Address is required');
+    }
   }
 
   // Method to check if verified fields have been modified and reset verification status
@@ -259,6 +370,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           if (result['address'] != null) {
             setState(() {
               _addressController.text = result['address'];
+              
+              // Validate address after setting it
+              if (_addressController.text.trim().isEmpty) {
+                _showFieldError('address', 'Address is required');
+              } else {
+                _clearFieldError('address');
+              }
             });
           }
         } else {
@@ -380,7 +498,22 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     
     return BlocProvider.value(
       value: _settingsBloc,
-      child: Scaffold(
+      child: BlocListener<SettingsBloc, SettingsState>(
+        listener: (context, state) {
+          if (state is SettingsUpdateSuccess) {
+            // Clear field errors on successful update
+            setState(() {
+              _fieldErrors.clear();
+              _isSaving = false;
+            });
+          } else if (state is SettingsError) {
+            // Clear saving state on error
+            setState(() {
+              _isSaving = false;
+            });
+          }
+        },
+        child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -558,6 +691,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 100,
                               isRequired: true,
+                              fieldName: 'name',
                             ),
                             
                             // Email Field with Verification
@@ -572,6 +706,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               isVerified: _isEmailVerified,
                               onVerify: () => _showEmailVerificationDialog(),
                               fieldType: 'email',
+                              fieldName: 'email',
                             ),
                             
                             // Phone Number Field with Verification
@@ -586,6 +721,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               isVerified: _isPhoneVerified,
                               onVerify: () => _showPhoneVerificationDialog(),
                               fieldType: 'phone',
+                              fieldName: 'phone',
                             ),
                             
                             // Address Field with location picker
@@ -666,28 +802,36 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
             return const Center(child: Text('Something went wrong!'));
           },
         ),
+        ),
       ),
     );
   }
 
   // Helper method to build address field
   Widget _buildAddressField(double responsiveTextScale, int animationDelay) {
+    final hasError = _fieldErrors.containsKey('address');
+    final errorMessage = hasError ? _fieldErrors['address'] : null;
+    
     return Container(
       padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Address',
+            'Address *',
             style: TextStyle(
               fontSize: FontSize.s12 * responsiveTextScale,
-              color: Colors.grey,
+              color: hasError ? Colors.red : Colors.grey,
               fontFamily: FontFamily.Montserrat,
             ),
           ),
           SizedBox(height: 8 * responsiveTextScale),
           InkWell(
-            onTap: _showAddressPicker,
+            onTap: () {
+              _showAddressPicker();
+              // Clear error when user selects address
+              _clearFieldError('address');
+            },
             borderRadius: BorderRadius.circular(8 * responsiveTextScale),
             splashColor: Colors.orange.withOpacity(0.1),
             highlightColor: Colors.orange.withOpacity(0.05),
@@ -698,12 +842,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   Container(
                     padding: EdgeInsets.all(6 * responsiveTextScale),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
+                      color: hasError ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8 * responsiveTextScale),
                     ),
                     child: Icon(
                       Icons.location_on_outlined,
-                      color: Colors.orange,
+                      color: hasError ? Colors.red : Colors.orange,
                       size: 18 * responsiveTextScale,
                     ),
                   ),
@@ -731,6 +875,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             size: 24 * responsiveTextScale,
                           ),
                         ),
+                        onChanged: (value) {
+                          // Show or clear error in real-time for address
+                          if (value.trim().isEmpty) {
+                            _showFieldError('address', 'Address is required');
+                          } else {
+                            _clearFieldError('address');
+                          }
+                        },
                       ),
                     ),
                   ),
@@ -746,6 +898,17 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               ),
               
             ),
+          if (hasError && errorMessage != null) ...[
+            SizedBox(height: 4 * responsiveTextScale),
+            Text(
+              errorMessage,
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: FontSize.s10 * responsiveTextScale,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+          ],
           // const Divider(thickness: 0.8),
         ],
       ),
@@ -874,7 +1037,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     required double responsiveTextScale,
     required int animationDelay,
     bool isRequired = false,
+    String? fieldName, // Add field name for error tracking
   }) {
+    final hasError = fieldName != null && _fieldErrors.containsKey(fieldName);
+    final errorMessage = hasError ? _fieldErrors[fieldName] : null;
+    
     return Container(
       padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
       child: Column(
@@ -884,7 +1051,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
             isRequired ? '$label *' : label,
             style: TextStyle(
               fontSize: FontSize.s12 * responsiveTextScale,
-              color: Colors.grey,
+              color: hasError ? Colors.red : Colors.grey,
               fontFamily: FontFamily.Montserrat,
             ),
           ),
@@ -894,12 +1061,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               Container(
                 padding: EdgeInsets.all(6 * responsiveTextScale),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: hasError ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8 * responsiveTextScale),
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.orange,
+                  color: hasError ? Colors.red : Colors.orange,
                   size: 18 * responsiveTextScale,
                 ),
               ),
@@ -920,14 +1087,46 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                       fontSize: FontSize.s12 * responsiveTextScale,
                       fontFamily: FontFamily.Montserrat,
                     ),
+                    focusedBorder: hasError ? UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red, width: 1),
+                    ) : UnderlineInputBorder(
+                      borderSide: BorderSide(color: ColorManager.primary, width: 1),
+                    ),
                   ),
                   onTap: () {
                     HapticFeedback.selectionClick(); // Add haptic feedback
+                    // Clear error when user starts typing
+                    if (fieldName != null) {
+                      _clearFieldError(fieldName);
+                    }
+                  },
+                  onChanged: (value) {
+                    // Show or clear error in real-time
+                    if (fieldName != null) {
+                      if (value.trim().isEmpty) {
+                        _showFieldError(fieldName, '${label} is required');
+                      } else if (fieldName == 'email' && !_isValidEmail(value.trim())) {
+                        _showFieldError(fieldName, 'Please enter a valid email address');
+                      } else {
+                        _clearFieldError(fieldName);
+                      }
+                    }
                   },
                 ),
               ),
             ],
           ),
+          if (hasError && errorMessage != null) ...[
+            SizedBox(height: 4 * responsiveTextScale),
+            Text(
+              errorMessage,
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: FontSize.s10 * responsiveTextScale,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+          ],
           const Divider(thickness: 0.8),
         ],
       ),
@@ -946,7 +1145,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     bool isVerified = false,
     required VoidCallback onVerify,
     String? fieldType, // 'email' or 'phone'
+    String? fieldName, // Add field name for error tracking
   }) {
+    final hasError = fieldName != null && _fieldErrors.containsKey(fieldName);
+    final errorMessage = hasError ? _fieldErrors[fieldName] : null;
     return Container(
       padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
       child: Column(
@@ -956,7 +1158,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
             isRequired ? '$label *' : label,
             style: TextStyle(
               fontSize: FontSize.s12 * responsiveTextScale,
-              color: Colors.grey,
+              color: hasError ? Colors.red : Colors.grey,
               fontFamily: FontFamily.Montserrat,
             ),
           ),
@@ -966,12 +1168,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               Container(
                 padding: EdgeInsets.all(6 * responsiveTextScale),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: hasError ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8 * responsiveTextScale),
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.orange,
+                  color: hasError ? Colors.red : Colors.orange,
                   size: 18 * responsiveTextScale,
                 ),
               ),
@@ -995,9 +1197,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                     ),
                     disabledBorder: InputBorder.none,
                     enabledBorder: InputBorder.none,
-                    focusedBorder: isVerified ? UnderlineInputBorder(
+                    focusedBorder: isVerified ? (hasError ? UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red, width: 1),
+                    ) : UnderlineInputBorder(
                       borderSide: BorderSide(color: ColorManager.primary, width: 1),
-                    ) : InputBorder.none,
+                    )) : InputBorder.none,
                   ),
                   onTap: () {
                     if (!isVerified) {
@@ -1006,10 +1210,25 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         message: 'Please verify this field first before editing',
                         isError: true,
                       );
+                    } else {
+                      // Clear error when user starts typing
+                      if (fieldName != null) {
+                        _clearFieldError(fieldName);
+                      }
                     }
                   },
-                  // Remove the onChanged callback that was resetting verification immediately
-                  // Verification will only be reset when save button is pressed
+                  onChanged: (value) {
+                    // Show or clear error in real-time (only if verified)
+                    if (isVerified && fieldName != null) {
+                      if (value.trim().isEmpty) {
+                        _showFieldError(fieldName, '${label} is required');
+                      } else if (fieldName == 'email' && !_isValidEmail(value.trim())) {
+                        _showFieldError(fieldName, 'Please enter a valid email address');
+                      } else {
+                        _clearFieldError(fieldName);
+                      }
+                    }
+                  },
                 ),
               ),
               SizedBox(width: 8 * responsiveTextScale),
@@ -1055,6 +1274,17 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               ),
             ],
           ),
+          if (hasError && errorMessage != null) ...[
+            SizedBox(height: 4 * responsiveTextScale),
+            Text(
+              errorMessage,
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: FontSize.s10 * responsiveTextScale,
+                fontFamily: FontFamily.Montserrat,
+              ),
+            ),
+          ],
           const Divider(thickness: 0.8),
         ],
       ),

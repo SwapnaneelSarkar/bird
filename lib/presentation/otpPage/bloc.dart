@@ -5,6 +5,7 @@ import 'dart:async';
 
 import '../../service/auth_service.dart';
 import '../../service/token_service.dart';
+import '../../service/firebase_services.dart';
 import 'event.dart';
 import 'state.dart';
 
@@ -139,6 +140,18 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
       final userData = authResult['data'] as Map<String, dynamic>;
       
       await TokenService.saveAuthData(token, userData);
+      
+      // Initialize FCM tokens after successful authentication
+      if (isLogin) {
+        debugPrint('User logged in successfully, initializing FCM tokens...');
+        try {
+          await NotificationService().initializeFCMTokensOnLogin();
+          debugPrint('FCM tokens initialized successfully after login');
+        } catch (e) {
+          debugPrint('Error initializing FCM tokens after login: $e');
+          // Don't fail the login process if FCM initialization fails
+        }
+      }
       
       emit(OtpVerificationSuccessState(
         otp: otp,

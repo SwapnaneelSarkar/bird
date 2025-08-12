@@ -35,15 +35,15 @@ class ChatOrderDetailsWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cancel Button at the top (if order can be cancelled)
-          if (orderDetails.canBeCancelled && onCancelOrder != null)
+          // Cancel Button at the top (always show if onCancelOrder is provided, but make inactive if not cancellable)
+          if (onCancelOrder != null)
             Container(
               width: double.infinity,
               margin: EdgeInsets.only(bottom: screenHeight * 0.01),
               child: ElevatedButton(
-                onPressed: onCancelOrder,
+                onPressed: orderDetails.canBeCancelled ? onCancelOrder : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red[600],
+                  backgroundColor: orderDetails.canBeCancelled ? Colors.red[600] : Colors.grey[400],
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: screenHeight * 0.012),
                   shape: RoundedRectangleBorder(
@@ -52,7 +52,7 @@ class ChatOrderDetailsWidget extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  'Cancel Order',
+                  orderDetails.canBeCancelled ? 'Cancel Order' : 'Order Cannot Be Cancelled',
                   style: TextStyle(
                     fontSize: screenWidth * 0.035,
                     fontWeight: FontWeightManager.semiBold,

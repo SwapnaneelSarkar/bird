@@ -558,7 +558,7 @@ class _ChatViewState extends State<ChatView> {
     return SafeArea(
       child: Column(
         children: [
-          _buildAppBar(context, state.chatRoom, screenWidth, screenHeight),
+          _buildAppBar(context, state.chatRoom, screenWidth, screenHeight, state.orderDetails),
           SizedBox(height: screenHeight * 0.012), // Add space between topbar and order details
           Expanded(
             child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight, state.orderDetails, state.menuItemDetails, orderId),
@@ -569,7 +569,7 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ChatRoom chatRoom, double screenWidth, double screenHeight) {
+  Widget _buildAppBar(BuildContext context, ChatRoom chatRoom, double screenWidth, double screenHeight, OrderDetails? orderDetails) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: screenWidth * 0.04,
@@ -619,14 +619,33 @@ class _ChatViewState extends State<ChatView> {
           ),
           Expanded(
             child: Center(
-              child: Text(
-                'Chat',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.047,
-                  fontWeight: FontWeightManager.semiBold,
-                  color: ColorManager.black,
-                  fontFamily: FontFamily.Montserrat,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    orderDetails?.restaurantName ?? 'Chat',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.047,
+                      fontWeight: FontWeightManager.semiBold,
+                      color: ColorManager.black,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (orderDetails?.restaurantName != null) ...[
+                    SizedBox(height: screenHeight * 0.002),
+                    Text(
+                      'Chat',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.032,
+                        fontWeight: FontWeightManager.regular,
+                        color: Colors.grey[600],
+                        fontFamily: FontFamily.Montserrat,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),

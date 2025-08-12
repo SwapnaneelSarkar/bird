@@ -305,7 +305,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       // OPTIMIZATION 4: Load menu items in background (non-blocking)
       if (orderDetails != null && orderDetails.items.isNotEmpty) {
-        _loadMenuItemDetailsInBackground(orderDetails, emit);
+        // Load menu items synchronously for immediate display
+        await _loadMenuItemDetailsSynchronously(orderDetails, emit);
       }
       
       // OPTIMIZATION 5: Setup socket connection in background
@@ -412,6 +413,67 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     return null;
   }
 
+  // Load menu item details synchronously for immediate display
+  Future<void> _loadMenuItemDetailsSynchronously(OrderDetails orderDetails, Emitter<ChatState> emit) async {
+    try {
+      debugPrint('ChatBloc: 🚀 Loading menu item details synchronously...');
+      
+      // Get unique menu IDs to avoid duplicate API calls
+      final uniqueMenuIds = orderDetails.items
+          .where((item) => item.menuId != null && item.menuId!.isNotEmpty)
+          .map((item) => item.menuId!)
+          .toSet()
+          .toList();
+      
+      debugPrint('ChatBloc: 🔍 Fetching menu details for ${uniqueMenuIds.length} unique items');
+      
+      // Load all menu items synchronously
+      final Map<String, Map<String, dynamic>> menuItemDetails = {};
+      
+      for (final menuId in uniqueMenuIds) {
+        try {
+          // Check cache first
+          if (_menuItemCache.containsKey(menuId)) {
+            final timestamp = _cacheTimestamps[menuId];
+            if (timestamp != null && DateTime.now().difference(timestamp) < _cacheDuration) {
+              debugPrint('ChatBloc: ✅ Returning cached menu item: $menuId');
+              menuItemDetails[menuId] = _menuItemCache[menuId]!;
+              continue;
+            } else {
+              _menuItemCache.remove(menuId);
+              _cacheTimestamps.remove(menuId);
+            }
+          }
+          
+          final menuResult = await MenuItemService.getMenuItemDetails(menuId)
+              .timeout(const Duration(seconds: 8)); // 8 second timeout per item
+          
+          if (menuResult['success'] == true && menuResult['data'] != null) {
+            // Cache the result
+            _menuItemCache[menuId] = menuResult['data'] as Map<String, dynamic>;
+            _cacheTimestamps[menuId] = DateTime.now();
+            menuItemDetails[menuId] = menuResult['data'] as Map<String, dynamic>;
+            debugPrint('ChatBloc: ✅ Loaded menu item: $menuId');
+          }
+        } catch (e) {
+          debugPrint('ChatBloc: ❌ Error fetching menu item details for $menuId: $e');
+        }
+      }
+      
+      // Update state with all menu item details
+      if (state is ChatLoaded && !isClosed && !emit.isDone) {
+        final currentState = state as ChatLoaded;
+        emit(currentState.copyWith(menuItemDetails: menuItemDetails));
+        debugPrint('ChatBloc: 📤 Updated state with ${menuItemDetails.length} menu items');
+      }
+      
+      debugPrint('ChatBloc: ✅ Menu item details loading completed synchronously');
+      
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error in menu item details synchronous loading: $e');
+    }
+  }
+
   // OPTIMIZATION: Load menu item details in background with better caching
   Future<void> _loadMenuItemDetailsInBackground(OrderDetails orderDetails, Emitter<ChatState> emit) async {
     try {
@@ -456,7 +518,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
                   _cacheTimestamps[menuId] = DateTime.now();
                   
                   // Update state immediately for each successful menu item
-                  if (state is ChatLoaded && !isClosed) {
+                  if (state is ChatLoaded && !isClosed && !emit.isDone) {
                     final currentState = state as ChatLoaded;
                     final updatedMenuDetails = Map<String, Map<String, dynamic>>.from(currentState.menuItemDetails);
                     updatedMenuDetails[menuId] = menuResult['data'] as Map<String, dynamic>;

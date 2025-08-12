@@ -24,6 +24,14 @@ class ChatOrderDetailsBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    
+    debugPrint('ChatOrderDetailsBubble: 🎨 Building chat bubble');
+    debugPrint('ChatOrderDetailsBubble: 📋 Order ID: ${orderDetails.orderId}');
+    debugPrint('ChatOrderDetailsBubble: 📋 Menu item details count: ${menuItemDetails.length}');
+    debugPrint('ChatOrderDetailsBubble: 📋 Menu item details keys: ${menuItemDetails.keys.toList()}');
+    for (var item in orderDetails.items) {
+      debugPrint('ChatOrderDetailsBubble: 📋 Item menuId: ${item.menuId}, has data: ${menuItemDetails.containsKey(item.menuId)}');
+    }
 
     return Container(
       padding: EdgeInsets.only(bottom: screenHeight * 0.012),
@@ -68,8 +76,8 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isFromCurrentUser 
-                        ? ColorManager.primary
-                        : Colors.grey.shade200, // Match chat bubble color for received
+                        ? ColorManager.primary // Original primary color for user messages
+                        : Colors.grey.shade200, // Original grey for received messages
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(screenWidth * 0.035),
                       topRight: Radius.circular(screenWidth * 0.035),
@@ -82,9 +90,9 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03), // Softer shadow
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
+                        color: Colors.black.withOpacity(0.06), // Softer shadow
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
@@ -106,7 +114,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: screenWidth * 0.031, // Slightly smaller
                                 fontWeight: FontWeightManager.semiBold,
-                                color: isFromCurrentUser ? Colors.white : ColorManager.black,
+                                color: isFromCurrentUser ? Colors.white : ColorManager.primary,
                                 fontFamily: FontFamily.Montserrat,
                               ),
                             ),
@@ -121,7 +129,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                         style: TextStyle(
                           fontSize: screenWidth * 0.027,
                           fontWeight: FontWeightManager.regular,
-                          color: isFromCurrentUser ? Colors.white70 : Colors.grey[600],
+                          color: isFromCurrentUser ? Colors.white70 : const Color(0xFF424242),
                           fontFamily: FontFamily.Montserrat,
                         ),
                       ),
@@ -141,7 +149,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                           style: TextStyle(
                             fontSize: screenWidth * 0.025,
                             fontWeight: FontWeightManager.regular,
-                            color: isFromCurrentUser ? Colors.white70 : Colors.grey[500],
+                            color: isFromCurrentUser ? Colors.white70 : const Color(0xFF757575),
                             fontFamily: FontFamily.Montserrat,
                             fontStyle: FontStyle.italic,
                           ),
@@ -157,7 +165,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                             style: TextStyle(
                               fontSize: screenWidth * 0.027,
                               fontWeight: FontWeightManager.bold,
-                              color: isFromCurrentUser ? Colors.white : ColorManager.black,
+                              color: isFromCurrentUser ? Colors.white : const Color(0xFF424242),
                               fontFamily: FontFamily.Montserrat,
                             ),
                           ),
@@ -170,7 +178,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: screenWidth * 0.027,
                                   fontWeight: FontWeightManager.bold,
-                                  color: isFromCurrentUser ? Colors.white : ColorManager.black,
+                                  color: isFromCurrentUser ? Colors.white : const Color(0xFF424242),
                                   fontFamily: FontFamily.Montserrat,
                                 ),
                               );
@@ -178,37 +186,75 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                           ),
                         ],
                       ),
-                      // Payment Mode (subtle, inline)
+                      // Payment Mode (highlighted section)
                       if (orderDetails.paymentMode != null && orderDetails.paymentMode!.isNotEmpty) ...[
-                        SizedBox(height: screenHeight * 0.004),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Payment',
-                              style: TextStyle(
-                                fontSize: screenWidth * 0.022,
-                                fontWeight: FontWeightManager.regular,
-                                color: isFromCurrentUser ? Colors.white70 : Colors.grey[600],
-                                fontFamily: FontFamily.Montserrat,
-                              ),
+                        SizedBox(height: screenHeight * 0.008),
+                        Container(
+                          padding: EdgeInsets.all(screenWidth * 0.015),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: isFromCurrentUser 
+                                  ? [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.08)]
+                                  : [ColorManager.primary.withOpacity(0.08), ColorManager.primary.withOpacity(0.04)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
+                            borderRadius: BorderRadius.circular(screenWidth * 0.012),
+                            border: Border.all(
+                              color: isFromCurrentUser 
+                                  ? Colors.white.withOpacity(0.2)
+                                  : ColorManager.primary.withOpacity(0.15),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Payment',
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.024,
+                                  fontWeight: FontWeightManager.semiBold,
+                                  color: isFromCurrentUser ? Colors.white : ColorManager.primary,
+                                  fontFamily: FontFamily.Montserrat,
+                                ),
+                              ),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: screenWidth * 0.012,
-                                vertical: screenWidth * 0.005,
+                                horizontal: screenWidth * 0.015,
+                                vertical: screenWidth * 0.008,
                               ),
                               decoration: BoxDecoration(
-                                color: isFromCurrentUser 
-                                    ? Colors.white24 
-                                    : ColorManager.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(screenWidth * 0.012),
+                                gradient: LinearGradient(
+                                  colors: isFromCurrentUser 
+                                      ? [Colors.white.withOpacity(0.3), Colors.white.withOpacity(0.2)]
+                                      : [ColorManager.primary.withOpacity(0.2), ColorManager.primary.withOpacity(0.1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(screenWidth * 0.015),
+                                border: Border.all(
+                                  color: isFromCurrentUser 
+                                      ? Colors.white.withOpacity(0.4)
+                                      : ColorManager.primary.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isFromCurrentUser 
+                                        ? Colors.white.withOpacity(0.2)
+                                        : ColorManager.primary.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    spreadRadius: 0,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                               ),
                               child: Text(
                                 orderDetails.paymentMode!.toUpperCase(),
                                 style: TextStyle(
-                                  fontSize: screenWidth * 0.019,
-                                  fontWeight: FontWeightManager.medium,
+                                  fontSize: screenWidth * 0.021,
+                                  fontWeight: FontWeightManager.semiBold,
                                   color: isFromCurrentUser ? Colors.white : ColorManager.primary,
                                   fontFamily: FontFamily.Montserrat,
                                 ),
@@ -216,28 +262,43 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                             ),
                           ],
                         ),
+                        ),
                       ],
-                      // Cancel Order Button (if order can be cancelled)
-                      if (orderDetails.canBeCancelled && onCancelOrder != null) ...[
+                      // Cancel Order Button (always show if onCancelOrder is provided, but make inactive if not cancellable)
+                      if (onCancelOrder != null) ...[
                         SizedBox(height: screenHeight * 0.008),
-                        SizedBox(
+                        Container(
                           width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: orderDetails.canBeCancelled ? Colors.white60 : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(screenWidth * 0.015),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                spreadRadius: 0,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
                           child: ElevatedButton(
-                            onPressed: onCancelOrder,
+                            onPressed: orderDetails.canBeCancelled ? onCancelOrder : null,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isFromCurrentUser ? Colors.red[400] : Colors.red[600],
-                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: orderDetails.canBeCancelled ? Colors.black : Colors.grey[600],
                               padding: EdgeInsets.symmetric(vertical: screenHeight * 0.008),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(screenWidth * 0.015),
                               ),
-                              elevation: 0,
                             ),
                             child: Text(
-                              'Cancel Order',
+                              orderDetails.canBeCancelled ? 'Cancel Order' : 'Order Cannot Be Cancelled',
                               style: TextStyle(
                                 fontSize: screenWidth * 0.022,
                                 fontWeight: FontWeightManager.semiBold,
+                                color: orderDetails.canBeCancelled ? Colors.black : Colors.grey[600],
                                 fontFamily: FontFamily.Montserrat,
                               ),
                             ),
@@ -275,7 +336,33 @@ class ChatOrderDetailsBubble extends StatelessWidget {
     Map<String, dynamic> menuItemData,
     bool isFromCurrentUser,
   ) {
-    final itemName = menuItemData['name'] ?? item.itemName ?? 'Unknown Item';
+    debugPrint('ChatOrderDetailsBubble: 🔍 Building item for menuId: ${item.menuId}');
+    debugPrint('ChatOrderDetailsBubble: 🔍 Menu item data: $menuItemData');
+    debugPrint('ChatOrderDetailsBubble: 🔍 Item name from data: ${menuItemData['name']}');
+    debugPrint('ChatOrderDetailsBubble: 🔍 Item name from item: ${item.itemName}');
+    
+    // Try to get item name from multiple sources
+    String itemName = 'Unknown Item';
+    
+    // First try menu item data
+    if (menuItemData.isNotEmpty && menuItemData['name'] != null) {
+      itemName = menuItemData['name'] as String;
+    }
+    // Then try item.itemName
+    else if (item.itemName != null && item.itemName!.isNotEmpty) {
+      itemName = item.itemName!;
+    }
+    // Finally, if we have a menuId, show a generic name
+    else if (item.menuId != null && item.menuId!.isNotEmpty) {
+      itemName = 'Item #${item.menuId}';
+    }
+    
+    // If we still don't have a name, show a generic name
+    if (itemName.isEmpty || itemName == 'Unknown Item') {
+      itemName = 'Item #${item.menuId ?? 'Unknown'}';
+    }
+    
+    debugPrint('ChatOrderDetailsBubble: 🔍 Final item name: $itemName');
     
     return Container(
       margin: EdgeInsets.only(bottom: screenHeight * 0.005),
@@ -289,7 +376,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
               style: TextStyle(
                 fontSize: screenWidth * 0.03,
                 fontWeight: FontWeightManager.medium,
-                color: isFromCurrentUser ? Colors.white : ColorManager.black,
+                color: isFromCurrentUser ? Colors.white : const Color(0xFF424242),
                 fontFamily: FontFamily.Montserrat,
               ),
             ),
@@ -306,7 +393,7 @@ class ChatOrderDetailsBubble extends StatelessWidget {
                   style: TextStyle(
                     fontSize: screenWidth * 0.03,
                     fontWeight: FontWeightManager.semiBold,
-                    color: isFromCurrentUser ? Colors.white : ColorManager.black,
+                    color: isFromCurrentUser ? Colors.white : const Color(0xFF424242),
                     fontFamily: FontFamily.Montserrat,
                   ),
                   textAlign: TextAlign.end,
@@ -326,43 +413,43 @@ class ChatOrderDetailsBubble extends StatelessWidget {
     
     switch (status.toUpperCase()) {
       case 'PENDING':
-        chipColor = isFromCurrentUser ? Colors.orange[300]! : Colors.orange.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.orange[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.yellowAcc : ColorManager.yellowAcc.withOpacity(0.2);
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.yellowAcc;
         statusText = 'Pending';
         break;
       case 'CONFIRMED':
-        chipColor = isFromCurrentUser ? Colors.blue[300]! : Colors.blue.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.blue[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.primary : ColorManager.primary.withOpacity(0.2);
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.primary;
         statusText = 'Confirmed';
         break;
       case 'PREPARING':
-        chipColor = isFromCurrentUser ? Colors.purple[300]! : Colors.purple.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.purple[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.primary.withOpacity(0.8) : ColorManager.primary.withOpacity(0.15);
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.primary;
         statusText = 'Preparing';
         break;
       case 'READY_FOR_DELIVERY':
-        chipColor = isFromCurrentUser ? Colors.indigo[300]! : Colors.indigo.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.indigo[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.primary.withOpacity(0.7) : ColorManager.primary.withOpacity(0.1);
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.primary;
         statusText = 'Ready for Delivery';
         break;
       case 'OUT_FOR_DELIVERY':
-        chipColor = isFromCurrentUser ? Colors.teal[300]! : Colors.teal.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.teal[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.instamartGreen : ColorManager.instamartLightGreen;
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.instamartDarkGreen;
         statusText = 'Out for Delivery';
         break;
       case 'DELIVERED':
-        chipColor = isFromCurrentUser ? Colors.green[300]! : Colors.green.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.green[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.instamartGreen : ColorManager.instamartLightGreen;
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.instamartDarkGreen;
         statusText = 'Delivered';
         break;
       case 'CANCELLED':
-        chipColor = isFromCurrentUser ? Colors.red[300]! : Colors.red.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.red[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.signUpRed : ColorManager.signUpRed.withOpacity(0.2);
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.signUpRed;
         statusText = 'Cancelled';
         break;
       default:
-        chipColor = isFromCurrentUser ? Colors.grey[300]! : Colors.grey.withOpacity(0.1);
-        textColor = isFromCurrentUser ? Colors.white : Colors.grey[700]!;
+        chipColor = isFromCurrentUser ? ColorManager.cardGrey : ColorManager.cardGrey.withOpacity(0.3);
+        textColor = isFromCurrentUser ? Colors.white : ColorManager.black;
         statusText = status;
     }
 

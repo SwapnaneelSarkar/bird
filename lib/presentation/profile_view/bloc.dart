@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../service/profile_get_service.dart';
 import '../../service/profile_service.dart';
 import '../../service/token_service.dart';
+import '../../service/firebase_services.dart';
 import '../../constants/api_constant.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -116,6 +117,16 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     emit(ProfileLoggingOut());
     
     try {
+      // Clear FCM tokens before clearing other data
+      debugPrint('ProfileBloc: Clearing FCM tokens on logout...');
+      try {
+        await NotificationService().clearFCMTokensOnLogout();
+        debugPrint('ProfileBloc: FCM tokens cleared successfully');
+      } catch (e) {
+        debugPrint('ProfileBloc: Error clearing FCM tokens: $e');
+        // Don't fail logout if FCM clearing fails
+      }
+      
       // Clear all saved data
       await TokenService.clearAll();
       await ProfileService.clearProfileData();

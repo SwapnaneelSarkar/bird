@@ -593,38 +593,61 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
   }
 
   Widget _buildCurrentLocationButton(BuildContext context, double textScale) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20 * textScale),
-      child: InkWell(
-        onTap: () {
-          context.read<AddressPickerBloc>().add(UseCurrentLocationEvent());
-        },
-        borderRadius: BorderRadius.circular(12 * textScale),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(16 * textScale),
-          decoration: BoxDecoration(
-            color: ColorManager.primary.withOpacity(0.05),
+    return BlocBuilder<AddressPickerBloc, AddressPickerState>(
+      builder: (context, state) {
+        final isLoading = state is LocationDetecting;
+        
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20 * textScale),
+          child: InkWell(
+            onTap: isLoading ? null : () {
+              context.read<AddressPickerBloc>().add(UseCurrentLocationEvent());
+            },
             borderRadius: BorderRadius.circular(12 * textScale),
-            border: Border.all(color: ColorManager.primary.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.my_location, color: ColorManager.primary, size: 20 * textScale),
-              SizedBox(width: 12 * textScale),
-              Text(
-                'Use current location',
-                style: TextStyle(
-                  color: ColorManager.primary,
-                  fontSize: FontSize.s14 * textScale,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: FontFamily.Montserrat,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16 * textScale),
+              decoration: BoxDecoration(
+                color: isLoading 
+                    ? Colors.grey[100] 
+                    : ColorManager.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12 * textScale),
+                border: Border.all(
+                  color: isLoading 
+                      ? Colors.grey[300]! 
+                      : ColorManager.primary.withOpacity(0.3),
                 ),
               ),
-            ],
+              child: Row(
+                children: [
+                  if (isLoading) ...[
+                    SizedBox(
+                      width: 16 * textScale,
+                      height: 16 * textScale,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[600]!),
+                      ),
+                    ),
+                  ] else ...[
+                    Icon(Icons.my_location, color: ColorManager.primary, size: 20 * textScale),
+                  ],
+                  SizedBox(width: 12 * textScale),
+                  Text(
+                    isLoading ? 'Getting location...' : 'Use current location',
+                    style: TextStyle(
+                      color: isLoading ? Colors.grey[600] : ColorManager.primary,
+                      fontSize: FontSize.s14 * textScale,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: FontFamily.Montserrat,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -825,6 +848,74 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Display the fetched address
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.green,
+                            size: 16,
+                          ),
+                          SizedBox(width: 8),
+                                                Text(
+                        '📍 Current Location Detected:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        address,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: ColorManager.black,
+                        ),
+                      ),
+                      if (subAddress.isNotEmpty) ...[
+                        SizedBox(height: 4),
+                        Text(
+                          subAddress,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                      SizedBox(height: 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '📍 ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   'Give this address a name (required)',
                   style: TextStyle(

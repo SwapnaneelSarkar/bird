@@ -21,6 +21,9 @@ class CheckHomeFavoriteStatus extends HomeFavoritesEvent {
   CheckHomeFavoriteStatus({required this.partnerId});
 }
 
+// Add this new event to refresh cache
+class RefreshHomeFavoriteCache extends HomeFavoritesEvent {}
+
 // States
 abstract class HomeFavoritesState {}
 
@@ -75,6 +78,7 @@ class HomeFavoritesBloc extends Bloc<HomeFavoritesEvent, HomeFavoritesState> {
   HomeFavoritesBloc() : super(HomeFavoritesInitial()) {
     on<ToggleHomeFavorite>(_onToggleHomeFavorite);
     on<CheckHomeFavoriteStatus>(_onCheckHomeFavoriteStatus);
+    on<RefreshHomeFavoriteCache>(_onRefreshHomeFavoriteCache);
   }
 
   Future<void> _onToggleHomeFavorite(ToggleHomeFavorite event, Emitter<HomeFavoritesState> emit) async {
@@ -98,6 +102,9 @@ class HomeFavoritesBloc extends Bloc<HomeFavoritesEvent, HomeFavoritesState> {
       final newStatus = !event.isCurrentlyFavorite;
       _favoriteStatusCache[event.partnerId] = newStatus;
 
+      // Clear cache for all other restaurants to ensure fresh data on next check
+      _clearCacheExcept(event.partnerId);
+
       emit(HomeFavoriteToggled(
         partnerId: event.partnerId,
         isNowFavorite: newStatus,
@@ -114,11 +121,7 @@ class HomeFavoritesBloc extends Bloc<HomeFavoritesEvent, HomeFavoritesState> {
 
   Future<void> _onCheckHomeFavoriteStatus(CheckHomeFavoriteStatus event, Emitter<HomeFavoritesState> emit) async {
     try {
-      // Skip if we already checked this restaurant recently
-      if (_checkedRestaurants.contains(event.partnerId)) {
-        return;
-      }
-
+      // Always check status from server for accurate data
       final isFavorite = await FavoritesService.checkFavoriteStatus(event.partnerId);
       
       if (isFavorite != null) {
@@ -136,8 +139,25 @@ class HomeFavoritesBloc extends Bloc<HomeFavoritesEvent, HomeFavoritesState> {
     }
   }
 
+  void _onRefreshHomeFavoriteCache(RefreshHomeFavoriteCache event, Emitter<HomeFavoritesState> emit) {
+    // Clear all cache when favorites are updated from other screens
+    _favoriteStatusCache.clear();
+    _checkedRestaurants.clear();
+  }
+
+  // Helper method to clear cache except for specified partnerId
+  void _clearCacheExcept(String exceptPartnerId) {
+    final currentValue = _favoriteStatusCache[exceptPartnerId];
+    _favoriteStatusCache.clear();
+    _checkedRestaurants.clear();
+    if (currentValue != null) {
+      _favoriteStatusCache[exceptPartnerId] = currentValue;
+      _checkedRestaurants.add(exceptPartnerId);
+    }
+  }
+
   // Helper method to get cached favorite status
   bool? getCachedFavoriteStatus(String partnerId) {
     return _favoriteStatusCache[partnerId];
   }
-} 
+}

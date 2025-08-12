@@ -2092,7 +2092,7 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
   void _showFuturisticFilterDialog(BuildContext context) {
     final blocContext = context;
     FilterOptions tempFilters = FilterOptions(
-      vegOnly: filterOptions.vegOnly,
+      //vegOnly: filterOptions.vegOnly,
       priceLowToHigh: filterOptions.priceLowToHigh,
       priceHighToLow: filterOptions.priceHighToLow,
       ratingHighToLow: filterOptions.ratingHighToLow,
@@ -2165,8 +2165,8 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
                           tabs: [
                             const Tab(icon: Icon(Icons.attach_money), text: 'Price'),
                             const Tab(icon: Icon(Icons.timer), text: 'Time'),
-                            if (isFoodSupercategory(selectedSupercategoryId))
-                              const Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
+                            // if (isFoodSupercategory(selectedSupercategoryId))
+                            //   const Tab(icon: Icon(Icons.restaurant), text: 'Diet'),
                             const Tab(icon: Icon(Icons.star), text: 'Rating'),
                           ],
                           indicatorColor: ColorManager.primary,
@@ -2182,8 +2182,8 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
                             children: [
                               _buildPriceFilterTab(tempFilters, setStateDialog),
                               _buildTimeFilterTab(tempFilters, setStateDialog),
-                              if (isFoodSupercategory(selectedSupercategoryId))
-                                _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
+                              // if (isFoodSupercategory(selectedSupercategoryId))
+                              //   _buildVegFilterTab(tempFilters, setStateDialog, blocContext),
                               _buildRatingFilterTab(tempFilters, setStateDialog),
                             ],
                           ),

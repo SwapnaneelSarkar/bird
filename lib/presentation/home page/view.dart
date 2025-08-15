@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:bird/constants/router/router.dart';
 import 'package:bird/constants/color/colorConstant.dart';
 import '../../../widgets/restaurant_card.dart';
@@ -19,6 +20,8 @@ import 'event.dart';
 import 'state.dart';
 import 'home_favorites_bloc.dart';
 import '../../service/firebase_services.dart';
+// import '../favorites/view.dart'; // No longer needed - using shared preferences
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Responsive text utility function
 double getResponsiveFontSize(BuildContext context, double baseSize) {
@@ -33,6 +36,25 @@ double getResponsiveFontSize(BuildContext context, double baseSize) {
 // Add at the top of the file (after imports):
 bool isFoodSupercategory(String? id) {
   return id == null || id == 'food' || id == '1' || id == '7acc47a2fa5a4eeb906a753b3'; // Add more ids if needed
+}
+
+// Global callback for favorites refresh
+class FavoritesRefreshCallback {
+  static Function? _callback;
+  
+  static void setCallback(Function callback) {
+    _callback = callback;
+  }
+  
+  static void triggerRefresh() {
+    if (_callback != null) {
+      _callback!();
+    }
+  }
+  
+  static void clearCallback() {
+    _callback = null;
+  }
 }
 
 // Main home page widget
@@ -87,7 +109,7 @@ class _HomeContent extends StatefulWidget {
   State<_HomeContent> createState() => _HomeContentState();
 }
 
-class _HomeContentState extends State<_HomeContent> with SingleTickerProviderStateMixin {
+class _HomeContentState extends State<_HomeContent> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   FilterOptions filterOptions = FilterOptions();
   String? previousAddress;
@@ -97,13 +119,58 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   DateTime? _lastFilterTap;
   static const Duration _filterDebounceTime = Duration(milliseconds: 300);
   
+  // Track if favorites have been refreshed to avoid multiple refreshes
+  bool _favoritesRefreshed = false;
+  
+  // Track if we've checked for favorites changes in this build cycle
+  bool _favoritesChangeChecked = false;
+  
+
+  
+  // Timer for periodic favorites refresh
+  Timer? _favoritesRefreshTimer;
+  
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
+    
+    // Start periodic favorites refresh timer (every 2 minutes)
+    _favoritesRefreshTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (mounted) {
+        // Always refresh favorites periodically
+        _forceRefreshFavorites();
+        debugPrint('HomePage: Periodic favorites refresh triggered');
+      }
+    });
+    
+    // Register callback for favorites refresh
+    FavoritesRefreshCallback.setCallback(() {
+      debugPrint('HomePage: Global callback triggered - refreshing favorites');
+      if (mounted) {
+        _forceRefreshFavorites();
+      }
+    });
+    
+    debugPrint('HomePage: Registered global callback for favorites refresh');
+    
+    // Always refresh favorites when page initializes
+    // Use a small delay to ensure the page is fully loaded
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _forceRefreshFavorites();
+      }
+    });
+    
+    // Add a listener to detect when the page becomes visible again
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupVisibilityListener();
+    });
+    
     // Register device token after login/registration
     if (widget.userData != null && widget.token != null) {
       debugPrint('[DeviceToken] Attempting to register device token after login/registration...');
@@ -115,16 +182,179 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _favoritesRefreshTimer?.cancel();
     _animationController.dispose();
+    
+    // Clear the global callback
+    FavoritesRefreshCallback.clearCallback();
+    debugPrint('HomePage: Cleared global callback');
+    
     super.dispose();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    if (state == AppLifecycleState.paused) {
+      // Reset the flag when app is paused so we can refresh when resumed
+      _favoritesRefreshed = false;
+      _favoritesChangeChecked = false;
+      debugPrint('HomePage: App paused - resetting favorites refresh flags');
+    } else if (state == AppLifecycleState.resumed) {
+      // When the app becomes active (user returns to the app), refresh favorites
+      debugPrint('HomePage: App resumed - refreshing favorites');
+      _favoritesChangeChecked = false;
+      _favoritesRefreshed = false;
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _forceRefreshFavorites();
+        }
+      });
+    } else if (state == AppLifecycleState.inactive) {
+      // Reset flag when app becomes inactive (user navigates away)
+      _favoritesRefreshed = false;
+      _favoritesChangeChecked = false;
+      debugPrint('HomePage: App inactive - resetting favorites refresh flags');
+    }
+  }
+
+  // Add a method to manually refresh favorites (can be called from other pages)
+  void refreshFavoritesOnReturn() {
+    debugPrint('HomePage: Manual favorites refresh triggered');
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _forceRefreshFavorites();
+      }
+    });
+  }
+
+  // Setup visibility listener to detect when page becomes visible again
+  void _setupVisibilityListener() {
+    // This will be called when the page becomes visible again
+    debugPrint('HomePage: Setting up visibility listener');
+  }
+
+
+
+  void _refreshFavoritesData() {
+    // Refresh favorites data when returning to the homepage
+    debugPrint('HomePage: _refreshFavoritesData called');
+    try {
+      final favoritesBloc = context.read<HomeFavoritesBloc>();
+      favoritesBloc.add(RefreshHomeFavoriteCache());
+      debugPrint('HomePage: Favorites refresh triggered');
+      
+      // Force a rebuild after a short delay to ensure UI updates
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          setState(() {});
+          debugPrint('HomePage: Forced rebuild after favorites refresh');
+        }
+      });
+    } catch (e) {
+      debugPrint('HomePage: Error in _refreshFavoritesData: $e');
+    }
+  }
+
+  Future<void> _checkAndRefreshFavoritesIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final favoritesChanged = prefs.getBool('favorites_changed') ?? false;
+      final wasOnFavoritesPage = prefs.getBool('on_favorites_page') ?? false;
+      final timestamp = prefs.getInt('favorites_changed_timestamp') ?? 0;
+      
+      debugPrint('HomePage: Checking favorites flags - favorites_changed: $favoritesChanged, wasOnFavoritesPage: $wasOnFavoritesPage');
+      debugPrint('HomePage: Flag timestamp: $timestamp, current time: ${DateTime.now().millisecondsSinceEpoch}');
+      
+      // Always refresh favorites when dependencies change (page becomes visible)
+      debugPrint('HomePage: Dependencies changed - always refreshing favorites');
+      _refreshFavoritesData();
+      
+      // Clear any existing flags
+      if (favoritesChanged || wasOnFavoritesPage) {
+        await prefs.remove('favorites_changed');
+        await prefs.remove('favorites_changed_timestamp');
+        await prefs.remove('on_favorites_page');
+        debugPrint('HomePage: Cleared all favorites flags');
+      }
+    } catch (e) {
+      debugPrint('HomePage: Error checking favorites flags: $e');
+      // Fallback to normal refresh on error
+      _refreshFavoritesData();
+    }
+  }
+
+  // Add a more aggressive refresh method that forces a complete cache refresh
+  void _forceRefreshFavorites() {
+    debugPrint('HomePage: Force refreshing favorites');
+    try {
+      final favoritesBloc = context.read<HomeFavoritesBloc>();
+      favoritesBloc.add(RefreshHomeFavoriteCache());
+      debugPrint('HomePage: Force favorites refresh triggered');
+      
+      // Force a rebuild after a short delay to ensure UI updates
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          setState(() {});
+          debugPrint('HomePage: Forced rebuild after force favorites refresh');
+        }
+      });
+    } catch (e) {
+      debugPrint('HomePage: Error in _forceRefreshFavorites: $e');
+    }
+  }
+
+
+
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only refresh favorites when dependencies change (page becomes visible)
+    if (!_favoritesRefreshed) {
+      _favoritesRefreshed = true;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          debugPrint('HomePage: Dependencies changed - refreshing favorites only');
+          _forceRefreshFavorites();
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Only refresh favorites once per build cycle
+    if (!_favoritesChangeChecked) {
+      _favoritesChangeChecked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Add a longer delay to ensure the page is fully loaded and stable
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) {
+            debugPrint('HomePage: Post-frame callback - refreshing favorites only');
+            _forceRefreshFavorites();
+          }
+        });
+      });
+    }
+    
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
-        if (didPop) return;
+        if (didPop) {
+          // Refresh favorites when user navigates back
+          debugPrint('HomePage: User navigated back - refreshing favorites');
+          _favoritesRefreshed = false; // Reset flag to allow refresh
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (mounted) {
+              _forceRefreshFavorites();
+            }
+          });
+          return;
+        }
         Navigator.pushReplacementNamed(
           context,
           Routes.dashboard,
@@ -137,79 +367,79 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FF),
         body: SafeArea(
-                          child: MultiBlocListener(
-          listeners: [
-            BlocListener<HomeBloc, HomeState>(
-              listener: (context, state) {
-                // Handle all address-related state changes
-                _handleAddressUpdates(context, state);
-                
-                // Handle address change notifications
-                if (state is HomeLoaded && state.userAddress != previousAddress) {
-                  if (previousAddress != null && previousAddress != 'Add delivery address') {
-                    _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
+          child: MultiBlocListener(
+            listeners: [
+              BlocListener<HomeBloc, HomeState>(
+                listener: (context, state) {
+                  // Handle all address-related state changes
+                  _handleAddressUpdates(context, state);
+                  
+                  // Handle address change notifications
+                  if (state is HomeLoaded && state.userAddress != previousAddress) {
+                    if (previousAddress != null && previousAddress != 'Add delivery address') {
+                      _showCustomSnackBar(context, 'Address updated successfully', Colors.green, Icons.check_circle);
+                    }
+                    previousAddress = state.userAddress;
+                    debugPrint('HomePage: Address changed to: ${state.userAddress}');
+                    // Initialize currency when coordinates are available
+                    if (state.userLatitude != null && state.userLongitude != null) {
+                      CurrencyUtils.getCurrencySymbolFromUserLocation();
+                    }
                   }
-                  previousAddress = state.userAddress;
-                  debugPrint('HomePage: Address changed to: ${state.userAddress}');
-                  // Initialize currency when coordinates are available
-                  if (state.userLatitude != null && state.userLongitude != null) {
-                    CurrencyUtils.getCurrencySymbolFromUserLocation();
+                },
+              ),
+              BlocListener<HomeFavoritesBloc, HomeFavoritesState>(
+                listener: (context, state) {
+                  if (state is HomeFavoriteToggleError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(state.message),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   }
+                },
+              ),
+            ],
+            child: BlocBuilder<HomeBloc, HomeState>(
+              buildWhen: (previous, current) {
+                // Always rebuild when state type changes
+                if (previous.runtimeType != current.runtimeType) return true;
+                // For HomeLoaded states, rebuild when important fields change
+                if (previous is HomeLoaded && current is HomeLoaded) {
+                  return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
+                         previous.selectedCategoryId != current.selectedCategoryId ||
+                         previous.vegOnly != current.vegOnly ||
+                         previous.restaurants.length != current.restaurants.length ||
+                         previous.userAddress != current.userAddress ||
+                         previous.userLatitude != current.userLatitude ||
+                         previous.userLongitude != current.userLongitude;
+                }
+                return true;
+              },
+              builder: (context, state) {
+                debugPrint('HomePage: BlocBuilder received state: ${state.runtimeType}');
+                if (state is HomeLoaded) {
+                  debugPrint('HomePage: BlocBuilder - selectedCategoryId: ${state.selectedCategoryId}');
+                  debugPrint('HomePage: BlocBuilder - vegOnly: ${state.vegOnly}');
+                  debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: ${state.selectedFoodTypeId}');
+                  debugPrint('HomePage: BlocBuilder - restaurants count: ${state.restaurants.length}');
+                  debugPrint('HomePage: BlocBuilder - filtered restaurants count: ${state.filteredRestaurants.length}');
+                  
+                  // Additional debugging for state consistency
+                  debugPrint('HomePage: State consistency check - selectedCategoryId: ${state.selectedCategoryId}, selectedFoodTypeId: ${state.selectedFoodTypeId}');
+                }
+                if (state is HomeLoading) {
+                  return _buildLoadingWithTimeout(context);
+                } else if (state is HomeLoaded) {
+                  return _buildHomeContent(context, state);
+                } else {
+                  // If no HomeLoaded at all, show the full error state
+                  return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
                 }
               },
             ),
-            BlocListener<HomeFavoritesBloc, HomeFavoritesState>(
-              listener: (context, state) {
-                if (state is HomeFavoriteToggleError) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(state.message),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
-          child: BlocBuilder<HomeBloc, HomeState>(
-            buildWhen: (previous, current) {
-              // Always rebuild when state type changes
-              if (previous.runtimeType != current.runtimeType) return true;
-              // For HomeLoaded states, rebuild when important fields change
-              if (previous is HomeLoaded && current is HomeLoaded) {
-                return previous.selectedFoodTypeId != current.selectedFoodTypeId ||
-                       previous.selectedCategoryId != current.selectedCategoryId ||
-                       previous.vegOnly != current.vegOnly ||
-                       previous.restaurants.length != current.restaurants.length ||
-                       previous.userAddress != current.userAddress ||
-                       previous.userLatitude != current.userLatitude ||
-                       previous.userLongitude != current.userLongitude;
-              }
-              return true;
-            },
-            builder: (context, state) {
-              debugPrint('HomePage: BlocBuilder received state: ${state.runtimeType}');
-              if (state is HomeLoaded) {
-                debugPrint('HomePage: BlocBuilder - selectedCategoryId: ${state.selectedCategoryId}');
-                debugPrint('HomePage: BlocBuilder - vegOnly: ${state.vegOnly}');
-                debugPrint('HomePage: BlocBuilder - selectedFoodTypeId: ${state.selectedFoodTypeId}');
-                debugPrint('HomePage: BlocBuilder - restaurants count: ${state.restaurants.length}');
-                debugPrint('HomePage: BlocBuilder - filtered restaurants count: ${state.filteredRestaurants.length}');
-                
-                // Additional debugging for state consistency
-                debugPrint('HomePage: State consistency check - selectedCategoryId: ${state.selectedCategoryId}, selectedFoodTypeId: ${state.selectedFoodTypeId}');
-              }
-              if (state is HomeLoading) {
-                return _buildLoadingWithTimeout(context);
-              } else if (state is HomeLoaded) {
-                return _buildHomeContent(context, state);
-              } else {
-                // If no HomeLoaded at all, show the full error state
-                return _buildErrorState(context, state is HomeError ? state : const HomeError('Something went wrong'));
-              }
-            },
-          ),
           ),
         ),
       ),
@@ -403,7 +633,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             // Main Content
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () async => context.read<HomeBloc>().add(const LoadHomeData()),
+                onRefresh: () async {
+                  // Refresh both home data and favorites
+                  context.read<HomeBloc>().add(const LoadHomeData());
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  _forceRefreshFavorites();
+                },
                 color: ColorManager.primary,
                 backgroundColor: Colors.white,
                 displacement: 20,
@@ -1603,11 +1838,14 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
           bool isFavorite = false;
           bool isLoading = false;
           
-          // Get cached status first
-          final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(store.id);
-          if (cachedStatus != null) {
-            isFavorite = cachedStatus;
-          }
+                  // Get cached status first
+        final cachedStatus = context.read<HomeFavoritesBloc>().getCachedFavoriteStatus(store.id);
+        if (cachedStatus != null) {
+          isFavorite = cachedStatus;
+        } else {
+          // If no cached status, assume not favorite to avoid showing wrong state
+          isFavorite = false;
+        }
           
           // Check if this store's favorite status has been checked
           if (favoritesState is HomeFavoriteStatusChecked && 
@@ -1621,6 +1859,9 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             isLoading = true;
             // Show optimistic update
             isFavorite = favoritesState.isAdding;
+          } else if (favoritesState is HomeFavoritesCacheRefreshed) {
+            // Use the updated cache data
+            isFavorite = favoritesState.updatedFavorites[store.id] ?? false;
           }
           
           // Only check favorite status when user interacts with favorite button
@@ -1685,6 +1926,9 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
           isLoading = true;
           // Show optimistic update
           isFavorite = favoritesState.isAdding;
+        } else if (favoritesState is HomeFavoritesCacheRefreshed) {
+          // Use the updated cache data
+          isFavorite = favoritesState.updatedFavorites[restaurant.id] ?? false;
         }
         
         // Only check favorite status when user interacts with favorite button

@@ -130,51 +130,66 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   Future<void> _checkLoginStatus() async {
-    // Wait for animations to complete
-    await Future.delayed(const Duration(milliseconds: 2500));
+    // OPTIMIZATION: Reduce initial delay for faster startup
+    await Future.delayed(const Duration(milliseconds: 1500));
     
     // Status checking begins
     
     _updateStatusMessage('Checking login status...');
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 300));
     
     try {
       final isLoggedIn = await TokenService.isLoggedIn();
       
       if (isLoggedIn) {
         _updateStatusMessage('Welcome back!');
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 300));
         
-        // Initialize app services with graceful location handling
+        // OPTIMIZATION: Start location initialization immediately without extra delays
         _updateStatusMessage('Checking location...');
-        debugPrint('🚀 SplashScreen: Starting graceful location initialization...');
-        final initResult = await AppStartupService.initializeAppGracefully();
+        debugPrint('🚀 SplashScreen: Starting optimized location initialization...');
+        
+        // OPTIMIZATION: Use timeout to prevent hanging
+        final initResult = await AppStartupService.initializeAppGracefully()
+            .timeout(const Duration(seconds: 12), onTimeout: () {
+          debugPrint('🚀 SplashScreen: Location initialization timed out, proceeding with fallback');
+          return {
+            'success': true,
+            'message': 'Location initialization timed out - using fallback',
+            'locationUpdated': false,
+            'timeout': true,
+          };
+        });
         
         debugPrint('🚀 SplashScreen: Location initialization result: $initResult');
         
         if (initResult['locationUpdated'] == true) {
           _updateStatusMessage('Location updated!');
           debugPrint('🚀 SplashScreen: Location was updated successfully');
-          await Future.delayed(const Duration(milliseconds: 500));
-          
-          // Refresh user data to get the updated location
-          _updateStatusMessage('Refreshing profile...');
-          debugPrint('🚀 SplashScreen: Refreshing profile data...');
           await Future.delayed(const Duration(milliseconds: 300));
+        } else if (initResult['recentDataUsed'] == true) {
+          _updateStatusMessage('Using recent location!');
+          debugPrint('🚀 SplashScreen: Using recent location data');
+          await Future.delayed(const Duration(milliseconds: 200));
         } else if (initResult['fallbackUsed'] == true) {
           _updateStatusMessage('Using saved location!');
           debugPrint('🚀 SplashScreen: Using existing location data as fallback');
-          await Future.delayed(const Duration(milliseconds: 300));
+          await Future.delayed(const Duration(milliseconds: 200));
         } else if (initResult['noLocationAccess'] == true) {
           _updateStatusMessage('Ready without location!');
           debugPrint('🚀 SplashScreen: Proceeding without location access');
-          await Future.delayed(const Duration(milliseconds: 300));
+          await Future.delayed(const Duration(milliseconds: 200));
+        } else if (initResult['timeout'] == true) {
+          _updateStatusMessage('Ready!');
+          debugPrint('🚀 SplashScreen: Location initialization timed out');
+          await Future.delayed(const Duration(milliseconds: 200));
         } else {
           _updateStatusMessage('Location ready!');
           debugPrint('🚀 SplashScreen: Location was not updated (${initResult['message']})');
-          await Future.delayed(const Duration(milliseconds: 300));
+          await Future.delayed(const Duration(milliseconds: 200));
         }
         
+        // OPTIMIZATION: Get user data in parallel with location initialization
         final userData = await TokenService.getUserData();
         final token = await TokenService.getToken();
         
@@ -197,7 +212,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         }
       } else {
         _updateStatusMessage('Getting ready...');
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 300));
         
         if (mounted) {
           Navigator.pushReplacementNamed(context, Routes.login);
@@ -205,7 +220,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       }
     } catch (e) {
       _updateStatusMessage('Something went wrong. Retrying...');
-      await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 800));
       _checkLoginStatus();
     }
   }

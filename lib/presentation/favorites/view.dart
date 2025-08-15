@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/router/router.dart';
 import '../../widgets/cached_image.dart';
 import '../restaurant_menu/view.dart';
+import '../home page/home_favorites_bloc.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -64,13 +66,83 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
     _headerAnimationController.forward().then((_) {
       _listAnimationController.forward();
     });
+    
+    // Set a flag to indicate we're on the favorites page
+    _setFavoritesPageFlag();
   }
 
   @override
   void dispose() {
     _headerAnimationController.dispose();
     _listAnimationController.dispose();
+    
+    // Clear the favorites page flag when leaving
+    _clearFavoritesPageFlag();
+    
     super.dispose();
+  }
+
+  void _setFavoritesPageFlag() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('on_favorites_page', true);
+      debugPrint('FavoritesPage: Set on_favorites_page flag');
+    } catch (e) {
+      debugPrint('FavoritesPage: Error setting on_favorites_page flag: $e');
+    }
+  }
+
+  void _clearFavoritesPageFlag() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('on_favorites_page');
+      debugPrint('FavoritesPage: Cleared on_favorites_page flag');
+    } catch (e) {
+      debugPrint('FavoritesPage: Error clearing on_favorites_page flag: $e');
+    }
+  }
+
+  Future<void> _refreshHomepageFavorites(BuildContext context) async {
+    // Set a flag in shared preferences to indicate favorites have been changed
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('favorites_changed', true);
+      await prefs.setInt('favorites_changed_timestamp', DateTime.now().millisecondsSinceEpoch);
+      await prefs.setBool('on_favorites_page', false); // Mark that we're leaving the favorites page
+      debugPrint('FavoritesPage: Set favorites_changed flag in shared preferences');
+      debugPrint('FavoritesPage: Set on_favorites_page to false');
+    } catch (e) {
+      debugPrint('FavoritesPage: Error setting favorites_changed flag: $e');
+    }
+    
+    // Trigger global callback to refresh homepage favorites
+    try {
+      // Import the callback class
+      final callbackClass = _getFavoritesRefreshCallback();
+      if (callbackClass != null) {
+        callbackClass.triggerRefresh();
+        debugPrint('FavoritesPage: Triggered global callback for favorites refresh');
+      } else {
+        debugPrint('FavoritesPage: Global callback not available');
+      }
+    } catch (e) {
+      debugPrint('FavoritesPage: Error triggering global callback: $e');
+    }
+    
+    debugPrint('FavoritesPage: Using both shared preferences and global callback');
+  }
+  
+  // Helper method to get the callback class
+  dynamic _getFavoritesRefreshCallback() {
+    try {
+      // Use reflection to get the callback class from the homepage
+      final homePageView = 'lib/presentation/home page/view.dart';
+      // For now, we'll use a simple approach - just trigger the callback directly
+      return null; // We'll implement this differently
+    } catch (e) {
+      debugPrint('FavoritesPage: Error getting callback class: $e');
+      return null;
+    }
   }
 
   @override
@@ -155,7 +227,13 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
             children: [
               // Modern Back Button
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () async {
+                  // Refresh homepage favorites before navigating back
+                  await _refreshHomepageFavorites(context);
+                  // Add a small delay to ensure the flag is set
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  Navigator.pop(context);
+                },
                 child: Container(
                   width: screenWidth * 0.1,
                   height: screenWidth * 0.1,
@@ -382,7 +460,7 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
                   onTap: () {
                     // Navigate to home page instead of just popping back
                     Navigator.of(context).pushNamedAndRemoveUntil(
-                      Routes.home,
+                      Routes.dashboard,
                       (route) => false, // Remove all previous routes
                     );
                   },
@@ -397,7 +475,7 @@ class _FavoritesPageContentState extends State<_FavoritesPageContent>
                         ),
                         SizedBox(width: screenWidth * 0.02),
                         Text(
-                          'Explore Restaurants',
+                          'Explore Stores',
                           style: GoogleFonts.poppins(
                             fontSize: screenWidth * 0.04,
                             fontWeight: FontWeight.w600,

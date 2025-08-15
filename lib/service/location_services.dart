@@ -93,6 +93,71 @@ class LocationService {
       return null;
     }
   }
+
+  // Get optimized current position with faster timeout and reduced accuracy
+  Future<Position?> getCurrentPositionOptimized() async {
+    try {
+      debugPrint('LocationService: Getting optimized current position...');
+      
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('Location services are disabled');
+        return null;
+      }
+
+      // Check permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        debugPrint('Location permission denied, requesting permission...');
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('Location permission denied after request');
+          return null;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('Location permission permanently denied');
+        return null;
+      }
+
+      // OPTIMIZATION: Try to get last known position first (faster)
+      debugPrint('LocationService: Trying to get last known position first...');
+      try {
+        Position? lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          final age = DateTime.now().difference(lastKnown.timestamp!);
+          // Use last known position if it's less than 2 minutes old
+          if (age.inMinutes < 2) {
+            debugPrint('LocationService: Using recent last known position (${age.inSeconds} seconds old)');
+            return lastKnown;
+          }
+        }
+      } catch (e) {
+        debugPrint('LocationService: No last known position available');
+      }
+
+      // OPTIMIZATION: Get current position with faster settings
+      debugPrint('LocationService: Getting optimized current position with faster settings...');
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium, // Reduced accuracy for speed
+          timeLimit: Duration(seconds: 10), // Shorter timeout
+        ),
+      );
+      
+      debugPrint('LocationService: Optimized position obtained: ${position.latitude}, ${position.longitude}');
+      debugPrint('LocationService: Position accuracy: ${position.accuracy} meters');
+      debugPrint('LocationService: Position timestamp: ${position.timestamp}');
+      
+      return position;
+    } catch (e) {
+      debugPrint('LocationService: Error getting optimized current position: $e');
+      return null;
+    }
+  }
   
   // Get coordinates for a place ID from Google Places API
   Future<Map<String, dynamic>?> getCoordinatesFromPlace(String placeId) async {

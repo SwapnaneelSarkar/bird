@@ -11,10 +11,10 @@ class AppStartupService {
   static final LocationService _locationService = LocationService();
   static final UpdateUserService _updateUserService = UpdateUserService();
   
-  /// Initialize app startup services with graceful location handling
+  /// Initialize app startup services with optimized location handling
   static Future<Map<String, dynamic>> initializeAppGracefully() async {
     try {
-      debugPrint('🔍 AppStartupService: Starting graceful app initialization...');
+      debugPrint('🔍 AppStartupService: Starting optimized app initialization...');
       
       // Check if user is logged in
       final isLoggedIn = await TokenService.isLoggedIn();
@@ -50,9 +50,30 @@ class AppStartupService {
         };
       }
       
-      // Check location availability first
-      debugPrint('🔍 AppStartupService: Checking location availability...');
-      final locationAvailability = await _locationService.checkLocationAvailability();
+      // OPTIMIZATION: Check if we have recent location data (less than 5 minutes old)
+      final hasRecentLocation = await _hasRecentLocationData(userData);
+      if (hasRecentLocation) {
+        debugPrint('🔄 AppStartupService: Using recent location data (less than 5 minutes old)');
+        return {
+          'success': true,
+          'message': 'Using recent location data',
+          'locationUpdated': false,
+          'recentDataUsed': true,
+        };
+      }
+      
+      // OPTIMIZATION: Check location availability with timeout
+      debugPrint('🔍 AppStartupService: Checking location availability with timeout...');
+      final locationAvailability = await _locationService.checkLocationAvailability()
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('🔄 AppStartupService: Location availability check timed out, using fallback');
+        return {
+          'serviceEnabled': false,
+          'permissionGranted': false,
+          'available': false,
+        };
+      });
+      
       debugPrint('🔍 AppStartupService: Location availability: $locationAvailability');
       
       if (!locationAvailability['available']!) {
@@ -88,9 +109,13 @@ class AppStartupService {
         }
       }
       
-      // Location is available, proceed with fresh fetch
-      debugPrint('🔍 AppStartupService: Location available, fetching fresh location...');
-      final locationData = await _locationService.getUltraFreshLocationAndAddress();
+      // OPTIMIZATION: Use fast location fetch with shorter timeout
+      debugPrint('🔍 AppStartupService: Location available, fetching optimized location...');
+      final locationData = await _getOptimizedLocation()
+          .timeout(const Duration(seconds: 8), onTimeout: () {
+        debugPrint('🔄 AppStartupService: Location fetch timed out, using fallback');
+        return null;
+      });
       
       if (locationData == null) {
         debugPrint('❌ AppStartupService: Failed to fetch location despite availability check');
@@ -118,46 +143,26 @@ class AppStartupService {
         }
       }
       
-      debugPrint('✅ AppStartupService: Fresh location fetched successfully');
+      debugPrint('✅ AppStartupService: Optimized location fetched successfully');
       debugPrint('  📍 New Latitude: ${locationData['latitude']}');
       debugPrint('  📍 New Longitude: ${locationData['longitude']}');
       debugPrint('  📍 New Address: ${locationData['address']}');
       debugPrint('  📍 Accuracy: ${locationData['accuracy']} meters');
       debugPrint('  📍 Timestamp: ${locationData['timestamp']}');
       
-      // Update user profile with fresh location data
-      debugPrint('🔍 AppStartupService: Updating user profile with fresh location...');
-      final updateResult = await _updateUserService.updateUserProfileWithId(
-        token: token,
-        userId: userId,
-        address: locationData['address'],
-        latitude: locationData['latitude'],
-        longitude: locationData['longitude'],
-      );
+      // OPTIMIZATION: Update user profile in background to avoid blocking
+      _updateUserProfileInBackground(locationData, token, userId);
       
-      if (updateResult['success'] == true) {
-        debugPrint('✅ AppStartupService: User profile updated successfully with fresh location');
-        await _updateLastLocationFetchTime();
-        
-        return {
-          'success': true,
-          'message': 'Location updated successfully',
-          'locationUpdated': true,
-          'locationData': locationData,
-          'locationAvailability': locationAvailability,
-        };
-      } else {
-        debugPrint('❌ AppStartupService: Failed to update user profile: ${updateResult['message']}');
-        return {
-          'success': true,
-          'message': 'Location fetched but profile update failed',
-          'locationUpdated': false,
-          'locationData': locationData,
-          'locationAvailability': locationAvailability,
-        };
-      }
+      return {
+        'success': true,
+        'message': 'Location updated successfully',
+        'locationUpdated': true,
+        'locationData': locationData,
+        'locationAvailability': locationAvailability,
+        'backgroundUpdate': true,
+      };
     } catch (e) {
-      debugPrint('❌ AppStartupService: Error in graceful initialization: $e');
+      debugPrint('❌ AppStartupService: Error in optimized initialization: $e');
       return {
         'success': true,
         'message': 'Initialization completed with errors - continuing',
@@ -767,6 +772,112 @@ class AppStartupService {
       debugPrint('AppStartupService: All location cache cleared successfully');
     } catch (e) {
       debugPrint('AppStartupService: Error clearing all location cache: $e');
+    }
+  }
+
+  /// Check if we have recent location data (less than 5 minutes old)
+  static Future<bool> _hasRecentLocationData(Map<String, dynamic>? userData) async {
+    try {
+      if (userData == null) return false;
+      
+      final updatedAt = userData['updated_at'];
+      if (updatedAt == null) return false;
+      
+      final updatedAtTime = DateTime.tryParse(updatedAt);
+      if (updatedAtTime == null) return false;
+      
+      final now = DateTime.now();
+      final difference = now.difference(updatedAtTime);
+      
+      // Consider data recent if less than 5 minutes old
+      final isRecent = difference.inMinutes < 5;
+      debugPrint('AppStartupService: Location data age: ${difference.inMinutes} minutes, isRecent: $isRecent');
+      
+      return isRecent;
+    } catch (e) {
+      debugPrint('AppStartupService: Error checking location data age: $e');
+      return false;
+    }
+  }
+
+  /// Get optimized location with faster timeout and reduced accuracy requirements
+  static Future<Map<String, dynamic>?> _getOptimizedLocation() async {
+    try {
+      debugPrint('LocationService: Getting optimized location with faster timeout...');
+      
+      // Use faster location settings
+      final position = await _locationService.getCurrentPositionOptimized();
+      
+      if (position == null) {
+        debugPrint('LocationService: Failed to get optimized position');
+        return null;
+      }
+      
+      // Get address with timeout
+      String? address = await _locationService.getAddressFromCoordinates(
+        position.latitude,
+        position.longitude,
+      ).timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('LocationService: Address fetch timed out, using fallback');
+        return null;
+      });
+
+      if (address == null || address.isEmpty) {
+        address = "Near ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+        debugPrint('LocationService: Using fallback address format: $address');
+      }
+
+      final result = {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'address': address,
+        'accuracy': position.accuracy,
+        'timestamp': position.timestamp.toIso8601String(),
+        'speed': position.speed,
+        'altitude': position.altitude,
+      };
+      
+      debugPrint('LocationService: Optimized location data ready:');
+      debugPrint('  📍 Latitude: ${result['latitude']}');
+      debugPrint('  📍 Longitude: ${result['longitude']}');
+      debugPrint('  📍 Address: ${result['address']}');
+      debugPrint('  📍 Accuracy: ${result['accuracy']} meters');
+      
+      return result;
+    } catch (e) {
+      debugPrint('LocationService: Error getting optimized location: $e');
+      return null;
+    }
+  }
+
+  /// Update user profile in background to avoid blocking the UI
+  static Future<void> _updateUserProfileInBackground(
+    Map<String, dynamic> locationData,
+    String token,
+    String userId,
+  ) async {
+    try {
+      debugPrint('🔍 AppStartupService: Updating user profile in background...');
+      
+      final updateResult = await _updateUserService.updateUserProfileWithId(
+        token: token,
+        userId: userId,
+        address: locationData['address'],
+        latitude: locationData['latitude'],
+        longitude: locationData['longitude'],
+      );
+      
+      if (updateResult['success'] == true) {
+        debugPrint('✅ AppStartupService: Background profile update successful');
+        await _updateLastLocationFetchTime();
+        
+        // Refresh user data in TokenService in background
+        _refreshUserDataInTokenService(token, userId);
+      } else {
+        debugPrint('❌ AppStartupService: Background profile update failed: ${updateResult['message']}');
+      }
+    } catch (e) {
+      debugPrint('❌ AppStartupService: Error in background profile update: $e');
     }
   }
 } 

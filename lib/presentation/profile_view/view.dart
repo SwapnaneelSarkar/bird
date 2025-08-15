@@ -65,7 +65,15 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
           elevation: 0,
           centerTitle: false,
           title: const Text('Profile', style: TextStyle(color: Colors.black)),
-          leading: const BackButton(color: Colors.black),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                Routes.dashboard,
+                (route) => false, // Remove all previous routes
+              );
+            },
+          ),
           actions: [
             BlocBuilder<ProfileBloc, ProfileState>(
               builder: (context, state) {

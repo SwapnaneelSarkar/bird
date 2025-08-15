@@ -76,6 +76,14 @@ class HomeFavoriteStatusChecked extends HomeFavoritesState {
   });
 }
 
+class HomeFavoritesCacheRefreshed extends HomeFavoritesState {
+  final Map<String, bool> updatedFavorites;
+
+  HomeFavoritesCacheRefreshed({
+    required this.updatedFavorites,
+  });
+}
+
 // Bloc
 class HomeFavoritesBloc extends Bloc<HomeFavoritesEvent, HomeFavoritesState> {
   // Cache to store favorite status and avoid repeated API calls
@@ -237,11 +245,38 @@ class HomeFavoritesBloc extends Bloc<HomeFavoritesEvent, HomeFavoritesState> {
     }
   }
 
-  void _onRefreshHomeFavoriteCache(RefreshHomeFavoriteCache event, Emitter<HomeFavoritesState> emit) {
-    // Clear all cache when favorites are updated from other screens
-    _favoriteStatusCache.clear();
-    _checkedRestaurants.clear();
-    _checkingRestaurants.clear();
+  Future<void> _onRefreshHomeFavoriteCache(RefreshHomeFavoriteCache event, Emitter<HomeFavoritesState> emit) async {
+    try {
+      debugPrint('HomeFavoritesBloc: Refreshing favorites cache');
+      
+      // Clear all cache when favorites are updated from other screens
+      _favoriteStatusCache.clear();
+      _checkedRestaurants.clear();
+      _checkingRestaurants.clear();
+      
+      // Fetch fresh favorites data from API
+      final favoritesData = await FavoritesService.getFavorites();
+      
+      if (favoritesData != null) {
+        // Update cache with fresh data
+        for (final favorite in favoritesData) {
+          final partnerId = favorite['partner_id']?.toString();
+          if (partnerId != null) {
+            _favoriteStatusCache[partnerId] = true;
+            _checkedRestaurants.add(partnerId);
+            debugPrint('HomeFavoritesBloc: Updated cache for $partnerId: true');
+          }
+        }
+        debugPrint('HomeFavoritesBloc: Successfully refreshed favorites cache with ${favoritesData.length} favorites');
+        
+        // Emit state to notify UI that cache has been refreshed
+        emit(HomeFavoritesCacheRefreshed(updatedFavorites: Map.from(_favoriteStatusCache)));
+      } else {
+        debugPrint('HomeFavoritesBloc: Failed to fetch fresh favorites data');
+      }
+    } catch (e) {
+      debugPrint('HomeFavoritesBloc: Error refreshing favorites cache: $e');
+    }
   }
 
   // Helper method to get cached favorite status

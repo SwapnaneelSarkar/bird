@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../service/favorites_service.dart';
 import '../../models/favorite_model.dart';
 import 'event.dart';
@@ -69,6 +70,16 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       }
 
       final updatedFavorites = favoritesData.map((json) => FavoriteModel.fromJson(json)).toList();
+      
+      // Set flag to indicate favorites have been changed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('favorites_changed', true);
+        await prefs.setInt('favorites_changed_timestamp', DateTime.now().millisecondsSinceEpoch);
+        debugPrint('FavoritesBloc: Set favorites_changed flag after toggle');
+      } catch (e) {
+        debugPrint('FavoritesBloc: Error setting favorites_changed flag: $e');
+      }
       
       emit(FavoriteToggled(
         partnerId: event.partnerId,
@@ -156,6 +167,16 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
 
       final updatedFavorites = favoritesData.map((json) => FavoriteModel.fromJson(json)).toList();
       
+      // Set flag to indicate favorites have been changed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('favorites_changed', true);
+        await prefs.setInt('favorites_changed_timestamp', DateTime.now().millisecondsSinceEpoch);
+        debugPrint('FavoritesBloc: Set favorites_changed flag after remove');
+      } catch (e) {
+        debugPrint('FavoritesBloc: Error setting favorites_changed flag: $e');
+      }
+      
       if (updatedFavorites.isEmpty) {
         emit(const FavoritesEmpty(message: 'No favorites yet. Tap the heart icon on any restaurant to add it to your favorites!'));
       } else {
@@ -194,6 +215,16 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
         await FavoritesService.removeFromFavorites(favorite.partnerId);
       }
 
+      // Set flag to indicate favorites have been changed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('favorites_changed', true);
+        await prefs.setInt('favorites_changed_timestamp', DateTime.now().millisecondsSinceEpoch);
+        debugPrint('FavoritesBloc: Set favorites_changed flag after clear all');
+      } catch (e) {
+        debugPrint('FavoritesBloc: Error setting favorites_changed flag: $e');
+      }
+      
       // Show empty state after clearing all
       emit(const FavoritesEmpty(message: 'All favorites cleared. Tap the heart icon on any restaurant to add it to your favorites!'));
       

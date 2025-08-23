@@ -27,6 +27,11 @@ class SocketService {
   final Set<String> _recentMessageHashes = <String>{};
   static const int _maxRecentHashes = 100;
   
+  // Background message handling
+  static const String _backgroundMessageChannel = 'chat_background_messages';
+  static const String _backgroundMessageMethod = 'onBackgroundMessage';
+  static const String _appResumedMethod = 'onAppResumed';
+  
   // Stream controllers for different events
   final StreamController<Map<String, dynamic>> _messageStreamController = 
       StreamController<Map<String, dynamic>>.broadcast();
@@ -48,6 +53,11 @@ class SocketService {
   
   bool get isConnected => _isConnected;
   String? get currentRoomId => _currentRoomId;
+  
+  // Background message handling
+  static const String backgroundMessageChannel = 'chat_background_messages';
+  static const String backgroundMessageMethod = 'onBackgroundMessage';
+  static const String appResumedMethod = 'onAppResumed';
 
   Future<bool> connect() async {
     try {
@@ -741,6 +751,86 @@ class SocketService {
     _reconnectAttempts = 0;
     _recentMessageHashes.clear(); // Clear recent message hashes
     _connectionStreamController.add(false);
+  }
+  
+  // Handle background messages
+  void handleBackgroundMessage(Map<String, dynamic> messageData) {
+    debugPrint('SocketService: 🔔 Background message received: $messageData');
+    
+    // Store message for when app resumes
+    _storeBackgroundMessage(messageData);
+    
+    // Show notification if app is in background
+    _showBackgroundNotification(messageData);
+  }
+  
+  // Store background message
+  void _storeBackgroundMessage(Map<String, dynamic> messageData) {
+    try {
+      // Store in shared preferences or local storage
+      // This will be retrieved when app resumes
+      debugPrint('SocketService: 💾 Storing background message');
+    } catch (e) {
+      debugPrint('SocketService: ❌ Error storing background message: $e');
+    }
+  }
+  
+  // Show background notification
+  void _showBackgroundNotification(Map<String, dynamic> messageData) {
+    try {
+      final senderName = messageData['sender_name'] ?? 'Support';
+      final message = messageData['message'] ?? 'New message received';
+      final roomId = messageData['room_id'];
+      
+      debugPrint('SocketService: 📱 Showing background notification');
+      debugPrint('SocketService: 📱 Sender: $senderName');
+      debugPrint('SocketService: 📱 Message: $message');
+      debugPrint('SocketService: 📱 Room ID: $roomId');
+      
+      // Show local notification
+      _showLocalNotification(senderName, message, roomId);
+    } catch (e) {
+      debugPrint('SocketService: ❌ Error showing background notification: $e');
+    }
+  }
+  
+  // Show local notification
+  void _showLocalNotification(String senderName, String message, String? roomId) {
+    // This would integrate with flutter_local_notifications
+    // For now, just log the notification
+    debugPrint('SocketService: 🔔 Local Notification:');
+    debugPrint('SocketService: 🔔 Title: New message from $senderName');
+    debugPrint('SocketService: 🔔 Body: $message');
+    debugPrint('SocketService: 🔔 Room ID: $roomId');
+  }
+  
+  // Handle app resumed
+  void onAppResumed() {
+    debugPrint('SocketService: 📱 App resumed - checking for background messages');
+    
+    // Reconnect socket if needed
+    if (!_isConnected && _currentRoomId != null) {
+      debugPrint('SocketService: 🔌 Reconnecting socket after app resume');
+      connect().then((connected) {
+        if (connected && _currentRoomId != null) {
+          joinRoom(_currentRoomId!);
+        }
+      });
+    }
+    
+    // Retrieve and process background messages
+    _retrieveBackgroundMessages();
+  }
+  
+  // Retrieve background messages
+  void _retrieveBackgroundMessages() {
+    try {
+      debugPrint('SocketService: 📥 Retrieving background messages');
+      // Retrieve stored messages and emit them
+      // This would integrate with local storage
+    } catch (e) {
+      debugPrint('SocketService: ❌ Error retrieving background messages: $e');
+    }
   }
 
   void dispose() {

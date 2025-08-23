@@ -219,17 +219,30 @@ class _CancelOrderBottomSheetState extends State<CancelOrderBottomSheet> {
   }
 
   Future<void> _handleCancelOrder() async {
+    debugPrint('🚨🚨🚨 CancelOrderBottomSheet._handleCancelOrder() called 🚨🚨🚨');
+    debugPrint('🚨 CancelOrderBottomSheet: Order ID: ${widget.orderId}');
+    debugPrint('🚨 CancelOrderBottomSheet: Setting loading state to true');
+    
     setState(() {
       _isLoading = true;
     });
 
     try {
+      debugPrint('🚨 CancelOrderBottomSheet: Calling widget.onCancel()');
       await widget.onCancel(widget.orderId);
+      debugPrint('🚨 CancelOrderBottomSheet: widget.onCancel() completed');
+    } catch (e) {
+      debugPrint('🚨 CancelOrderBottomSheet: ❌ Exception in _handleCancelOrder: $e');
+      debugPrint('🚨 CancelOrderBottomSheet: Exception type: ${e.runtimeType}');
+      debugPrint('🚨 CancelOrderBottomSheet: Exception stack trace: ${StackTrace.current}');
     } finally {
       if (mounted) {
+        debugPrint('🚨 CancelOrderBottomSheet: Setting loading state to false');
         setState(() {
           _isLoading = false;
         });
+      } else {
+        debugPrint('🚨 CancelOrderBottomSheet: ❌ Widget not mounted, cannot update loading state');
       }
     }
   }

@@ -23,6 +23,8 @@ class ChatOrderDetailsWidget extends StatelessWidget {
     debugPrint('ChatOrderDetailsWidget: 📋 Restaurant: ${orderDetails.restaurantName}');
     debugPrint('ChatOrderDetailsWidget: 📋 Items count: ${orderDetails.items.length}');
     debugPrint('ChatOrderDetailsWidget: 📋 Menu item details: ${menuItemDetails.length}');
+    debugPrint('ChatOrderDetailsWidget: 📅 Created at: ${orderDetails.createdAt}');
+    debugPrint('ChatOrderDetailsWidget: 📅 Formatted date: ${orderDetails.formattedCreatedDateTime}');
     
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -32,27 +34,298 @@ class ChatOrderDetailsWidget extends StatelessWidget {
         horizontal: screenWidth * 0.04,
         vertical: screenHeight * 0.01,
       ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(screenWidth * 0.03),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cancel Button at the top (always show if onCancelOrder is provided, but make inactive if not cancellable)
-          if (onCancelOrder != null)
+          // Header with restaurant name and order status
+          Container(
+            padding: EdgeInsets.all(screenWidth * 0.04),
+            decoration: BoxDecoration(
+              color: Color(orderDetails.statusBackgroundColor),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(screenWidth * 0.03),
+                topRight: Radius.circular(screenWidth * 0.03),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        orderDetails.restaurantName ?? 'Restaurant',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.04,
+                          fontWeight: FontWeightManager.bold,
+                          fontFamily: FontFamily.Montserrat,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: screenHeight * 0.005),
+                      // Order date and time
+                      Text(
+                        'Ordered on ${orderDetails.formattedCreatedDateTime}',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.032,
+                          fontWeight: FontWeightManager.medium,
+                          fontFamily: FontFamily.Montserrat,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Status badge with highlighting
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.025,
+                    vertical: screenHeight * 0.008,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Color(orderDetails.statusColor),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(orderDetails.statusColor).withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    orderDetails.statusDisplayText,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.03,
+                      fontWeight: FontWeightManager.semiBold,
+                      fontFamily: FontFamily.Montserrat,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Order items
+          Padding(
+            padding: EdgeInsets.all(screenWidth * 0.04),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Order Items',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.038,
+                    fontWeight: FontWeightManager.semiBold,
+                    fontFamily: FontFamily.Montserrat,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                ...orderDetails.items.map((item) {
+                  final menuDetails = menuItemDetails[item.menuId];
+                  final itemName = menuDetails?['name']?.toString() ?? 
+                                 item.itemName ?? 
+                                 'Item ${item.menuId}';
+                  final itemImage = menuDetails?['image_url']?.toString() ?? 
+                                  item.imageUrl;
+                  
+                  return Container(
+                    margin: EdgeInsets.only(bottom: screenHeight * 0.01),
+                    child: Row(
+                      children: [
+                        // Item image
+                        if (itemImage != null && itemImage.isNotEmpty)
+                          Container(
+                            width: screenWidth * 0.12,
+                            height: screenWidth * 0.12,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(screenWidth * 0.015),
+                              image: DecorationImage(
+                                image: NetworkImage(itemImage),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: screenWidth * 0.12,
+                            height: screenWidth * 0.12,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(screenWidth * 0.015),
+                            ),
+                            child: Icon(
+                              Icons.fastfood,
+                              color: Colors.grey[400],
+                              size: screenWidth * 0.06,
+                            ),
+                          ),
+                        
+                        SizedBox(width: screenWidth * 0.025),
+                        
+                        // Item details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                itemName,
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.035,
+                                  fontWeight: FontWeightManager.medium,
+                                  fontFamily: FontFamily.Montserrat,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: screenHeight * 0.002),
+                              Text(
+                                'Qty: ${item.quantity} × ${orderDetails.getFormattedPrice(item.itemPrice)}',
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.03,
+                                  fontWeight: FontWeightManager.regular,
+                                  fontFamily: FontFamily.Montserrat,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Item total
+                        Text(
+                          orderDetails.getFormattedPrice(item.totalPrice),
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeightManager.semiBold,
+                            fontFamily: FontFamily.Montserrat,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                
+                // Divider
+                Divider(
+                  color: Colors.grey[300],
+                  height: screenHeight * 0.02,
+                ),
+                
+                // Order summary
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Subtotal',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    Text(
+                      orderDetails.getFormattedPrice(orderDetails.subtotal),
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.005),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Text(
+                    //   'Delivery Fee',
+                    //   style: TextStyle(
+                    //     fontSize: screenWidth * 0.035,
+                    //     fontWeight: FontWeightManager.medium,
+                    //     fontFamily: FontFamily.Montserrat,
+                    //     color: Colors.black54,
+                    //   ),
+                    // ),
+                    Text(
+                      orderDetails.getFormattedPrice(orderDetails.deliveryFees),
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeightManager.medium,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.04,
+                        fontWeight: FontWeightManager.bold,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      orderDetails.getFormattedPrice(orderDetails.grandTotal),
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.04,
+                        fontWeight: FontWeightManager.bold,
+                        fontFamily: FontFamily.Montserrat,
+                        color: const Color(0xFFE17A47),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Cancel order button (if order is cancellable)
+          if (orderDetails.canBeCancelled && onCancelOrder != null)
             Container(
               width: double.infinity,
-              margin: EdgeInsets.only(bottom: screenHeight * 0.01),
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04,
+                vertical: screenHeight * 0.01,
+              ),
               child: ElevatedButton(
-                onPressed: orderDetails.canBeCancelled ? onCancelOrder : null,
+                onPressed: onCancelOrder,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: orderDetails.canBeCancelled ? Colors.red[600] : Colors.grey[400],
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: screenHeight * 0.012),
+                  backgroundColor: Colors.red[50],
+                  foregroundColor: Colors.red[700],
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                    side: BorderSide(color: Colors.red[200]!),
                   ),
-                  elevation: 0,
                 ),
                 child: Text(
-                  orderDetails.canBeCancelled ? 'Cancel Order' : 'Order Cannot Be Cancelled',
+                  'Cancel Order',
                   style: TextStyle(
                     fontSize: screenWidth * 0.035,
                     fontWeight: FontWeightManager.semiBold,
@@ -61,309 +334,7 @@ class ChatOrderDetailsWidget extends StatelessWidget {
                 ),
               ),
             ),
-          
-          // Chat Bubble Container
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(screenWidth * 0.025),
-              border: Border.all(
-                color: ColorManager.primary.withOpacity(0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header - Order ID and Restaurant
-                Container(
-                  padding: EdgeInsets.all(screenWidth * 0.035),
-                  decoration: BoxDecoration(
-                    color: ColorManager.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(screenWidth * 0.025),
-                      topRight: Radius.circular(screenWidth * 0.025),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.receipt_long,
-                        color: ColorManager.primary,
-                        size: screenWidth * 0.045,
-                      ),
-                      SizedBox(width: screenWidth * 0.025),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Order #${orderDetails.orderId}',
-                              style: TextStyle(
-                                fontSize: screenWidth * 0.038,
-                                fontWeight: FontWeightManager.bold,
-                                color: ColorManager.black,
-                                fontFamily: FontFamily.Montserrat,
-                              ),
-                            ),
-                            SizedBox(height: screenHeight * 0.003),
-                            Text(
-                              orderDetails.restaurantName ?? 'Restaurant',
-                              style: TextStyle(
-                                fontSize: screenWidth * 0.032,
-                                fontWeight: FontWeightManager.medium,
-                                color: Colors.grey[600],
-                                fontFamily: FontFamily.Montserrat,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _buildStatusChip(orderDetails.orderStatus, screenWidth),
-                    ],
-                  ),
-                ),
-                
-                // Order Items - Compact List
-                Padding(
-                  padding: EdgeInsets.all(screenWidth * 0.035),
-                  child: Column(
-                    children: [
-                      // Items List
-                      ...orderDetails.items.map((item) => _buildCompactOrderItem(
-                        item, 
-                        screenWidth, 
-                        screenHeight,
-                        menuItemDetails[item.menuId ?? ''] ?? <String, dynamic>{},
-                      )).toList(),
-                      
-                      SizedBox(height: screenHeight * 0.015),
-                      Divider(color: Colors.grey[200], height: 1),
-                      SizedBox(height: screenHeight * 0.015),
-                      
-                      // Compact Price Breakdown
-                      _buildCompactPriceBreakdown(screenWidth, screenHeight),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCompactOrderItem(
-    OrderDetailsItem item, 
-    double screenWidth, 
-    double screenHeight,
-    Map<String, dynamic> menuItemData,
-  ) {
-    final itemName = menuItemData['name'] ?? item.itemName ?? 'Unknown Item';
-    
-    return Container(
-      margin: EdgeInsets.only(bottom: screenHeight * 0.008),
-      child: Row(
-        children: [
-          // Item name and quantity
-          Expanded(
-            flex: 3,
-            child: Text(
-              '${item.quantity}x $itemName',
-              style: TextStyle(
-                fontSize: screenWidth * 0.032,
-                fontWeight: FontWeightManager.medium,
-                color: ColorManager.black,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-          ),
-          // Price
-          Expanded(
-            flex: 1,
-            child: FutureBuilder<String>(
-              future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-              builder: (context, snapshot) {
-                final currencySymbol = snapshot.data ?? '₹';
-                return Text(
-                  CurrencyUtils.formatPrice(item.itemPrice * item.quantity, currencySymbol),
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.032,
-                    fontWeight: FontWeightManager.semiBold,
-                    color: ColorManager.black,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                  textAlign: TextAlign.end,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactPriceBreakdown(double screenWidth, double screenHeight) {
-    return Column(
-      children: [
-        _buildCompactPriceRow('Subtotal', orderDetails.subtotal, screenWidth),
-        SizedBox(height: screenHeight * 0.005),
-        _buildCompactPriceRow('Delivery', orderDetails.deliveryFees, screenWidth),
-        SizedBox(height: screenHeight * 0.008),
-        Divider(color: Colors.grey[200], height: 1),
-        SizedBox(height: screenHeight * 0.008),
-        _buildCompactPriceRow('Total', orderDetails.grandTotal, screenWidth, isTotal: true),
-        
-        // Payment mode if available
-        if (orderDetails.paymentMode != null && orderDetails.paymentMode!.isNotEmpty) ...[
-          SizedBox(height: screenHeight * 0.008),
-          Divider(color: Colors.grey[200], height: 1),
-          SizedBox(height: screenHeight * 0.008),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Payment',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.03,
-                  fontWeight: FontWeightManager.medium,
-                  color: Colors.grey[600],
-                  fontFamily: FontFamily.Montserrat,
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.018,
-                  vertical: screenWidth * 0.01,
-                ),
-                decoration: BoxDecoration(
-                  color: ColorManager.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(screenWidth * 0.012),
-                ),
-                child: Text(
-                  orderDetails.paymentMode!.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.026,
-                    fontWeight: FontWeightManager.medium,
-                    color: ColorManager.primary,
-                    fontFamily: FontFamily.Montserrat,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildCompactPriceRow(String label, double amount, double screenWidth, {bool isTotal = false}) {
-    return FutureBuilder<String>(
-      future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-      builder: (context, snapshot) {
-        final currencySymbol = snapshot.data ?? '₹';
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: screenWidth * 0.03,
-                fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.medium,
-                color: isTotal ? ColorManager.black : Colors.grey[600],
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-            Text(
-              CurrencyUtils.formatPrice(amount, currencySymbol),
-              style: TextStyle(
-                fontSize: screenWidth * 0.03,
-                fontWeight: isTotal ? FontWeightManager.bold : FontWeightManager.semiBold,
-                color: isTotal ? ColorManager.black : ColorManager.black,
-                fontFamily: FontFamily.Montserrat,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildStatusChip(String status, double screenWidth) {
-    Color chipColor;
-    Color textColor;
-    String statusText;
-    
-    switch (status.toLowerCase()) {
-      case 'pending':
-        chipColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange[700]!;
-        statusText = 'Pending';
-        break;
-      case 'confirmed':
-        chipColor = Colors.blue.withOpacity(0.1);
-        textColor = Colors.blue[700]!;
-        statusText = 'Confirmed';
-        break;
-      case 'preparing':
-        chipColor = Colors.purple.withOpacity(0.1);
-        textColor = Colors.purple[700]!;
-        statusText = 'Preparing';
-        break;
-      case 'ready':
-      case 'ready_for_delivery':
-        chipColor = Colors.indigo.withOpacity(0.1);
-        textColor = Colors.indigo[700]!;
-        statusText = 'Ready';
-        break;
-      case 'on_the_way':
-      case 'out_for_delivery':
-        chipColor = Colors.teal.withOpacity(0.1);
-        textColor = Colors.teal[700]!;
-        statusText = 'On the Way';
-        break;
-      case 'delivered':
-        chipColor = Colors.green.withOpacity(0.1);
-        textColor = Colors.green[700]!;
-        statusText = 'Delivered';
-        break;
-      case 'cancelled':
-      case 'canceled':
-        chipColor = Colors.red.withOpacity(0.1);
-        textColor = Colors.red[700]!;
-        statusText = 'Cancelled';
-        break;
-      default:
-        chipColor = Colors.grey.withOpacity(0.1);
-        textColor = Colors.grey[700]!;
-        statusText = status;
-    }
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: screenWidth * 0.02,
-        vertical: screenWidth * 0.008,
-      ),
-      decoration: BoxDecoration(
-        color: chipColor,
-        borderRadius: BorderRadius.circular(screenWidth * 0.015),
-      ),
-      child: Text(
-        statusText,
-        style: TextStyle(
-          fontSize: screenWidth * 0.025,
-          fontWeight: FontWeightManager.medium,
-          color: textColor,
-          fontFamily: FontFamily.Montserrat,
-        ),
       ),
     );
   }

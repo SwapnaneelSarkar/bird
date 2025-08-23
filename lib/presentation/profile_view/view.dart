@@ -590,33 +590,81 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
               fontSize: 14,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
+              // Edit button
+              Container(
+                decoration: BoxDecoration(
+                  color: ColorManager.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
                   onPressed: () {
                     _showEditAddressDialog(context, address);
                   },
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: ColorManager.primary,
-                    side: BorderSide(color: ColorManager.primary),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: ColorManager.primary,
+                  ),
+                  tooltip: 'Edit Address',
+                  style: IconButton.styleFrom(
+                    padding: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
+              
+              // Share button
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    _showShareAddressDialog(context, address);
+                  },
+                  icon: Icon(
+                    Icons.share_outlined,
+                    size: 20,
+                    color: Colors.green[700],
+                  ),
+                  tooltip: 'Share Address',
+                  style: IconButton.styleFrom(
+                    padding: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Delete button
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
                   onPressed: () {
                     _showDeleteAddressDialog(context, address);
                   },
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Delete'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.red[700],
+                  ),
+                  tooltip: 'Delete Address',
+                  style: IconButton.styleFrom(
+                    padding: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -685,9 +733,11 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                   'Share App',
                   Icons.share,
                   () async {
-                    await Share.share(
-                      'Check out Bird App for food delivery! Download now: https://play.google.com/store/apps/details?id=com.birduser.app',
-                      subject: 'Bird App - Food Delivery',
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        text: 'Check out Bird App for food delivery! Download now: https://play.google.com/store/apps/details?id=com.birduser.app',
+                        subject: 'Bird App - Food Delivery',
+                      ),
                     );
                   },
                 ),
@@ -725,7 +775,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
   String _formatDate(String datetime) {
     try {
       final date = TimezoneUtils.parseToIST(datetime);
-      return TimezoneUtils.formatOrderDate(date);
+      return TimezoneUtils.formatOrderDateTime(date);
     } catch (e) {
       return 'Unknown date';
     }
@@ -767,6 +817,23 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
     bool isDefault = address.isDefault;
     final latitude = address.latitude;
     final longitude = address.longitude;
+    
+    // Helper function to check if "home" name exists (excluding current address)
+    bool _isHomeNameExistsExcludingCurrent() {
+      final bloc = context.read<AddressPickerBloc>();
+      final state = bloc.state;
+      
+      if (state is AddressPickerLoadSuccess || state is SavedAddressesLoaded) {
+        final addresses = state is AddressPickerLoadSuccess
+            ? state.savedAddresses
+            : (state as SavedAddressesLoaded).savedAddresses;
+            
+        return addresses
+          .where((a) => a.addressId != address.addressId) // Exclude current address
+          .any((a) => a.addressLine2.toLowerCase() == 'home');
+      }
+      return false;
+    }
     
     // Parse existing address to extract house/flat and apartment/road parts
     String existingAddress = address.addressLine1;
@@ -1066,6 +1133,18 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                   );
                   return;
                 }
+                
+                // Special validation for "home" name - only one address can have "home" name
+                final lowerName = addressName.toLowerCase();
+                if (lowerName == 'home' && _isHomeNameExistsExcludingCurrent()) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('An address with "Home" name already exists. Only one address can be named "Home".'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
 
                 // Combine house/flat and apartment/road into a single address string
                 String combinedAddress = '';
@@ -1105,6 +1184,231 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
         ),
       ),
     );
+  }
+
+  void _showShareAddressDialog(BuildContext context, SavedAddress address) {
+    final addressName = address.displayName;
+    final fullAddress = address.fullAddress;
+    
+    // Get screen dimensions for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final textScale = screenWidth / 375; // Base scale factor
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: screenHeight * 0.6,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20 * textScale),
+            topRight: Radius.circular(20 * textScale),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: EdgeInsets.only(top: 12.0 * textScale),
+              child: Container(
+                width: 40 * textScale,
+                height: 4 * textScale,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2 * textScale),
+                ),
+              ),
+            ),
+            // Content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(24 * textScale),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.share,
+                          size: 24 * textScale,
+                          color: ColorManager.primary,
+                        ),
+                        SizedBox(width: 12 * textScale),
+                        Expanded(
+                          child: Text(
+                            'Share Address',
+                            style: TextStyle(
+                              fontSize: 20 * textScale,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                              fontFamily: 'Montserrat',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8 * textScale),
+                    Text(
+                      'Choose how you want to share this address',
+                      style: TextStyle(
+                        fontSize: 14 * textScale,
+                        color: Colors.grey[600],
+                        fontFamily: 'Montserrat',
+                      ),
+                    ),
+                    SizedBox(height: 24 * textScale),
+                    
+                    // Address preview card
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(20 * textScale),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(16 * textScale),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                size: 20 * textScale,
+                                color: ColorManager.primary,
+                              ),
+                              SizedBox(width: 8 * textScale),
+                              Expanded(
+                                child: Text(
+                                  addressName,
+                                  style: TextStyle(
+                                    fontSize: 16 * textScale,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                    fontFamily: 'Montserrat',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8 * textScale),
+                          Text(
+                            fullAddress,
+                            style: TextStyle(
+                              fontSize: 14 * textScale,
+                              color: Colors.grey[600],
+                              fontFamily: 'Montserrat',
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 32 * textScale),
+                    
+                    // Action buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              _shareAddress(fullAddress);
+                            },
+                            icon: Icon(
+                              Icons.share,
+                              size: 18 * textScale,
+                            ),
+                            label: Text(
+                              'Share Address',
+                              style: TextStyle(
+                                fontSize: 16 * textScale,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Montserrat',
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ColorManager.primary,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                vertical: 16 * textScale,
+                                horizontal: 24 * textScale,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12 * textScale),
+                              ),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16 * textScale),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey[600],
+                              side: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 1.5,
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 16 * textScale,
+                                horizontal: 24 * textScale,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12 * textScale),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 16 * textScale,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Montserrat',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Bottom padding for safe area
+                    SizedBox(height: 16 * textScale),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _shareAddress(String address) {
+    SharePlus.instance.share(ShareParams(text: address));
   }
 
   void _showDeleteAddressDialog(BuildContext context, SavedAddress address) {

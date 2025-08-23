@@ -11,6 +11,7 @@ import '../../service/socket_service.dart';
 import '../../service/token_service.dart';
 import '../../service/order_history_service.dart';
 import '../../service/menu_item_service.dart';
+import '../../service/order_status_sse_service.dart';
 import '../../utils/timezone_utils.dart';
 import '../../utils/performance_monitor.dart';
 import 'event.dart';
@@ -22,10 +23,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   String? _currentRoomId;
   String? _currentUserId;
   String? _currentPartnerId;
+  String? _currentOrderId;
   StreamSubscription<Map<String, dynamic>>? _messageSubscription;
   StreamSubscription<bool>? _connectionSubscription;
   StreamSubscription? _readReceiptSubscription;
   StreamSubscription? _typingSubscription;
+  StreamSubscription<OrderStatusUpdate>? _orderStatusSubscription;
+  OrderStatusSSEService? _orderStatusSSEService;
   bool _isSocketConnected = false;
   Timer? _typingTimer;
   Timer? _refreshTimer;
@@ -63,6 +67,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatPageClosed>(_onChatPageClosed);
     on<MessageReceivedOnActivePage>(_onMessageReceivedOnActivePage);
     on<UpdateBlueTicksForPreviousMessages>(_onUpdateBlueTicksForPreviousMessages);
+    on<AppResumed>(_onAppResumed);
+    on<AppPaused>(_onAppPaused);
+    on<BackgroundMessageReceived>(_onBackgroundMessageReceived);
+    on<TestStatusUpdate>(_onTestStatusUpdate);
   }
   
   @override
@@ -73,6 +81,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _connectionSubscription?.cancel();
     _readReceiptSubscription?.cancel();
     _typingSubscription?.cancel();
+    _orderStatusSubscription?.cancel();
+    _orderStatusSSEService?.disconnect();
     _socketService.disconnect();
     return super.close();
   }
@@ -323,6 +333,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }).catchError((error) {
         debugPrint('ChatBloc: ❌ Socket connection error: $error');
       });
+      
+      // OPTIMIZATION 6: Setup order status SSE connection
+      debugPrint('ChatBloc: 🔗 Setting up order status SSE connection for order: ${event.orderId}');
+      _currentOrderId = event.orderId;
+      _setupOrderStatusSSE(event.orderId);
       
       // Emit page opened event immediately
       debugPrint('ChatBloc: 🚀 TRIGGERING ChatPageOpened event from _onLoadChatData');
@@ -1250,6 +1265,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     } else {
       debugPrint('ChatBloc: ⚠️ Cannot emit stop typing for page close - Socket connected: $_isSocketConnected, Room ID: $_currentRoomId');
     }
+    
+    // Disconnect order status SSE when chat page is closed
+    debugPrint('ChatBloc: 🔗 Disconnecting order status SSE for order: $_currentOrderId');
+    _orderStatusSubscription?.cancel();
+    _orderStatusSSEService?.disconnect();
+    _currentOrderId = null;
   }
   
   Future<void> _onMessageReceivedOnActivePage(MessageReceivedOnActivePage event, Emitter<ChatState> emit) async {
@@ -1360,6 +1381,257 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     } else {
       debugPrint('ChatBloc: ⚠️ Cannot update blue ticks - not in ChatLoaded state or missing user ID');
+    }
+  }
+  
+  // Parse timestamp helper method
+  DateTime _parseTimestamp(dynamic timestamp) {
+    try {
+      if (timestamp is DateTime) {
+        return timestamp;
+      } else if (timestamp is String) {
+        return DateTime.parse(timestamp);
+      } else if (timestamp is num) {
+        return DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
+      } else {
+        debugPrint('ChatBloc: Invalid timestamp format, using current time: $timestamp');
+        return DateTime.now();
+      }
+    } catch (e) {
+      debugPrint('ChatBloc: Error parsing timestamp: $e, using current time');
+      return DateTime.now();
+    }
+  }
+  
+  // Show background notification
+  void _showBackgroundNotification(String senderName, String message, String roomId) {
+    debugPrint('ChatBloc: 🔔 Showing background notification');
+    debugPrint('ChatBloc: 🔔 From: $senderName');
+    debugPrint('ChatBloc: 🔔 Message: $message');
+    debugPrint('ChatBloc: 🔔 Room: $roomId');
+    
+    // This would integrate with flutter_local_notifications
+    // For now, just log the notification
+  }
+  
+  // Handle app resumed event
+  Future<void> _onAppResumed(AppResumed event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 📱 App resumed - handling background messages');
+    
+    // Notify socket service about app resume
+    _socketService.onAppResumed();
+    
+    // Refresh chat data if needed
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      if (currentState.orderDetails == null) {
+        debugPrint('ChatBloc: 🔄 Refreshing order details on app resume');
+        add(LoadChatData(currentState.chatRoom.orderId));
+      }
+    }
+  }
+  
+  // Handle app paused event
+  Future<void> _onAppPaused(AppPaused event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 📱 App paused - preparing for background mode');
+    
+    // Ensure socket stays connected for background messages
+    if (!_socketService.isConnected) {
+      debugPrint('ChatBloc: 🔌 Reconnecting socket for background mode');
+      _socketService.connect();
+    }
+  }
+  
+  // Handle background message received event
+  Future<void> _onBackgroundMessageReceived(
+    BackgroundMessageReceived event,
+    Emitter<ChatState> emit,
+  ) async {
+    debugPrint('ChatBloc: 🔔 Background message received: ${event.messageData}');
+    
+    try {
+      // Parse the background message
+      final messageData = event.messageData;
+      final roomId = messageData['room_id']?.toString() ?? '';
+      final senderId = messageData['sender_id']?.toString() ?? '';
+      final senderName = messageData['sender_name']?.toString() ?? 'Support';
+      final content = messageData['message']?.toString() ?? '';
+      final timestamp = messageData['timestamp'];
+      final messageId = messageData['message_id']?.toString() ?? '';
+      
+      // Create chat message from background data
+      final chatMessage = ChatMessage(
+        id: messageId,
+        roomId: roomId,
+        senderId: senderId,
+        senderType: 'support',
+        content: content,
+        messageType: 'text',
+        readBy: [],
+        createdAt: _parseTimestamp(timestamp),
+      );
+      
+      // Add message to current state if we're in the same room
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        if (currentState.chatRoom.roomId == roomId) {
+          final updatedMessages = List<ChatMessage>.from(currentState.messages);
+          updatedMessages.add(chatMessage);
+          
+          emit(currentState.copyWith(messages: updatedMessages));
+          debugPrint('ChatBloc: ✅ Background message added to chat');
+        }
+      }
+      
+      // Show notification for background message
+      _showBackgroundNotification(senderName, content, roomId);
+      
+    } catch (e) {
+      debugPrint('ChatBloc: ❌ Error handling background message: $e');
+    }
+  }
+  
+  // Setup order status SSE connection
+  void _setupOrderStatusSSE(String orderId) {
+    debugPrint('ChatBloc: 🔗 Setting up order status SSE for order: $orderId');
+    
+    // Dispose existing connection if any
+    _orderStatusSubscription?.cancel();
+    _orderStatusSSEService?.disconnect();
+    
+    // Create new SSE service for this order
+    _orderStatusSSEService = OrderStatusSSEService(orderId);
+    
+    // Connect to SSE stream
+    _orderStatusSSEService!.connect().then((_) {
+      debugPrint('ChatBloc: 🔗 Order status SSE connected for order: $orderId');
+      debugPrint('ChatBloc: 🔗 SSE service is connected: ${_orderStatusSSEService!.isConnected}');
+      
+      // Listen for status updates
+      debugPrint('ChatBloc: 🔗 Setting up status stream listener for order: $orderId');
+      _orderStatusSubscription = _orderStatusSSEService!.statusStream.listen(
+        (statusUpdate) {
+          debugPrint('ChatBloc: 🔄 Received order status update for order: ${statusUpdate.orderId}');
+          debugPrint('ChatBloc: 🔄 New status: ${statusUpdate.status}');
+          debugPrint('ChatBloc: 🔄 Message: ${statusUpdate.message}');
+          debugPrint('ChatBloc: 🔄 Current state type: ${state.runtimeType}');
+          
+          // Update order details in current state
+          if (state is ChatLoaded) {
+            final currentState = state as ChatLoaded;
+            if (currentState.orderDetails != null) {
+              // Create updated order details with new status
+              final updatedOrderDetails = OrderDetails(
+                orderId: currentState.orderDetails!.orderId,
+                userId: currentState.orderDetails!.userId,
+                itemIds: currentState.orderDetails!.itemIds,
+                items: currentState.orderDetails!.items,
+                totalAmount: double.tryParse(statusUpdate.totalPrice) ?? currentState.orderDetails!.totalAmount,
+                deliveryFees: currentState.orderDetails!.deliveryFees,
+                orderStatus: statusUpdate.status,
+                createdAt: currentState.orderDetails!.createdAt,
+                restaurantName: currentState.orderDetails!.restaurantName,
+                deliveryAddress: statusUpdate.address,
+                partnerId: currentState.orderDetails!.partnerId,
+                paymentMode: statusUpdate.paymentMode,
+                restaurantAddress: currentState.orderDetails!.restaurantAddress,
+                rating: currentState.orderDetails!.rating,
+                reviewText: currentState.orderDetails!.reviewText,
+                isCancellable: currentState.orderDetails!.isCancellable,
+              );
+              
+              // Emit updated state with both order details and latest status update
+              debugPrint('ChatBloc: 🔄 About to emit updated state with status update');
+              debugPrint('ChatBloc: 🔄 Updated order status: ${updatedOrderDetails.orderStatus}');
+              debugPrint('ChatBloc: 🔄 Latest status update: ${statusUpdate.status}');
+              
+              emit(currentState.copyWith(
+                orderDetails: updatedOrderDetails,
+                latestStatusUpdate: statusUpdate,
+              ));
+              debugPrint('ChatBloc: ✅ Order status updated in chat state');
+              debugPrint('ChatBloc: ✅ New state emitted successfully');
+            }
+          }
+        },
+        onError: (error) {
+          debugPrint('ChatBloc: ❌ Order status SSE error for order $orderId: $error');
+        },
+      );
+      
+    }).catchError((error) {
+      debugPrint('ChatBloc: ❌ Failed to connect to order status SSE for order $orderId: $error');
+    });
+  }
+  
+  // Handle test status update event
+  Future<void> _onTestStatusUpdate(TestStatusUpdate event, Emitter<ChatState> emit) async {
+    debugPrint('ChatBloc: 🔄 Handling test status update event');
+    
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      if (currentState.orderDetails != null) {
+        // Create a test status update
+        final testStatusUpdate = OrderStatusUpdate(
+          type: 'status_update',
+          orderId: currentState.orderDetails!.orderId,
+          status: 'PREPARING',
+          message: 'TEST: Your order is being prepared by the restaurant',
+          timestamp: DateTime.now().toIso8601String(),
+          deliveryPartnerId: null,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String(),
+          lastUpdated: DateTime.now().toIso8601String(),
+          totalPrice: currentState.orderDetails!.totalAmount.toString(),
+          address: currentState.orderDetails!.deliveryAddress ?? 'Test Address',
+          coordinates: {
+            'latitude': '17.4064980',
+            'longitude': '78.4772439'
+          },
+          paymentMode: currentState.orderDetails!.paymentMode ?? 'cash',
+          supercategory: '7acc47a2fa5a4eeb906a753b3',
+          items: [
+            OrderStatusItem(
+              quantity: 1,
+              price: '20.00',
+              itemName: 'Test Item',
+              itemDescription: 'Test description',
+            ),
+          ],
+        );
+        
+        // Create updated order details
+        final updatedOrderDetails = OrderDetails(
+          orderId: currentState.orderDetails!.orderId,
+          userId: currentState.orderDetails!.userId,
+          itemIds: currentState.orderDetails!.itemIds,
+          items: currentState.orderDetails!.items,
+          totalAmount: currentState.orderDetails!.totalAmount,
+          deliveryFees: currentState.orderDetails!.deliveryFees,
+          orderStatus: testStatusUpdate.status,
+          createdAt: currentState.orderDetails!.createdAt,
+          restaurantName: currentState.orderDetails!.restaurantName,
+          deliveryAddress: currentState.orderDetails!.deliveryAddress,
+          partnerId: currentState.orderDetails!.partnerId,
+          paymentMode: currentState.orderDetails!.paymentMode,
+          restaurantAddress: currentState.orderDetails!.restaurantAddress,
+          rating: currentState.orderDetails!.rating,
+          reviewText: currentState.orderDetails!.reviewText,
+          isCancellable: currentState.orderDetails!.isCancellable,
+        );
+        
+        // Emit updated state
+        debugPrint('ChatBloc: 🔄 Emitting updated state with test status update');
+        emit(currentState.copyWith(
+          orderDetails: updatedOrderDetails,
+          latestStatusUpdate: testStatusUpdate,
+        ));
+        
+        debugPrint('ChatBloc: ✅ Test status update emitted successfully');
+      } else {
+        debugPrint('ChatBloc: ❌ Cannot test status update - no order details available');
+      }
+    } else {
+      debugPrint('ChatBloc: ❌ Cannot test status update - current state is not ChatLoaded');
     }
   }
 }

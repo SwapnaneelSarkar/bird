@@ -108,10 +108,12 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
           }
           
           if (state is AddressSavedSuccessfully) {
+            // OPTIMIZATION: Show success message and immediately update home page
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Address saved successfully'),
                 backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
               ),
             );
             
@@ -127,10 +129,12 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
           }
           
           if (state is AddressUpdatedSuccessfully) {
+            // OPTIMIZATION: Show success message and reload addresses
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Address updated successfully'),
                 backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
               ),
             );
             
@@ -829,6 +833,12 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
       return [];
     }
 
+    // Check if "home" name already exists (case-insensitive)
+    bool _isHomeNameExists() {
+      final savedNames = _getSavedNames();
+      return savedNames.any((name) => name.toLowerCase() == 'home');
+    }
+
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -936,8 +946,31 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    suffixIcon: nameController.text.toLowerCase() == 'home' && _isHomeNameExists()
+                        ? Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          )
+                        : null,
                   ),
+                  onChanged: (value) {
+                    setState(() {
+                      // Trigger rebuild to show/hide error icon
+                    });
+                  },
                 ),
+                if (nameController.text.toLowerCase() == 'home' && _isHomeNameExists())
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'An address with "Home" name already exists. Please choose a different name.',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 Container(
                   padding: EdgeInsets.all(12),
@@ -1045,6 +1078,18 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                   );
                   return;
                 }
+                
+                // Special validation for "home" name - only one address can have "home" name
+                if (lowerName == 'home' && _isHomeNameExists()) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('An address with "Home" name already exists. Only one address can be named "Home".'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
                 if (savedNames.contains(lowerName)) {
                   ScaffoldMessenger.of(parentContext).showSnackBar(
                     const SnackBar(
@@ -1256,6 +1301,16 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
     bool isDefault = address['is_default'] == 1;
     final latitude = double.tryParse(address['latitude']?.toString() ?? '') ?? 0.0;
     final longitude = double.tryParse(address['longitude']?.toString() ?? '') ?? 0.0;
+    
+    // Helper function to check if "home" name exists (excluding current address)
+    bool _isHomeNameExistsExcludingCurrent() {
+      if (widget.savedAddresses != null) {
+        return widget.savedAddresses!
+          .where((a) => a['address_id']?.toString() != addressId) // Exclude current address
+          .any((a) => (a['address_line2'] ?? 'Other').toString().toLowerCase() == 'home');
+      }
+      return false;
+    }
     
     // Parse existing address to extract house/flat and apartment/road parts
     String existingAddress = address['address_line1'] ?? '';
@@ -1494,6 +1549,18 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Please fill in address name, city and state.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                // Special validation for "home" name - only one address can have "home" name
+                final lowerName = addressName.toLowerCase();
+                if (lowerName == 'home' && _isHomeNameExistsExcludingCurrent()) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('An address with "Home" name already exists. Only one address can be named "Home".'),
                       backgroundColor: Colors.red,
                     ),
                   );

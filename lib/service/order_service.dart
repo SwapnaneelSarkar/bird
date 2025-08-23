@@ -186,25 +186,45 @@ class OrderService {
   }
     static Future<Map<String, dynamic>> cancelOrder(String orderId) async {
     try {
+      debugPrint('🚨🚨🚨 OrderService.cancelOrder() called with orderId: $orderId 🚨🚨🚨');
+      
       // Get user ID from token service
       final userId = await TokenService.getUserId();
+      debugPrint('🚨 OrderService: User ID retrieved: $userId');
+      
       if (userId == null) {
+        debugPrint('🚨 OrderService: ❌ User ID is null - authentication failed');
         return {
           'success': false,
           'message': 'User not authenticated'
         };
       }
 
+      // Get token
+      final token = await TokenService.getToken();
+      debugPrint('🚨 OrderService: Token retrieved: ${token != null ? 'Found' : 'Not found'}');
+      
+      if (token == null) {
+        debugPrint('🚨 OrderService: ❌ Token is null - authentication failed');
+        return {
+          'success': false,
+          'message': 'Authentication token not found. Please login again.'
+        };
+      }
+
       final url = Uri.parse('${ApiConstants.baseUrl}/api/user/cancel-order/$orderId');
+      debugPrint('🚨 OrderService: Cancel order URL: $url');
       
       final headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${await TokenService.getToken()}',
+        'Authorization': 'Bearer $token',
       };
+      debugPrint('🚨 OrderService: Request headers: $headers');
 
       final body = json.encode({
         'user_id': userId,
       });
+      debugPrint('🚨 OrderService: Request body: $body');
 
       log('OrderService: Cancelling order - URL: $url');
       log('OrderService: User ID: $userId');
@@ -216,12 +236,18 @@ class OrderService {
         body: body,
       );
 
+      debugPrint('🚨 OrderService: HTTP request sent successfully');
+      debugPrint('🚨 OrderService: Response status code: ${response.statusCode}');
+      debugPrint('🚨 OrderService: Response headers: ${response.headers}');
+      debugPrint('🚨 OrderService: Response body: ${response.body}');
+      
       log('OrderService: Cancel order response status: ${response.statusCode}');
       log('OrderService: Cancel order response body: ${response.body}');
 
       // Check if response is HTML (404 error page)
       if (response.body.trim().startsWith('<!DOCTYPE html>') || 
           response.body.contains('<html>')) {
+        debugPrint('🚨 OrderService: ❌ Received HTML response - API endpoint not found');
         log('OrderService: Received HTML response - API endpoint not found');
         return {
           'success': false,
@@ -232,7 +258,10 @@ class OrderService {
       Map<String, dynamic> responseData;
       try {
         responseData = json.decode(response.body);
+        debugPrint('🚨 OrderService: JSON parsed successfully: $responseData');
       } catch (jsonError) {
+        debugPrint('🚨 OrderService: ❌ Failed to parse JSON response: $jsonError');
+        debugPrint('🚨 OrderService: Raw response body: ${response.body}');
         log('OrderService: Failed to parse JSON response: $jsonError');
         return {
           'success': false,
@@ -241,6 +270,9 @@ class OrderService {
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint('🚨 OrderService: ✅ Order cancelled successfully!');
+        debugPrint('🚨 OrderService: Success message: ${responseData['message']}');
+        debugPrint('🚨 OrderService: Success data: ${responseData['data']}');
         log('OrderService: Order cancelled successfully');
         return {
           'success': true,
@@ -248,26 +280,17 @@ class OrderService {
           'data': responseData['data'],
         };
       } else if (response.statusCode == 400) {
+        debugPrint('🚨 OrderService: ❌ Bad request (400)');
         // Handle specific 400 error cases
         final message = responseData['message'] ?? 'Invalid request';
+        debugPrint('🚨 OrderService: 400 error message: $message');
         log('OrderService: Bad request - $message');
         
-        if (message.toLowerCase().contains('cancelled state')) {
-          return {
-            'success': false,
-            'message': 'This order has already been cancelled.',
-          };
-        } else if (message.toLowerCase().contains('cannot be cancelled')) {
-          return {
-            'success': false,
-            'message': 'This order cannot be cancelled at this time. It may be in preparation or out for delivery.',
-          };
-        } else {
-          return {
-            'success': false,
-            'message': message,
-          };
-        }
+        // Return the actual API message instead of generic messages
+        return {
+          'success': false,
+          'message': message,
+        };
       } else if (response.statusCode == 401) {
         log('OrderService: Unauthorized request');
         return {
@@ -301,18 +324,25 @@ class OrderService {
       }
 
     } catch (e) {
+      debugPrint('🚨 OrderService: ❌ Exception occurred: $e');
+      debugPrint('🚨 OrderService: Exception type: ${e.runtimeType}');
+      debugPrint('🚨 OrderService: Exception stack trace: ${StackTrace.current}');
       log('OrderService: Exception occurred: $e');
+      
       if (e.toString().contains('SocketException')) {
+        debugPrint('🚨 OrderService: Network connection error');
         return {
           'success': false,
           'message': 'No internet connection. Please check your network and try again.',
         };
       } else if (e.toString().contains('TimeoutException')) {
+        debugPrint('🚨 OrderService: Request timeout error');
         return {
           'success': false,
           'message': 'Request timed out. Please try again.',
         };
       } else {
+        debugPrint('🚨 OrderService: Generic network error');
         return {
           'success': false,
           'message': 'Network error. Please try again.',

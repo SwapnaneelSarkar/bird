@@ -10,6 +10,7 @@ import 'package:bird/constants/color/colorConstant.dart';
 import '../../../widgets/restaurant_card.dart';
 import '../address bottomSheet/view.dart';
 import '../restaurant_menu/view.dart';
+import '../restaurant_menu/non_food_menu_page.dart';
 import '../search_page/bloc.dart';
 import '../search_page/searchPage.dart';
 import '../../utils/currency_utils.dart';
@@ -22,6 +23,7 @@ import 'home_favorites_bloc.dart';
 import '../../service/firebase_services.dart';
 // import '../favorites/view.dart'; // No longer needed - using shared preferences
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/current_orders_floating_button.dart';
 
 // Responsive text utility function
 double getResponsiveFontSize(BuildContext context, double baseSize) {
@@ -114,6 +116,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   FilterOptions filterOptions = FilterOptions();
   String? previousAddress;
   String? get selectedSupercategoryId => context.read<HomeBloc>().selectedSupercategoryId;
+  bool _isFloatingButtonVisible = false; // Add state for floating button visibility
   
   // Add debounce mechanism to prevent double-taps
   DateTime? _lastFilterTap;
@@ -366,6 +369,26 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FF),
+        // Current Orders Floating Button with SSE real-time updates
+        floatingActionButton: Builder(
+          builder: (context) {
+            debugPrint('🏠 HomePage: Creating floating button');
+            debugPrint('🏠 HomePage: Token available: ${widget.token != null ? 'Yes (${widget.token!.length} chars)' : 'No'}');
+            debugPrint('🏠 HomePage: Selected supercategory: ${selectedSupercategoryId ?? 'None'}');
+            
+            return CurrentOrdersFloatingButton(
+              token: widget.token,
+              selectedSupercategoryId: selectedSupercategoryId,
+              onVisibilityChanged: (isVisible) {
+                debugPrint('🏠 HomePage: Floating button visibility changed to: $isVisible');
+                setState(() {
+                  _isFloatingButtonVisible = isVisible;
+                });
+              },
+            );
+          },
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         body: SafeArea(
           child: MultiBlocListener(
             listeners: [
@@ -625,7 +648,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
             ).animate(controller: _animationController).fadeIn(duration: 400.ms, curve: Curves.easeOut),
 
             // Search Bar
-            _buildSearchBar(context, state, isStore: !isFoodSupercategory(selectedSupercategoryId))
+            _buildSearchBar(context, state, isStore: false)
               .animate(controller: _animationController)
               .fadeIn(duration: 400.ms, delay: 100.ms, curve: Curves.easeOut)
               .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -650,7 +673,7 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     children: [
                       // Popular Categories - Only show if not outside service area
                       if (!isOutsideServiceableArea)
-                        _buildCategoriesSection(context, state, isStore: !isFoodSupercategory(selectedSupercategoryId))
+                        _buildCategoriesSection(context, state, isStore: false)
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 200.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
@@ -679,12 +702,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut)
                       else
-                        _buildRestaurantsSection(context, state, isStore: !isFoodSupercategory(selectedSupercategoryId))
+                        _buildRestaurantsSection(context, state, isStore: false)
                           .animate(controller: _animationController)
                           .fadeIn(duration: 400.ms, delay: 300.ms, curve: Curves.easeOut)
                           .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOut),
                       
-                      const SizedBox(height: 24),
+                      // Add bottom padding when floating button is visible to prevent overlap
+                      SizedBox(height: _isFloatingButtonVisible ? 100 : 24),
                     ],
                   ),
                 ),
@@ -697,11 +721,13 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   }
   
   Widget _buildAddressBar(BuildContext context, HomeLoaded state) {
-    // For food supercategory, use original styling
-    final isFood = isFoodSupercategory(selectedSupercategoryId);
+    // Always use food styling for homepage
     
     return InkWell(
       onTap: () => _showAddressPicker(context, state),
+      // OPTIMIZATION: Add subtle feedback for better UX
+      splashColor: Colors.transparent,
+      highlightColor: Colors.grey.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
         child: LayoutBuilder(
@@ -713,10 +739,10 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isFood ? ColorManager.primary.withOpacity(0.1) : ColorManager.instamartGreen.withOpacity(0.1),
+                    color: ColorManager.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.location_on, color: isFood ? ColorManager.primary : ColorManager.instamartGreen, size: isWide ? 24 : 22),
+                  child: Icon(Icons.location_on, color: ColorManager.primary, size: isWide ? 24 : 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -985,41 +1011,26 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             builder: (context, constraints) {
               final double maxWidth = constraints.maxWidth;
               final double scale = (maxWidth / 400).clamp(0.7, 1.0);
-              final double itemWidth = isStore ? 80.0 * scale : 90.0 * scale;
               final double itemHeight = isStore ? 90.0 * scale : 110.0 * scale;
-              final double screenWidth = constraints.maxWidth;
-              final int maxVisibleItems = (screenWidth / itemWidth).floor();
-              final bool shouldScroll = sortedCategories.length > maxVisibleItems;
-      
+
               final categoryItems = _getCategoryItems(
                 sortedCategories,
                 state.selectedCategoryId,
                 scale: scale,
-                itemWidth: itemWidth,
+                itemWidth: (isStore ? 80.0 : 90.0) * scale,
                 itemHeight: itemHeight,
                 isStore: isStore,
               );
-      
-              if (shouldScroll) {
-                return SizedBox(
-                  height: itemHeight,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
-                    children: categoryItems,
-                  ),
-                );
-              } else {
-                return Container(
-                  height: itemHeight,
+
+              return SizedBox(
+                height: itemHeight,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: categoryItems,
-                  ),
-                );
-              }
+                  children: categoryItems,
+                ),
+              );
             },
           ),
         ],
@@ -1883,7 +1894,7 @@ Widget _buildCategoriesSection(BuildContext context, HomeLoaded state, {bool isS
             partnerId: store.id,
             isFavorite: isFavorite,
             isLoading: isLoading,
-            isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
+            isFoodSupercategory: true,
             onFavoriteToggle: store.id != null && store.id.isNotEmpty ? () {
               context.read<HomeFavoritesBloc>().add(
                 CheckAndToggleHomeFavorite(partnerId: store.id),
@@ -1950,7 +1961,7 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
           partnerId: restaurant.id,
           isFavorite: isFavorite,
           isLoading: isLoading,
-          isFoodSupercategory: isFoodSupercategory(selectedSupercategoryId),
+          isFoodSupercategory: true,
           onFavoriteToggle: restaurant.id != null && restaurant.id.isNotEmpty ? () {
             context.read<HomeFavoritesBloc>().add(
               CheckAndToggleHomeFavorite(partnerId: restaurant.id),
@@ -2234,21 +2245,29 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
       'isAcceptingOrder': restaurant is Map ? restaurant['isAcceptingOrder'] : restaurant.isAcceptingOrder,
     };
     
+    final supercategoryId = (restaurant is Map)
+        ? (restaurant['supercategory']?.toString() ?? restaurant['supercategoryId']?.toString())
+        : (restaurant.supercategory?.toString() ?? restaurant.supercategoryId?.toString());
+
+    final bool isFood = isFoodSupercategory(supercategoryId);
+
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => RestaurantDetailsPage(
-          restaurantData: restaurantData,
-          userLatitude: userLatitude,
-          userLongitude: userLongitude,
-        ),
+        pageBuilder: (context, animation, secondaryAnimation) => isFood
+            ? RestaurantDetailsPage(
+                restaurantData: restaurantData,
+                userLatitude: userLatitude,
+                userLongitude: userLongitude,
+              )
+            : NonFoodMenuPage(
+                restaurantData: restaurantData,
+              ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOutQuart;
-          
           var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           var offsetAnimation = animation.drive(tween);
-          
           return SlideTransition(position: offsetAnimation, child: child);
         },
         transitionDuration: const Duration(milliseconds: 500),
@@ -2291,7 +2310,8 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
           fullAddress += ', ${result['subAddress']}';
         }
         
-        // Update the address immediately in the home bloc
+        // OPTIMIZATION: Update the address immediately in the home bloc
+        // The UpdateUserAddress event now handles both address update and saved addresses reload
         context.read<HomeBloc>().add(
           UpdateUserAddress(
             address: fullAddress,
@@ -2300,10 +2320,7 @@ Widget _buildRestaurantItem(BuildContext context, dynamic restaurant, HomeLoaded
           ),
         );
         
-        // Reload saved addresses to show newly added ones immediately
-        context.read<HomeBloc>().add(const LoadSavedAddresses());
-        
-        debugPrint('HomePage: Address update and reload triggered');
+        debugPrint('HomePage: Address update triggered (includes saved addresses reload)');
       }
     } catch (e) {
       debugPrint('HomePage: Error showing address picker: $e');

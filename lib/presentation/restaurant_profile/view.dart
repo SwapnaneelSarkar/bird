@@ -217,13 +217,15 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                   ),
                   
                   // Cuisine type
-                  Text(
-                    restaurant.cuisine,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.black87,
+                  if (restaurant.cuisine.isNotEmpty && restaurant.cuisine != 'null') ...[
+                    Text(
+                      restaurant.cuisine,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
+                  ],
                   
                   const SizedBox(height: 8),
                   
@@ -235,6 +237,19 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                       color: Colors.black54,
                     ),
                   ),
+                  
+                  // Description (if available)
+                  if (restaurant.description != null && restaurant.description!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      restaurant.description!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black87,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -342,19 +357,19 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                 children: [
                   Icon(
                     Icons.access_time,
-                    color: restaurant.openNow == true ? Colors.green : Colors.red,
+                    color: restaurant.openNow == true ? Colors.green : (restaurant.openNow == false ? Colors.red : Colors.grey),
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    restaurant.openNow == true ? "Open Now" : "Closed",
+                    restaurant.openNow == true ? "Open Now" : (restaurant.openNow == false ? "Closed" : "Status Unknown"),
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: restaurant.openNow == true ? Colors.green : Colors.red,
+                      color: restaurant.openNow == true ? Colors.green : (restaurant.openNow == false ? Colors.red : Colors.grey),
                     ),
                   ),
-                  if (restaurant.closesAt != null) ...[
+                  if (restaurant.closesAt != null && restaurant.closesAt!.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Text(
                       "Closes at ${restaurant.closesAt}",
@@ -437,7 +452,7 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
             // ),
             
             // Opening days section
-            if (restaurant.openTimings != null) ...[
+            if (restaurant.openTimings != null && restaurant.openTimings!.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Column(
@@ -445,6 +460,34 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                   children: [
                     const SizedBox(height: 8),
                     _buildOpeningDays(restaurant.openTimings!),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // Show message when opening hours are not available
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      "Opening Hours",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Opening hours information not available",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -531,6 +574,55 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                    ],
+                    
+                    // Available food types if available
+                    if (restaurant.availableFoodTypes.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.restaurant_menu,
+                            color: Colors.orange[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Food Types: ${restaurant.availableFoodTypes.join(', ')}",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    
+                    // Available categories if available
+                    if (restaurant.availableCategories.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.category,
+                            color: Colors.blue[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Categories: ${restaurant.availableCategories.join(', ')}",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                     ],
                   ],
                 ),
@@ -664,9 +756,21 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
   
   Widget _buildOpeningDays(String openTimingsJson) {
     try {
-      final Map<String, dynamic> timings = Map<String, dynamic>.from(
-        json.decode(openTimingsJson.replaceAll("\\", ""))
-      );
+      debugPrint('RestaurantProfileView: Parsing opening hours: $openTimingsJson');
+      
+      Map<String, dynamic> timings;
+      
+      // Handle the case where the string might already be a JSON object
+      if (openTimingsJson.startsWith('{') && openTimingsJson.endsWith('}')) {
+        timings = Map<String, dynamic>.from(
+          json.decode(openTimingsJson.replaceAll("\\", ""))
+        );
+      } else {
+        // Try to parse as regular JSON
+        timings = Map<String, dynamic>.from(json.decode(openTimingsJson));
+      }
+      
+      debugPrint('RestaurantProfileView: Parsed timings: $timings');
       
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -737,6 +841,13 @@ class _RestaurantProfileViewState extends State<RestaurantProfileView> {
       case 'friday': return weekday == 5;
       case 'saturday': return weekday == 6;
       case 'sunday': return weekday == 7;
+      case 'mon': return weekday == 1;
+      case 'tue': return weekday == 2;
+      case 'wed': return weekday == 3;
+      case 'thu': return weekday == 4;
+      case 'fri': return weekday == 5;
+      case 'sat': return weekday == 6;
+      case 'sun': return weekday == 7;
       default: return false;
     }
   }

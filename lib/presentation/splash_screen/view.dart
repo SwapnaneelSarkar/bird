@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:bird/constants/router/router.dart';
 import '../../service/token_service.dart';
 import '../../service/app_startup_service.dart';
+import '../../service/connectivity_service.dart';
 import 'dart:math' as math;
 
 class SplashScreen extends StatefulWidget {
@@ -134,6 +135,20 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     await Future.delayed(const Duration(milliseconds: 1500));
     
     // Status checking begins
+    
+    _updateStatusMessage('Checking internet connection...');
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    // Check internet connectivity first
+    final hasConnection = await ConnectivityService.hasConnection();
+    if (!hasConnection) {
+      _updateStatusMessage('No internet connection...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        ConnectivityService.showNoInternetPage(context);
+        return;
+      }
+    }
     
     _updateStatusMessage('Checking login status...');
     await Future.delayed(const Duration(milliseconds: 300));

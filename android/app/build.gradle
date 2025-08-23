@@ -32,8 +32,8 @@ android {
         applicationId = "com.birduser.app"
         minSdkVersion 23
         targetSdkVersion 35
-        versionCode = 13
-        versionName = "1.0.11"
+        versionCode = 18
+        versionName = "1.0.16"
         multiDexEnabled true
     }
 

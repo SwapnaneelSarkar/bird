@@ -637,4 +637,120 @@ class LocationService {
     return !availability['serviceEnabled']! || 
            (!availability['permissionGranted']! && availability['serviceEnabled']!);
   }
+
+  /// Detect user's country based on current location
+  Future<String?> detectUserCountry() async {
+    try {
+      debugPrint('LocationService: Detecting user country from location...');
+      
+      // Get current position
+      Position? position = await getCurrentPositionOptimized();
+      if (position == null) {
+        debugPrint('LocationService: Failed to get current position for country detection');
+        return null;
+      }
+
+      // Use reverse geocoding to get country information
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String? countryCode = place.isoCountryCode;
+        
+        debugPrint('LocationService: Detected country code: $countryCode');
+        debugPrint('LocationService: Country name: ${place.country}');
+        debugPrint('LocationService: Coordinates: ${position.latitude}, ${position.longitude}');
+        
+        return countryCode;
+      }
+      
+      debugPrint('LocationService: No placemarks found for country detection');
+      return null;
+    } catch (e) {
+      debugPrint('LocationService: Error detecting user country: $e');
+      return null;
+    }
+  }
+
+  /// Get user's location and country information
+  Future<Map<String, dynamic>?> getUserLocationAndCountry() async {
+    try {
+      debugPrint('LocationService: Getting user location and country...');
+      
+      // Get current position
+      Position? position = await getCurrentPositionOptimized();
+      if (position == null) {
+        debugPrint('LocationService: Failed to get current position');
+        return null;
+      }
+
+      // Use reverse geocoding to get detailed location information
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        
+        final result = {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'countryCode': place.isoCountryCode,
+          'countryName': place.country,
+          'administrativeArea': place.administrativeArea,
+          'locality': place.locality,
+          'subLocality': place.subLocality,
+          'postalCode': place.postalCode,
+          'address': _buildAddressString(place),
+        };
+        
+        debugPrint('LocationService: Location and country data obtained:');
+        debugPrint('  📍 Country Code: ${result['countryCode']}');
+        debugPrint('  📍 Country Name: ${result['countryName']}');
+        debugPrint('  📍 Coordinates: ${result['latitude']}, ${result['longitude']}');
+        debugPrint('  📍 Address: ${result['address']}');
+        
+        return result;
+      }
+      
+      debugPrint('LocationService: No placemarks found');
+      return null;
+    } catch (e) {
+      debugPrint('LocationService: Error getting user location and country: $e');
+      return null;
+    }
+  }
+
+  /// Build a readable address string from placemark
+  String _buildAddressString(Placemark place) {
+    List<String> addressParts = [];
+    
+    if (place.name != null && place.name!.isNotEmpty) {
+      addressParts.add(place.name!);
+    }
+    if (place.street != null && place.street!.isNotEmpty && place.street != place.name) {
+      addressParts.add(place.street!);
+    }
+    if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+      addressParts.add(place.subLocality!);
+    }
+    if (place.locality != null && place.locality!.isNotEmpty) {
+      addressParts.add(place.locality!);
+    }
+    if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+      addressParts.add(place.administrativeArea!);
+    }
+    if (place.postalCode != null && place.postalCode!.isNotEmpty) {
+      addressParts.add(place.postalCode!);
+    }
+    if (place.country != null && place.country!.isNotEmpty) {
+      addressParts.add(place.country!);
+    }
+
+    return addressParts.join(', ');
+  }
 }

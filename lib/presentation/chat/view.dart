@@ -5,6 +5,7 @@ import 'package:bird/utils/snackbar_utils.dart';
 import 'package:bird/widgets/cancel_order_bottom_sheet.dart';
 
 import 'package:bird/widgets/chat_order_details_bubble.dart';
+import 'package:bird/widgets/chat_order_status_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +13,7 @@ import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../models/chat_models.dart';
 import '../../models/order_details_model.dart';
+import '../../service/order_status_sse_service.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
@@ -144,14 +146,17 @@ class _ChatViewState extends State<ChatView> {
   // Handle cancel order
   Future<void> _handleCancelOrder(String orderId) async {
     try {
-      debugPrint('ChatView: Attempting to cancel order: $orderId');
+      debugPrint('🚨🚨🚨 ChatView._handleCancelOrder() called with orderId: $orderId 🚨🚨🚨');
       
       final result = await OrderService.cancelOrder(orderId);
+      debugPrint('🚨 ChatView: OrderService.cancelOrder() result: $result');
       
       if (mounted) {
         Navigator.pop(context); // Close bottom sheet
+        debugPrint('🚨 ChatView: Bottom sheet closed');
         
         if (result['success'] == true) {
+          debugPrint('🚨 ChatView: ✅ Order cancellation successful');
           // Show success message using SnackBarUtils
           SnackBarUtils.showSuccess(
             context: context,
@@ -162,17 +167,24 @@ class _ChatViewState extends State<ChatView> {
           await Future.delayed(const Duration(milliseconds: 500));
           if (mounted) {
             Navigator.pop(context);
+            debugPrint('🚨 ChatView: Navigated back to previous screen');
           }
         } else {
+          debugPrint('🚨 ChatView: ❌ Order cancellation failed');
+          debugPrint('🚨 ChatView: Error message: ${result['message']}');
           // Show error message using SnackBarUtils
           SnackBarUtils.showError(
             context: context,
             message: result['message'] ?? 'Failed to cancel order',
           );
         }
+      } else {
+        debugPrint('🚨 ChatView: ❌ Widget not mounted, cannot update UI');
       }
     } catch (e) {
-      debugPrint('ChatView: Error cancelling order: $e');
+      debugPrint('🚨 ChatView: ❌ Exception in _handleCancelOrder: $e');
+      debugPrint('🚨 ChatView: Exception type: ${e.runtimeType}');
+      debugPrint('🚨 ChatView: Exception stack trace: ${StackTrace.current}');
       
       if (mounted) {
         Navigator.pop(context); // Close bottom sheet
@@ -478,9 +490,14 @@ class _ChatViewState extends State<ChatView> {
           listener: (context, state) {
             if (state is ChatLoaded) {
               debugPrint('ChatView: 📡 Received ChatLoaded state with orderDetails: ${state.orderDetails != null}');
+              debugPrint('ChatView: 📡 Latest status update: ${state.latestStatusUpdate != null}');
               if (state.orderDetails != null) {
                 debugPrint('ChatView: 📡 Order details orderId: ${state.orderDetails!.orderId}');
                 debugPrint('ChatView: 📡 Order details status: ${state.orderDetails!.orderStatus}');
+              }
+              if (state.latestStatusUpdate != null) {
+                debugPrint('ChatView: 📡 Status update status: ${state.latestStatusUpdate!.status}');
+                debugPrint('ChatView: 📡 Status update message: ${state.latestStatusUpdate!.message}');
               }
               
               // Order details are now loaded immediately, no need for forced rebuild
@@ -555,15 +572,36 @@ class _ChatViewState extends State<ChatView> {
       debugPrint('ChatView: 🏗️ Order details orderId: ${state.orderDetails!.orderId}');
       debugPrint('ChatView: 🏗️ Order details restaurant: ${state.orderDetails!.restaurantName}');
     }
+    debugPrint('ChatView: 🏗️ Latest status update: ${state.latestStatusUpdate != null}');
+    if (state.latestStatusUpdate != null) {
+      debugPrint('ChatView: 🏗️ Status: ${state.latestStatusUpdate!.status}');
+      debugPrint('ChatView: 🏗️ Message: ${state.latestStatusUpdate!.message}');
+      debugPrint('ChatView: 🏗️ Timestamp: ${state.latestStatusUpdate!.timestamp}');
+    } else {
+      debugPrint('ChatView: 🏗️ No status update available');
+    }
     return SafeArea(
       child: Column(
         children: [
           _buildAppBar(context, state.chatRoom, screenWidth, screenHeight, state.orderDetails),
           SizedBox(height: screenHeight * 0.012), // Add space between topbar and order details
           Expanded(
-            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight, state.orderDetails, state.menuItemDetails, orderId),
+            child: _buildMessagesList(state.messages, state.currentUserId, state.isSendingMessage, screenWidth, screenHeight, state.orderDetails, state.menuItemDetails, state.latestStatusUpdate, orderId),
           ),
           _buildMessageInput(context, state.isSendingMessage, screenWidth, screenHeight),
+          // DEBUG: Add test button for status updates
+          if (kDebugMode) 
+            Container(
+              padding: EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  debugPrint('ChatView: 🔄 Manual status update test button pressed');
+                  // Manually trigger a status update for testing
+                  _testStatusUpdate();
+                },
+                child: Text('Test Status Update'),
+              ),
+            ),
         ],
       ),
     );
@@ -643,15 +681,15 @@ class _ChatViewState extends State<ChatView> {
                   ),
                   if (orderDetails?.restaurantName != null) ...[
                     SizedBox(height: screenHeight * 0.002),
-                    Text(
-                      'Chat',
-                      style: TextStyle(
-                        fontSize: screenWidth * 0.032,
-                        fontWeight: FontWeightManager.regular,
-                        color: Colors.grey[600],
-                        fontFamily: FontFamily.Montserrat,
-                      ),
-                    ),
+                    // Text(
+                    //   'Chat',
+                    //   style: TextStyle(
+                    //     fontSize: screenWidth * 0.032,
+                    //     fontWeight: FontWeightManager.regular,
+                    //     color: Colors.grey[600],
+                    //     fontFamily: FontFamily.Montserrat,
+                    //   ),
+                    // ),
                   ],
                 ],
               ),
@@ -697,36 +735,56 @@ class _ChatViewState extends State<ChatView> {
 
 
 
-  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails, Map<String, Map<String, dynamic>> menuItemDetails, String orderId) {
+  Widget _buildMessagesList(List<ChatMessage> messages, String currentUserId, bool isSending, double screenWidth, double screenHeight, OrderDetails? orderDetails, Map<String, Map<String, dynamic>> menuItemDetails, OrderStatusUpdate? latestStatusUpdate, String orderId) {
     // OPTIMIZATION: Reduce debug prints in production
     if (kDebugMode) {
       debugPrint('ChatView: 📋 Building messages list - Messages: ${messages.length}, Order details: ${orderDetails != null}');
     }
     
-    // If there are no messages and not sending, but order details exist, show only the order details bubble
+    // If there are no messages and not sending, but order details exist, show order details and status bubbles
     if (messages.isEmpty && !isSending) {
       if (orderDetails != null) {
         if (kDebugMode) {
-          debugPrint('ChatView: 📋 No messages, but order details available - showing only order details bubble');
+          debugPrint('ChatView: 📋 No messages, but order details available - showing order details and status bubbles');
         }
+        final children = <Widget>[];
+        
+        // Add order details bubble
+        children.add(
+          ChatOrderDetailsBubble(
+            orderDetails: orderDetails,
+            menuItemDetails: menuItemDetails,
+            isFromCurrentUser: true, // Order details are always shown as from user
+            currentUserId: currentUserId,
+            onCancelOrder: () {
+              showCancelOrderBottomSheet(
+                context: context,
+                orderId: orderId,
+                onCancel: _handleCancelOrder,
+              );
+            },
+          ),
+        );
+        
+        // Add status bubble if there's a status update
+        if (latestStatusUpdate != null) {
+          debugPrint('ChatView: 📋 Adding status bubble to children list');
+          children.add(
+            ChatOrderStatusBubble(
+              orderDetails: orderDetails,
+              isFromCurrentUser: false, // Status updates are shown as from restaurant
+              currentUserId: currentUserId,
+              latestStatusUpdate: latestStatusUpdate,
+            ),
+          );
+        } else {
+          debugPrint('ChatView: 📋 No status update available for status bubble');
+        }
+        
         return ListView(
           controller: _scrollController,
           padding: EdgeInsets.all(screenWidth * 0.035),
-          children: [
-            ChatOrderDetailsBubble(
-              orderDetails: orderDetails,
-              menuItemDetails: menuItemDetails,
-              isFromCurrentUser: true, // Order details are always shown as from user
-              currentUserId: currentUserId,
-              onCancelOrder: () {
-                showCancelOrderBottomSheet(
-                  context: context,
-                  orderId: orderId,
-                  onCancel: _handleCancelOrder,
-                );
-              },
-            ),
-          ],
+          children: children,
         );
       } else {
         if (kDebugMode) {
@@ -744,7 +802,7 @@ class _ChatViewState extends State<ChatView> {
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.all(screenWidth * 0.035),
-      itemCount: (orderDetails != null ? 1 : 0) + messages.length,
+      itemCount: (orderDetails != null ? 1 : 0) + (latestStatusUpdate != null ? 1 : 0) + messages.length,
       // OPTIMIZATION: Add cacheExtent for better performance
       cacheExtent: 1000,
       // OPTIMIZATION: Add addAutomaticKeepAlives for better memory management
@@ -753,8 +811,11 @@ class _ChatViewState extends State<ChatView> {
         if (kDebugMode) {
           debugPrint('ChatView: 📋 Building item at index: $index');
         }
+        
+        int currentIndex = 0;
+        
         // Show order details as first item if available
-        if (orderDetails != null && index == 0) {
+        if (orderDetails != null && index == currentIndex) {
           if (kDebugMode) {
             debugPrint('ChatView: 📋 Rendering order details bubble for order: ${orderDetails.orderId}');
           }
@@ -772,9 +833,26 @@ class _ChatViewState extends State<ChatView> {
             },
           );
         }
+        if (orderDetails != null) currentIndex++;
+        
+        // Show status bubble as second item if available
+        if (latestStatusUpdate != null && index == currentIndex) {
+          if (kDebugMode) {
+            debugPrint('ChatView: 📋 Rendering status bubble for order: ${orderDetails?.orderId}');
+            debugPrint('ChatView: 📋 Status bubble status: ${latestStatusUpdate.status}');
+            debugPrint('ChatView: 📋 Status bubble message: ${latestStatusUpdate.message}');
+          }
+          return ChatOrderStatusBubble(
+            orderDetails: orderDetails!,
+            isFromCurrentUser: false, // Status updates are shown as from restaurant
+            currentUserId: currentUserId,
+            latestStatusUpdate: latestStatusUpdate,
+          );
+        }
+        if (latestStatusUpdate != null) currentIndex++;
         
         // Show regular messages
-        final messageIndex = orderDetails != null ? index - 1 : index;
+        final messageIndex = index - currentIndex;
         final message = messages[messageIndex];
         final isFromCurrentUser = message.isFromCurrentUser(currentUserId);
         final isOptimistic = message.id.startsWith('temp_');
@@ -1261,6 +1339,18 @@ class _ChatViewState extends State<ChatView> {
         ],
       ),
     );
+  }
+  
+  void _testStatusUpdate() {
+    debugPrint('ChatView: 🔄 Testing manual status update');
+    if (_chatBloc != null) {
+      // Trigger test status update event
+      debugPrint('ChatView: 🔄 Triggering test status update event');
+      _chatBloc!.add(const TestStatusUpdate());
+      debugPrint('ChatView: ✅ Test status update event triggered successfully');
+    } else {
+      debugPrint('ChatView: ❌ Cannot test status update - no chat bloc available');
+    }
   }
 
 

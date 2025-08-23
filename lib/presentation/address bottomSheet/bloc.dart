@@ -21,8 +21,12 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
   // For caching saved addresses
   List<SavedAddress> _savedAddresses = [];
   
-  // Debounce for search
+  // Debounce for search - REDUCED from 500ms to 300ms for faster response
   Timer? _debounce;
+  
+  // Cache for API responses to avoid redundant calls
+  Map<String, dynamic> _apiCache = {};
+  Timer? _cacheCleanupTimer;
 
   AddressPickerBloc() : super(AddressPickerInitial()) {
     on<InitializeAddressPickerEvent>(_onInitialize);
@@ -38,6 +42,16 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     on<EditAddressEvent>(_onEditAddress);
     on<UpdateAddressEvent>(_onUpdateAddress);
     on<ShareAddressEvent>(_onShareAddress);
+    
+    // Start cache cleanup timer
+    _startCacheCleanup();
+  }
+
+  void _startCacheCleanup() {
+    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      _apiCache.clear();
+      debugPrint('AddressPickerBloc: Cache cleaned up');
+    });
   }
 
   Future<void> _onInitialize(
@@ -48,7 +62,7 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
       // Load recent addresses from SharedPreferences
       await _loadRecentAddresses();
       
-      // Load saved addresses from API
+      // Load saved addresses from API with caching
       await _loadSavedAddressesFromAPI();
       
       // Emit initial state with recent addresses and saved addresses
@@ -131,6 +145,9 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
           
           // Remove from local cache
           _savedAddresses.removeWhere((addr) => addr.addressId == event.addressId);
+          
+          // Clear API cache to ensure fresh data
+          _apiCache.clear();
           
           // Emit success state
           emit(AddressDeletedSuccessfully(deletedAddressId: event.addressId));
@@ -241,6 +258,9 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
             _savedAddresses[index] = updatedAddress;
           }
           
+          // Clear API cache to ensure fresh data
+          _apiCache.clear();
+          
           // Emit success state
           emit(AddressUpdatedSuccessfully(updatedAddress: updatedAddress));
           
@@ -304,8 +324,8 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     // Create a completer to properly handle the debounce
     final completer = Completer();
     
-    // Set a debounce to avoid too many API calls
-    _debounce = Timer(const Duration(milliseconds: 500), () {
+    // OPTIMIZATION: Reduced debounce from 500ms to 300ms for faster response
+    _debounce = Timer(const Duration(milliseconds: 300), () {
       completer.complete();
     });
     
@@ -423,8 +443,28 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
           // Add to recent addresses
           await _addToRecentAddresses(suggestion);
           
-          // Refresh saved addresses from API
-          await _loadSavedAddressesFromAPI();
+          // OPTIMIZATION: Update local cache immediately instead of reloading from API
+          final newAddress = SavedAddress(
+            addressId: responseData['data']['address_id']?.toString() ?? '',
+            userId: userId,
+            addressLine1: event.address,
+            addressLine2: event.addressName.isNotEmpty ? event.addressName : 'Other',
+            city: addressComponents['city'] ?? '',
+            state: addressComponents['state'] ?? '',
+            postalCode: '1',
+            country: addressComponents['country'] ?? 'India',
+            isDefault: false,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          
+          // Add to local cache
+          _savedAddresses.add(newAddress);
+          
+          // Clear API cache to ensure fresh data
+          _apiCache.clear();
           
           // Emit success state
           emit(AddressSavedSuccessfully(
@@ -505,7 +545,7 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     emit(AddressPickerClosed());
   }
 
-  // Helper method to load saved addresses from API
+  // Helper method to load saved addresses from API with caching
   Future<void> _loadSavedAddressesFromAPI() async {
     try {
       debugPrint('AddressPickerBloc: Loading saved addresses from API');
@@ -518,6 +558,21 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
         debugPrint('AddressPickerBloc: No authentication token or user ID found');
         _savedAddresses = [];
         return;
+      }
+
+      // Check cache first
+      final cacheKey = 'saved_addresses_$userId';
+      if (_apiCache.containsKey(cacheKey)) {
+        final cachedData = _apiCache[cacheKey];
+        final cacheTime = cachedData['timestamp'] as DateTime;
+        final cacheAge = DateTime.now().difference(cacheTime);
+        
+        // Use cache if it's less than 2 minutes old
+        if (cacheAge.inMinutes < 2) {
+          debugPrint('AddressPickerBloc: Using cached saved addresses');
+          _savedAddresses = List<SavedAddress>.from(cachedData['data']);
+          return;
+        }
       }
 
       // Make API call to get saved addresses
@@ -545,6 +600,12 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
             return SavedAddress.fromJson(addressJson);
           }).toList();
           
+          // Cache the result
+          _apiCache[cacheKey] = {
+            'data': _savedAddresses,
+            'timestamp': DateTime.now(),
+          };
+          
           debugPrint('AddressPickerBloc: Loaded ${_savedAddresses.length} saved addresses from API');
         } else {
           debugPrint('AddressPickerBloc: API returned error: ${responseData['message']}');
@@ -560,12 +621,26 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     }
   }
 
-  // Helper method to get address suggestions from Places API
+  // Helper method to get address suggestions from Places API with caching
   Future<List<AddressSuggestion>> _getAddressSuggestions(String query) async {
     if (query.isEmpty) return _recentAddresses;
 
     try {
       debugPrint('AddressPickerBloc: Getting address suggestions for query: $query');
+      
+      // Check cache first
+      final cacheKey = 'address_suggestions_$query';
+      if (_apiCache.containsKey(cacheKey)) {
+        final cachedData = _apiCache[cacheKey];
+        final cacheTime = cachedData['timestamp'] as DateTime;
+        final cacheAge = DateTime.now().difference(cacheTime);
+        
+        // Use cache if it's less than 5 minutes old
+        if (cacheAge.inMinutes < 5) {
+          debugPrint('AddressPickerBloc: Using cached address suggestions');
+          return List<AddressSuggestion>.from(cachedData['data']);
+        }
+      }
       
       // For India-specific places
       final url = Uri.parse(
@@ -622,6 +697,12 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
             ));
           }
           
+          // Cache the result
+          _apiCache[cacheKey] = {
+            'data': suggestions,
+            'timestamp': DateTime.now(),
+          };
+          
           return suggestions;
         } else {
           debugPrint('AddressPickerBloc: Places API error: ${data['status']}');
@@ -637,10 +718,24 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
     }
   }
 
-  // Helper method to get place details (including coordinates) from Places API
+  // Helper method to get place details (including coordinates) from Places API with caching
   Future<Map<String, dynamic>?> _getPlaceDetails(String placeId) async {
     try {
       debugPrint('AddressPickerBloc: Getting place details for place ID: $placeId');
+      
+      // Check cache first
+      final cacheKey = 'place_details_$placeId';
+      if (_apiCache.containsKey(cacheKey)) {
+        final cachedData = _apiCache[cacheKey];
+        final cacheTime = cachedData['timestamp'] as DateTime;
+        final cacheAge = DateTime.now().difference(cacheTime);
+        
+        // Use cache if it's less than 10 minutes old
+        if (cacheAge.inMinutes < 10) {
+          debugPrint('AddressPickerBloc: Using cached place details');
+          return cachedData['data'];
+        }
+      }
       
       final url = Uri.parse(
           'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=geometry,formatted_address&key=$_placesApiKey');
@@ -661,11 +756,19 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
           debugPrint('  Longitude: ${location['lng']}');
           debugPrint('  Address: $formattedAddress');
 
-          return {
+          final result = {
             'latitude': location['lat'],
             'longitude': location['lng'],
             'address': formattedAddress,
           };
+          
+          // Cache the result
+          _apiCache[cacheKey] = {
+            'data': result,
+            'timestamp': DateTime.now(),
+          };
+
+          return result;
         } else {
           debugPrint('AddressPickerBloc: Places API error: ${data['status']}');
           return null;
@@ -828,6 +931,7 @@ class AddressPickerBloc extends Bloc<AddressPickerEvent, AddressPickerState> {
   Future<void> close() {
     debugPrint('AddressPickerBloc: Closing and cleaning up resources');
     _debounce?.cancel();
+    _cacheCleanupTimer?.cancel();
     return super.close();
   }
 }

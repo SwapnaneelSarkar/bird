@@ -45,7 +45,7 @@ class OrderItem extends Equatable {
     if (dateTimeStr == null) return 'Unknown date';
     try {
       final dateTime = TimezoneUtils.parseToIST(dateTimeStr);
-      return TimezoneUtils.formatOrderDate(dateTime);
+      return TimezoneUtils.formatOrderDateTime(dateTime);
     } catch (e) {
       return 'Unknown date';
     }

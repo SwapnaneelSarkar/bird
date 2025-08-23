@@ -13,16 +13,18 @@ class PaymentMethodsLoaded extends OrderConfirmationState {
   final OrderSummary orderSummary;
   final Map<String, dynamic> cartMetadata;
   final String? selectedPaymentMode;
+  final bool isNonFood;
   
-  PaymentMethodsLoaded(
-    this.methods,
-    this.orderSummary,
-    this.cartMetadata,
+  const PaymentMethodsLoaded({
+    required this.methods,
+    required this.orderSummary,
+    required this.cartMetadata,
     this.selectedPaymentMode,
-  );
+    this.isNonFood = false,
+  });
   
   @override
-  List<Object?> get props => [methods, orderSummary, cartMetadata, selectedPaymentMode];
+  List<Object?> get props => [methods, orderSummary, cartMetadata, selectedPaymentMode, isNonFood];
 }
 
 
@@ -34,25 +36,29 @@ class OrderConfirmationLoaded extends OrderConfirmationState {
   final OrderSummary orderSummary;
   final Map<String, dynamic> cartMetadata;
   final String? selectedPaymentMode;
+  final bool isNonFood;
   
   const OrderConfirmationLoaded({
     required this.orderSummary,
     required this.cartMetadata,
     this.selectedPaymentMode,
+    this.isNonFood = false,
   });
   
   @override
-  List<Object?> get props => [orderSummary, cartMetadata, selectedPaymentMode];
+  List<Object?> get props => [orderSummary, cartMetadata, selectedPaymentMode, isNonFood];
   
   OrderConfirmationLoaded copyWith({
     OrderSummary? orderSummary,
     Map<String, dynamic>? cartMetadata,
     String? selectedPaymentMode,
+    bool? isNonFood,
   }) {
     return OrderConfirmationLoaded(
       orderSummary: orderSummary ?? this.orderSummary,
       cartMetadata: cartMetadata ?? this.cartMetadata,
       selectedPaymentMode: selectedPaymentMode ?? this.selectedPaymentMode,
+      isNonFood: isNonFood ?? this.isNonFood,
     );
   }
 }
@@ -86,8 +92,4 @@ class ChatRoomCreated extends OrderConfirmationState {
   
   @override
   List<Object?> get props => [orderId, roomId];
-}
-
-class OrderConfirmationEmptyCart extends OrderConfirmationState {
-  const OrderConfirmationEmptyCart();
 }

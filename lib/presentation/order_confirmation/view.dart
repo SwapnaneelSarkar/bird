@@ -1,13 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/color/colorConstant.dart';
 import '../../constants/font/fontManager.dart';
 import '../../widgets/order_item_card.dart';
-import '../../models/payment_mode.dart';
 import 'bloc.dart';
 import 'event.dart';
 import 'state.dart';
+import 'order_processing_screen.dart';
 
 class OrderConfirmationView extends StatelessWidget {
   final String? orderId;
@@ -70,8 +69,16 @@ class _OrderConfirmationContent extends StatelessWidget {
           debugPrint('_OrderConfirmationContent: State changed to ${state.runtimeType}');
           
           if (state is OrderConfirmationProcessing) {
-            debugPrint('_OrderConfirmationContent: Order is being processed, showing loading dialog');
-            _showProcessingDialog(context);
+            debugPrint('_OrderConfirmationContent: Order is being processed, navigating to processing screen');
+            final orderBloc = context.read<OrderConfirmationBloc>();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => BlocProvider.value(
+                  value: orderBloc,
+                  child: const OrderProcessingScreen(),
+                ),
+              ),
+            );
           } else if (state is OrderConfirmationSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -124,13 +131,13 @@ class _OrderConfirmationContent extends StatelessWidget {
             );
           }
           
-          if (state is OrderConfirmationError) {
-            return _buildErrorView(context, state.message, screenWidth, screenHeight);
-          }
-          
-          if (state is OrderConfirmationEmptyCart) {
+          if (state is OrderConfirmationError && state.message.contains('No items in cart')) {
             debugPrint('_OrderConfirmationContent: Showing empty cart view');
             return _buildEmptyCartView(context, screenWidth, screenHeight);
+          }
+          
+          if (state is OrderConfirmationError) {
+            return _buildErrorView(context, state.message, screenWidth, screenHeight);
           }
           
           if (state is OrderConfirmationLoaded) {
@@ -151,18 +158,7 @@ class _OrderConfirmationContent extends StatelessWidget {
             return _buildLoadedView(context, orderState, screenWidth, screenHeight);
           }
           
-          if (state is OrderConfirmationProcessing) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Processing your order...'),
-                ],
-              ),
-            );
-          }
+
           
           return const Center(
             child: Text('Something went wrong'),
@@ -622,16 +618,6 @@ class _OrderConfirmationContent extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final orderBloc = context.read<OrderConfirmationBloc>();
-    
-    // Auto-place order timer (8 seconds)
-    Timer? autoPlaceTimer;
-    autoPlaceTimer = Timer(const Duration(seconds: 8), () {
-      if (context.mounted) {
-        debugPrint('PaymentDialog: Auto-place order timeout reached, using default payment method');
-        Navigator.of(context).pop();
-        orderBloc.add(const PlaceOrder(paymentMode: 'cash'));
-      }
-    });
 
     showDialog(
       context: context,
@@ -645,17 +631,11 @@ class _OrderConfirmationContent extends StatelessWidget {
               builder: (context, state) {
                 debugPrint('PaymentDialog: Current state: ${state.runtimeType}');
                 
-                // Show default payment methods immediately, then load from API in background
-                List<PaymentMethod> paymentMethods = _getDefaultPaymentMethods();
-                
-                // If we have loaded payment methods from API, use those instead
-                if (state is PaymentMethodsLoaded) {
-                  paymentMethods = state.methods;
-                } else {
-                  // Trigger API call in background to load actual payment methods
+                // Trigger API call to load payment methods if not already loaded
+                if (state is! PaymentMethodsLoaded) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (context.mounted && state is! PaymentMethodsLoaded) {
-                      debugPrint('PaymentDialog: Triggering LoadPaymentMethods in background');
+                    if (context.mounted) {
+                      debugPrint('PaymentDialog: Triggering LoadPaymentMethods');
                       context.read<OrderConfirmationBloc>().add(LoadPaymentMethods());
                     }
                   });
@@ -679,27 +659,77 @@ class _OrderConfirmationContent extends StatelessWidget {
                       ),
                       SizedBox(height: screenHeight * 0.03),
 
-                      ...paymentMethods.map((method) {
-                        final icon = _getPaymentIcon(method.id);
-                        final color = _getPaymentColor(method.id);
-                        return Column(
+                      // Show loading state while fetching payment methods
+                      if (state is OrderConfirmationError)
+                        Column(
                           children: [
-                            _buildPaymentOption(
-                              context: dialogContext,
-                              orderBloc: orderBloc,
-                              icon: icon,
-                              title: method.displayName,
-                              subtitle: method.description,
-                              color: color,
-                              screenWidth: screenWidth,
-                              screenHeight: screenHeight,
-                              paymentId: method.id,
-                              autoPlaceTimer: autoPlaceTimer,
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: screenWidth * 0.1,
                             ),
-                            SizedBox(height: screenHeight * 0.015),
+                            SizedBox(height: screenHeight * 0.02),
+                            Text(
+                              'Failed to load payment methods',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: screenHeight * 0.01),
+                            Text(
+                              'Please try again',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.035,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            SizedBox(height: screenHeight * 0.02),
+                            ElevatedButton(
+                              onPressed: () {
+                                context.read<OrderConfirmationBloc>().add(LoadPaymentMethods());
+                              },
+                              child: const Text('Retry'),
+                            ),
                           ],
-                        );
-                      }).toList(),
+                        )
+                      else if (state is! PaymentMethodsLoaded)
+                        Column(
+                          children: [
+                            const CircularProgressIndicator(),
+                            SizedBox(height: screenHeight * 0.02),
+                            Text(
+                              'Loading payment methods...',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        // Show payment methods from API
+                        ...state.methods.map((method) {
+                          final icon = _getPaymentIcon(method.id);
+                          final color = _getPaymentColor(method.id);
+                          return Column(
+                            children: [
+                              _buildPaymentOption(
+                                context: dialogContext,
+                                orderBloc: orderBloc,
+                                icon: icon,
+                                title: method.displayName,
+                                subtitle: method.description,
+                                color: color,
+                                screenWidth: screenWidth,
+                                screenHeight: screenHeight,
+                                paymentId: method.id,
+                              ),
+                              SizedBox(height: screenHeight * 0.015),
+                            ],
+                          );
+                        }).toList(),
 
                       TextButton(
                         onPressed: () => Navigator.of(dialogContext).pop(),
@@ -716,26 +746,7 @@ class _OrderConfirmationContent extends StatelessWidget {
     );
   }
 
-  // Helper method to get default payment methods
-  List<PaymentMethod> _getDefaultPaymentMethods() {
-    return [
-      PaymentMethod(
-        id: 'cash',
-        displayName: 'Cash on Delivery',
-        description: 'Pay when you receive your order',
-      ),
-      PaymentMethod(
-        id: 'upi',
-        displayName: 'UPI Payment',
-        description: 'Pay using UPI apps like Google Pay, PhonePe',
-      ),
-      PaymentMethod(
-        id: 'card',
-        displayName: 'Card Payment',
-        description: 'Pay using credit or debit card',
-      ),
-    ];
-  }
+
 
   IconData _getPaymentIcon(String id) {
     switch (id) {
@@ -773,7 +784,6 @@ class _OrderConfirmationContent extends StatelessWidget {
     required double screenWidth,
     required double screenHeight,
     required String paymentId,
-    Timer? autoPlaceTimer,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -789,7 +799,6 @@ class _OrderConfirmationContent extends StatelessWidget {
         child: InkWell(
           onTap: () {
             debugPrint('PaymentDialog: Selected payment method: $paymentId');
-            autoPlaceTimer?.cancel();
             Navigator.of(context).pop();
             orderBloc.add(PlaceOrder(paymentMode: paymentId));
           },
@@ -848,46 +857,5 @@ class _OrderConfirmationContent extends StatelessWidget {
     );
   }
 
-  void _showProcessingDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(
-                  'Processing your order...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: ColorManager.black,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please wait while we place your order',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+
 } 

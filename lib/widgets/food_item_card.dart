@@ -9,6 +9,7 @@ import '../service/attribute_service.dart';
 import '../models/attribute_model.dart';
 import '../constants/font/fontManager.dart';
 import '../utils/currency_utils.dart';
+import '../utils/responsive_utils.dart';
 import 'veg_nonveg_icons.dart';
 
 class FoodItemCard extends StatefulWidget {
@@ -89,13 +90,16 @@ class _FoodItemCardState extends State<FoodItemCard> {
     String description = widget.item['description'] ?? '';
     bool isAvailable = widget.item['available'] ?? true;
     
-    final screenWidth = MediaQuery.of(context).size.width;
+    // Responsive dimensions
+    final imageSize = ResponsiveUtils.getResponsiveWidth(context, 0.22);
+    final padding = ResponsiveUtils.getResponsivePadding(context, 
+      horizontal: ResponsiveUtils.isSmallScreen(context) ? 12.0 : 16.0,
+      vertical: ResponsiveUtils.isSmallHeight(context) ? 8.0 : 12.0,
+    );
+    final spacing = ResponsiveUtils.getResponsiveSpacing(context, small: 8.0, medium: 12.0, large: 16.0);
     
     return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: screenWidth * 0.03,
-        horizontal: screenWidth * 0.04,
-      ),
+      padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -123,16 +127,16 @@ class _FoodItemCardState extends State<FoodItemCard> {
                 item: widget.item,
               );
             },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: screenWidth * 0.24,
-                height: screenWidth * 0.24,
-                child: CachedImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  width: screenWidth * 0.24,
-                  height: screenWidth * 0.24,
+                      child: ClipRRect(
+            borderRadius: BorderRadius.circular(ResponsiveUtils.getResponsiveBorderRadius(context)),
+            child: SizedBox(
+              width: imageSize,
+              height: imageSize,
+              child: CachedImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                width: imageSize,
+                height: imageSize,
                   placeholder: (context) => Container(
                     color: Colors.grey[200],
                     child: Center(
@@ -159,7 +163,7 @@ class _FoodItemCardState extends State<FoodItemCard> {
             ),
           ),
           
-          SizedBox(width: screenWidth * 0.03),
+          SizedBox(width: spacing),
           
           // Food details section - Make it tappable to show details
           Expanded(
@@ -179,15 +183,18 @@ class _FoodItemCardState extends State<FoodItemCard> {
                     children: [
                       // Veg indicator at the start
                       Container(
-                        margin: EdgeInsets.only(top: 2, right: screenWidth * 0.02), 
+                        margin: EdgeInsets.only(
+                          top: 2, 
+                          right: ResponsiveUtils.getResponsiveSpacing(context, small: 6.0, medium: 8.0, large: 10.0)
+                        ), 
                         child: isVeg 
                           ? VegNonVegIcons.vegIcon(
-                              size: screenWidth * 0.04,
+                              size: ResponsiveUtils.getResponsiveIconSize(context, small: 12.0, medium: 16.0, large: 20.0),
                               color: const Color(0xFF3CB043),
                               borderColor: Colors.white,
                             )
                           : VegNonVegIcons.nonVegIcon(
-                              size: screenWidth * 0.04,
+                              size: ResponsiveUtils.getResponsiveIconSize(context, small: 12.0, medium: 16.0, large: 20.0),
                               color: const Color(0xFFE53935),
                               borderColor: Colors.white,
                             ),
@@ -195,10 +202,10 @@ class _FoodItemCardState extends State<FoodItemCard> {
                       
                       // Name text with proper constraints
                       Expanded(
-                        child: Text(
+                        child:                         Text(
                           name,
                           style: GoogleFonts.poppins(
-                            fontSize: screenWidth * 0.045,
+                            fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 14.0, medium: 16.0, large: 18.0),
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
                             letterSpacing: -0.5,
@@ -211,19 +218,19 @@ class _FoodItemCardState extends State<FoodItemCard> {
                     ],
                   ),
                   
-                  SizedBox(height: screenWidth * 0.015),
+                  SizedBox(height: ResponsiveUtils.getResponsiveSpacing(context, small: 4.0, medium: 6.0, large: 8.0)),
                   
                   // Description
                   if (description.isNotEmpty)
                     Padding(
                       padding: EdgeInsets.only(
-                        bottom: screenWidth * 0.03,
-                        left: screenWidth * 0.06, // Align with name text
+                        bottom: ResponsiveUtils.getResponsiveSpacing(context, small: 8.0, medium: 12.0, large: 16.0),
+                        left: ResponsiveUtils.getResponsiveSpacing(context, small: 16.0, medium: 20.0, large: 24.0), // Align with name text
                       ),
                       child: Text(
                         description,
                         style: GoogleFonts.poppins(
-                          fontSize: screenWidth * 0.035,
+                          fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 12.0, medium: 14.0, large: 16.0),
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w400,
                           height: 1.3,
@@ -240,15 +247,15 @@ class _FoodItemCardState extends State<FoodItemCard> {
                     children: [
                       // Price (aligned with name text)
                       Padding(
-                        padding: EdgeInsets.only(left: screenWidth * 0.06),
-                        child:                         FutureBuilder<String>(
+                        padding: EdgeInsets.only(left: ResponsiveUtils.getResponsiveSpacing(context, small: 16.0, medium: 20.0, large: 24.0)),
+                        child: FutureBuilder<String>(
                           future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
                           builder: (context, snapshot) {
                             final currencySymbol = snapshot.data ?? '₹';
                             return Text(
                               CurrencyUtils.formatPrice(price.toDouble(), currencySymbol),
                               style: GoogleFonts.poppins(
-                                fontSize: screenWidth * 0.045,
+                                fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 14.0, medium: 16.0, large: 18.0),
                                 fontWeight: FontWeight.w700,
                                 color: Colors.black,
                                 letterSpacing: -0.5,
@@ -262,8 +269,8 @@ class _FoodItemCardState extends State<FoodItemCard> {
                       if (!isAvailable)
                         Container(
                           padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.04,
-                            vertical: screenWidth * 0.02,
+                            horizontal: ResponsiveUtils.getResponsiveSpacing(context, small: 12.0, medium: 16.0, large: 20.0),
+                            vertical: ResponsiveUtils.getResponsiveSpacing(context, small: 6.0, medium: 8.0, large: 10.0),
                           ),
                           decoration: BoxDecoration(
                             color: Colors.grey[200],
@@ -272,7 +279,7 @@ class _FoodItemCardState extends State<FoodItemCard> {
                           child: Text(
                             'Not Available',
                             style: GoogleFonts.poppins(
-                              fontSize: screenWidth * 0.035,
+                              fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 12.0, medium: 14.0, large: 16.0),
                               color: Colors.grey[600],
                               fontWeight: FontWeight.w500,
                             ),
@@ -280,8 +287,8 @@ class _FoodItemCardState extends State<FoodItemCard> {
                         )
                       else if (widget.quantity == 0) 
                         Container(
-                          height: screenWidth * 0.1,
-                          margin: EdgeInsets.only(right: screenWidth * 0.025),
+                          height: ResponsiveUtils.getResponsiveContainerSize(context, small: 36.0, medium: 40.0, large: 44.0),
+                          margin: EdgeInsets.only(right: ResponsiveUtils.getResponsiveSpacing(context, small: 8.0, medium: 10.0, large: 12.0)),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -309,8 +316,8 @@ class _FoodItemCardState extends State<FoodItemCard> {
                               borderRadius: BorderRadius.circular(20),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: screenWidth * 0.04, 
-                                  vertical: screenWidth * 0.02
+                                  horizontal: ResponsiveUtils.getResponsiveSpacing(context, small: 12.0, medium: 16.0, large: 20.0), 
+                                  vertical: ResponsiveUtils.getResponsiveSpacing(context, small: 6.0, medium: 8.0, large: 10.0)
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -318,17 +325,17 @@ class _FoodItemCardState extends State<FoodItemCard> {
                                     Text(
                                       'Add',
                                       style: GoogleFonts.poppins(
-                                        fontSize: screenWidth * 0.035,
+                                        fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 12.0, medium: 14.0, large: 16.0),
                                         fontWeight: FontWeight.w600,
                                         color: Colors.white,
                                         letterSpacing: 0.3,
                                       ),
                                     ),
-                                    SizedBox(width: screenWidth * 0.012),
+                                    SizedBox(width: ResponsiveUtils.getResponsiveSpacing(context, small: 4.0, medium: 6.0, large: 8.0)),
                                     Icon(
                                       Icons.add_shopping_cart_rounded,
                                       color: Colors.white,
-                                      size: screenWidth * 0.04,
+                                      size: ResponsiveUtils.getResponsiveIconSize(context, small: 14.0, medium: 16.0, large: 18.0),
                                     ),
                                   ],
                                 ),
@@ -371,13 +378,13 @@ class _FoodItemCardState extends State<FoodItemCard> {
                                 },
                                 borderRadius: BorderRadius.circular(50),
                                 child: Container(
-                                  width: screenWidth * 0.09,
-                                  height: screenWidth * 0.09,
+                                  width: ResponsiveUtils.getResponsiveContainerSize(context, small: 32.0, medium: 36.0, large: 40.0),
+                                  height: ResponsiveUtils.getResponsiveContainerSize(context, small: 32.0, medium: 36.0, large: 40.0),
                                   alignment: Alignment.center,
                                   child: Text(
                                     '-',
                                     style: GoogleFonts.poppins(
-                                      fontSize: screenWidth * 0.05,
+                                      fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 16.0, medium: 18.0, large: 20.0),
                                       color: Colors.grey,
                                       fontWeight: FontWeight.w400,
                                     ),
@@ -387,12 +394,12 @@ class _FoodItemCardState extends State<FoodItemCard> {
                               
                               // Quantity text
                               SizedBox(
-                                width: screenWidth * 0.075,
+                                width: ResponsiveUtils.getResponsiveContainerSize(context, small: 28.0, medium: 32.0, large: 36.0),
                                 child: Text(
                                   widget.quantity.toString(),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
-                                    fontSize: screenWidth * 0.04,
+                                    fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 14.0, medium: 16.0, large: 18.0),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -403,13 +410,13 @@ class _FoodItemCardState extends State<FoodItemCard> {
                                 onTap: () => _handleAddToCart(context, widget.quantity + 1),
                                 borderRadius: BorderRadius.circular(50),
                                 child: Container(
-                                  width: screenWidth * 0.09,
-                                  height: screenWidth * 0.09,
+                                  width: ResponsiveUtils.getResponsiveContainerSize(context, small: 32.0, medium: 36.0, large: 40.0),
+                                  height: ResponsiveUtils.getResponsiveContainerSize(context, small: 32.0, medium: 36.0, large: 40.0),
                                   alignment: Alignment.center,
                                   child: Text(
                                     '+',
                                     style: GoogleFonts.poppins(
-                                      fontSize: screenWidth * 0.05,
+                                      fontSize: ResponsiveUtils.getResponsiveFontSize(context, small: 16.0, medium: 18.0, large: 20.0),
                                       color: ColorManager.primary,
                                       fontWeight: FontWeight.w400,
                                     ),

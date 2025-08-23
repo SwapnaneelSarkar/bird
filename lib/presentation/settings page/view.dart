@@ -246,6 +246,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     if (_nameController.text.trim().isEmpty) {
       _showFieldError('name', 'Name is required');
       isValid = false;
+    } else if (!_isValidName(_nameController.text.trim())) {
+      _showFieldError('name', 'Name can only contain alphabets and spaces');
+      isValid = false;
     }
     
     // Validate email field
@@ -300,11 +303,19 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     return emailRegex.hasMatch(email);
   }
 
+  // Validate name format - only alphabets allowed
+  bool _isValidName(String name) {
+    final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
+    return nameRegex.hasMatch(name.trim());
+  }
+
   // Validate fields after loading data
   void _validateFieldsAfterLoad() {
     // Validate name field
     if (_nameController.text.trim().isEmpty) {
       _showFieldError('name', 'Name is required');
+    } else if (!_isValidName(_nameController.text.trim())) {
+      _showFieldError('name', 'Name can only contain alphabets and spaces');
     }
     
     // Validate email field
@@ -1075,6 +1086,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 child: TextField(
                   controller: controller,
                   keyboardType: keyboardType,
+                  inputFormatters: fieldName == 'name' ? [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                  ] : null,
                   style: TextStyle(
                     color: ColorManager.black,
                     fontSize: FontSize.s14 * responsiveTextScale,
@@ -1082,6 +1096,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
+                    hintText: fieldName == 'name' ? 'Enter your full name (alphabets only)' : null,
                     hintStyle: TextStyle(
                       color: Colors.grey[400],
                       fontSize: FontSize.s12 * responsiveTextScale,
@@ -1107,6 +1122,8 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         _showFieldError(fieldName, '${label} is required');
                       } else if (fieldName == 'email' && !_isValidEmail(value.trim())) {
                         _showFieldError(fieldName, 'Please enter a valid email address');
+                      } else if (fieldName == 'name' && !_isValidName(value.trim())) {
+                        _showFieldError(fieldName, 'Name can only contain alphabets and spaces');
                       } else {
                         _clearFieldError(fieldName);
                       }

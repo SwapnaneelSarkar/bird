@@ -1,5 +1,7 @@
 // lib/models/order_details_model.dart
+import 'package:flutter/foundation.dart';
 import '../utils/timezone_utils.dart';
+import '../utils/currency_formatter.dart';
 
 class OrderDetails {
   final String orderId;
@@ -18,6 +20,7 @@ class OrderDetails {
   final double? rating; // ADDED: Food rating
   final String? reviewText; // ADDED: Review text
   final bool? isCancellable; // ADDED: Whether order can be cancelled from API
+  final String? currency; // ADDED: Currency from API
 
   OrderDetails({
     required this.orderId,
@@ -36,6 +39,7 @@ class OrderDetails {
     this.rating, // ADDED
     this.reviewText, // ADDED
     this.isCancellable, // ADDED
+    this.currency, // ADDED
   });
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
@@ -44,6 +48,18 @@ class OrderDetails {
       orderItems = (json['items'] as List)
           .map((item) => OrderDetailsItem.fromJson(item))
           .toList();
+    }
+
+    // Parse created_at field with better error handling
+    DateTime? parsedCreatedAt;
+    if (json['created_at'] != null) {
+      try {
+        parsedCreatedAt = TimezoneUtils.parseToIST(json['created_at'].toString());
+        debugPrint('OrderDetails: ✅ Successfully parsed created_at: ${json['created_at']} -> ${parsedCreatedAt}');
+      } catch (e) {
+        debugPrint('OrderDetails: ❌ Error parsing created_at: ${json['created_at']} - $e');
+        parsedCreatedAt = null;
+      }
     }
 
     return OrderDetails(
@@ -56,9 +72,7 @@ class OrderDetails {
       totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
       deliveryFees: double.tryParse(json['delivery_fees']?.toString() ?? '0') ?? 0.0,
       orderStatus: json['order_status']?.toString() ?? 'Unknown',
-      createdAt: json['created_at'] != null
-          ? TimezoneUtils.parseToIST(json['created_at'].toString())
-          : null,
+      createdAt: parsedCreatedAt,
       restaurantName: json['restaurant_name']?.toString(),
       deliveryAddress: json['delivery_address']?.toString(),
       partnerId: json['partner_id']?.toString() ?? json['restaurant_id']?.toString(), // Add this line
@@ -67,6 +81,7 @@ class OrderDetails {
       rating: json['rating'] != null ? double.tryParse(json['rating'].toString()) : null, // ADDED
       reviewText: json['review_text']?.toString(), // ADDED
       isCancellable: json['isCancellable'] as bool?, // ADDED
+      currency: json['currency']?.toString(), // ADDED
     );
   }
 
@@ -89,6 +104,7 @@ class OrderDetails {
       rating: rating,
       reviewText: reviewText,
       isCancellable: isCancellable,
+      currency: currency,
     );
   }
 
@@ -111,6 +127,7 @@ class OrderDetails {
       rating: rating,
       reviewText: reviewText,
       isCancellable: isCancellable,
+      currency: currency,
     );
   }
 
@@ -146,6 +163,92 @@ class OrderDetails {
         return orderStatus;
     }
   }
+
+  // ADDED: Get formatted created date and time in IST
+  String get formattedCreatedDateTime {
+    if (createdAt == null) {
+      return 'Date not available';
+    }
+    return TimezoneUtils.formatOrderDateTime(createdAt!);
+  }
+
+  // ADDED: Get formatted created date only in IST
+  String get formattedCreatedDate {
+    if (createdAt == null) {
+      return 'Date not available';
+    }
+    return TimezoneUtils.formatOrderDate(createdAt!);
+  }
+
+  // ADDED: Get formatted created time only in IST
+  String get formattedCreatedTime {
+    if (createdAt == null) {
+      return 'Time not available';
+    }
+    return TimezoneUtils.formatTimeOnly(createdAt!);
+  }
+
+  // ADDED: Get status color for highlighting
+  int get statusColor {
+    switch (orderStatus.toLowerCase()) {
+      case 'pending':
+        return 0xFFFFA500; // Orange
+      case 'preparing':
+        return 0xFF2196F3; // Blue
+      case 'ready':
+        return 0xFF4CAF50; // Green
+      case 'on_the_way':
+        return 0xFF9C27B0; // Purple
+      case 'delivered':
+        return 0xFF4CAF50; // Green
+      case 'cancelled':
+        return 0xFFF44336; // Red
+      default:
+        return 0xFF757575; // Grey
+    }
+  }
+
+  // ADDED: Get currency symbol using CurrencyFormatter
+  String get currencySymbol {
+    return CurrencyFormatter.getCurrencySymbol(currency);
+  }
+
+  // ADDED: Get formatted price using CurrencyFormatter
+  String getFormattedPrice(double amount) {
+    return CurrencyFormatter.formatPrice(amount, currency);
+  }
+
+  // ADDED: Get formatted price with custom decimal places
+  String getFormattedPriceWithDecimals(double amount, int decimalDigits) {
+    return CurrencyFormatter.formatPriceWithDecimals(amount, currency, decimalDigits);
+  }
+
+  // ADDED: Get currency name
+  String get currencyName {
+    return CurrencyFormatter.getCurrencyName(currency);
+  }
+
+  // ADDED: Get status background color for highlighting
+  int get statusBackgroundColor {
+    switch (orderStatus.toLowerCase()) {
+      case 'pending':
+        return 0xFFFFF3E0; // Light Orange
+      case 'preparing':
+        return 0xFFE3F2FD; // Light Blue
+      case 'ready':
+        return 0xFFE8F5E8; // Light Green
+      case 'on_the_way':
+        return 0xFFF3E5F5; // Light Purple
+      case 'delivered':
+        return 0xFFE8F5E8; // Light Green
+      case 'cancelled':
+        return 0xFFFFEBEE; // Light Red
+      default:
+        return 0xFFF5F5F5; // Light Grey
+    }
+  }
+
+
 }
 
 class OrderDetailsItem {

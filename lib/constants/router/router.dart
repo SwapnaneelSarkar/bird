@@ -8,6 +8,7 @@ import 'package:bird/presentation/favorites/view.dart';
 import 'package:bird/presentation/home%20page/bloc.dart';
 import 'package:bird/presentation/home%20page/event.dart';
 import 'package:bird/presentation/order_confirmation/view.dart';
+import 'package:bird/presentation/order_confirmation/non_food_view.dart';
 import 'package:bird/presentation/order_details/view.dart';
 import 'package:bird/presentation/order_history/view.dart';
 import 'package:bird/presentation/otpPage/view.dart';
@@ -15,6 +16,7 @@ import 'package:bird/presentation/profile_view/view.dart';
 import 'package:bird/presentation/restaurant_menu/view.dart';
 import 'package:bird/presentation/restaurant_profile/view.dart';
 import 'package:bird/presentation/settings%20page/view.dart';
+import 'package:bird/presentation/no_internet/view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -34,11 +36,13 @@ class Routes {
   static const String restaurantMenu = '/restaurantMenu';
   static const String restaurantProfile = '/restaurantProfile';
   static const String orderConfirmation = '/orderConfirmation';
+  static const String nonFoodOrderConfirmation = '/nonFoodOrderConfirmation';
   static const String orderDetails = '/orderDetails';
   static const String chat = '/chat';
   static const String orderHistory = '/orderHistory';
   static const String dashboard = '/dashboard';
   static const String favorites = '/favorites';
+  static const String noInternet = '/noInternet';
 
   static const String blank = '/blank';
 }
@@ -180,6 +184,9 @@ class RouteGenerator {
       case Routes.orderConfirmation:
         return MaterialPageRoute(builder: (_) => const OrderConfirmationView());
 
+      case Routes.nonFoodOrderConfirmation:
+        return MaterialPageRoute(builder: (_) => const NonFoodOrderConfirmationView());
+
       case Routes.orderDetails:
         if (routeSettings.arguments != null && routeSettings.arguments is String) {
           final orderId = routeSettings.arguments as String;
@@ -230,6 +237,9 @@ class RouteGenerator {
 
       case Routes.favorites:
         return MaterialPageRoute(builder: (_) => const FavoritesPage());
+
+      case Routes.noInternet:
+        return MaterialPageRoute(builder: (_) => const NoInternetPage());
 
       default:
         return unDefinedRoute();

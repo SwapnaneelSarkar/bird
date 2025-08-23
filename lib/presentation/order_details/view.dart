@@ -243,9 +243,12 @@ class _OrderDetailsContent extends StatelessWidget {
             SizedBox(height: screenHeight * 0.02),
             if (orderDetails.deliveryAddress != null)
               _buildDeliveryInfoCard(orderDetails, screenWidth, screenHeight),
-            SizedBox(height: screenHeight * 0.02),
-            _buildReviewSection(orderDetails),
-            SizedBox(height: screenHeight * 0.02),
+            if (orderDetails.deliveryAddress != null)
+              SizedBox(height: screenHeight * 0.02),
+            if (_shouldShowReviewSection(orderDetails)) ...[
+              _buildReviewSection(orderDetails),
+              SizedBox(height: screenHeight * 0.02),
+            ],
             if (_shouldShowReorderButton(orderDetails))
               _buildReorderButton(context, orderDetails, screenWidth, screenHeight),
             if (_shouldShowReorderButton(orderDetails))
@@ -271,6 +274,10 @@ class _OrderDetailsContent extends StatelessWidget {
     return orderDetails.orderStatus.toUpperCase() != 'DELIVERED' && 
            orderDetails.orderStatus.toUpperCase() != 'CANCELLED' &&
            orderDetails.orderStatus.toUpperCase() != 'CANCELED';
+  }
+
+  bool _shouldShowReviewSection(OrderDetails orderDetails) {
+    return orderDetails.orderStatus.toUpperCase() == 'DELIVERED';
   }
 
   Widget _buildReviewSection(OrderDetails orderDetails) {
@@ -514,7 +521,7 @@ class _OrderDetailsContent extends StatelessWidget {
       children: [
         _buildInfoColumn('Order ID', orderDetails.orderId, screenWidth, screenHeight, true),
         if (orderDetails.createdAt != null)
-          _buildInfoColumn('Order Date', TimezoneUtils.formatDateOnly(orderDetails.createdAt!), screenWidth, screenHeight, false),
+          _buildInfoColumn('Order Date & Time', TimezoneUtils.formatOrderDateTime(orderDetails.createdAt!), screenWidth, screenHeight, false),
       ],
     );
   }
@@ -740,23 +747,18 @@ class _OrderDetailsContent extends StatelessWidget {
   }
 
   Widget _buildPriceBreakdown(OrderDetails orderDetails, double screenWidth, double screenHeight) {
-    return FutureBuilder<String>(
-      future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-      builder: (context, snapshot) {
-        final currencySymbol = snapshot.data ?? '₹';
-        return Column(
-          children: [
-            _buildSummaryRow('Subtotal', CurrencyUtils.formatPrice(orderDetails.subtotal, currencySymbol), screenWidth, false),
-            SizedBox(height: screenHeight * 0.01),
-            _buildSummaryRow('Delivery Fee', CurrencyUtils.formatPrice(orderDetails.deliveryFees, currencySymbol), screenWidth, false),
-            SizedBox(height: screenHeight * 0.015),
-            Divider(color: Colors.grey[200]),
-            SizedBox(height: screenHeight * 0.015),
-            _buildSummaryRow('Total Amount', CurrencyUtils.formatPrice(orderDetails.grandTotal, currencySymbol), screenWidth, true),
-          ],
+    final currencySymbol = orderDetails.currencySymbol;
+    return Column(
+      children: [
+        _buildSummaryRow('Subtotal', orderDetails.getFormattedPrice(orderDetails.subtotal), screenWidth, false),
+        // SizedBox(height: screenHeight * 0.01),
+        // _buildSummaryRow('Delivery Fee', CurrencyUtils.formatPrice(orderDetails.deliveryFees, currencySymbol), screenWidth, false),
+        SizedBox(height: screenHeight * 0.015),
+        Divider(color: Colors.grey[200]),
+        SizedBox(height: screenHeight * 0.015),
+        _buildSummaryRow('Total Amount', orderDetails.getFormattedPrice(orderDetails.grandTotal), screenWidth, true),
+      ],
         );
-      },
-    );
   }
 
   Widget _buildSummaryRow(String label, String value, double screenWidth, bool isTotal) {
@@ -823,7 +825,7 @@ class _OrderDetailsContent extends StatelessWidget {
               children: [
                 if (index > 0) Divider(color: Colors.grey[200]),
                 if (index > 0) SizedBox(height: screenHeight * 0.01),
-                _buildOrderItemRow(item, menuItems, screenWidth, screenHeight),
+                _buildOrderItemRow(item, menuItems, orderDetails, screenWidth, screenHeight),
                 if (index < orderDetails.items.length - 1) SizedBox(height: screenHeight * 0.01),
               ],
             );
@@ -833,7 +835,7 @@ class _OrderDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderItemRow(OrderDetailsItem item, Map<String, MenuItem> menuItems, double screenWidth, double screenHeight) {
+  Widget _buildOrderItemRow(OrderDetailsItem item, Map<String, MenuItem> menuItems, OrderDetails orderDetails, double screenWidth, double screenHeight) {
     final menuItem = item.menuId.isNotEmpty ? menuItems[item.menuId] : null;
     final itemName = menuItem?.name ?? item.itemName ?? 'Menu Item';
     
@@ -886,20 +888,14 @@ class _OrderDetailsContent extends StatelessWidget {
             ],
           ),
         ),
-        FutureBuilder<String>(
-          future: CurrencyUtils.getCurrencySymbolFromUserLocation(),
-          builder: (context, snapshot) {
-            final currencySymbol = snapshot.data ?? '₹';
-            return Text(
-              CurrencyUtils.formatPrice(item.totalPrice, currencySymbol),
-              style: TextStyle(
-                fontSize: screenWidth * 0.04,
-                fontWeight: FontWeightManager.bold,
-                fontFamily: FontFamily.Montserrat,
-                color: ColorManager.black,
-              ),
-            );
-          },
+        Text(
+          orderDetails.getFormattedPrice(item.totalPrice),
+          style: TextStyle(
+            fontSize: screenWidth * 0.04,
+            fontWeight: FontWeightManager.bold,
+            fontFamily: FontFamily.Montserrat,
+            color: ColorManager.black,
+          ),
         ),
       ],
     );

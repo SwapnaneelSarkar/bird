@@ -9,11 +9,12 @@ abstract class OrderConfirmationEvent extends Equatable {
 
 class LoadOrderConfirmationData extends OrderConfirmationEvent {
   final String? orderId;
+  final bool isNonFood;
   
-  const LoadOrderConfirmationData({this.orderId});
+  const LoadOrderConfirmationData({this.orderId, this.isNonFood = false});
   
   @override
-  List<Object?> get props => [orderId];
+  List<Object?> get props => [orderId, isNonFood];
 }
 
 class ProceedToChat extends OrderConfirmationEvent {

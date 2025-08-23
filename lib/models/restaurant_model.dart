@@ -102,7 +102,9 @@ class Restaurant {
       final address = json['address']?.toString() ?? 'Address not available';
       
       final description = json['description']?.toString();
-      debugPrint('Restaurant: Parsed description: "$description" for restaurant: $name');
+      // Handle the case where description is "null" string
+      final finalDescription = (description == null || description == 'null' || description.isEmpty) ? null : description;
+      debugPrint('Restaurant: Parsed description: "$finalDescription" for restaurant: $name');
       
       final cuisine = json['category']?.toString() ?? 
                      json['cuisine']?.toString() ?? 
@@ -112,10 +114,12 @@ class Restaurant {
       final rating = _parseDouble(json['rating']);
       
       // Use open_timings or fallback to operational_hours
-      final timingsRaw = json['open_timings']?.toString() ?? json['operational_hours']?.toString();
+      final timingsRaw = json['open_timings'] ?? json['operational_hours'];
+      debugPrint('Restaurant: Raw timings data: $timingsRaw (type: ${timingsRaw.runtimeType})');
       final openNow = _determineOpenStatus(timingsRaw);
       final closesAt = _extractClosingTime(timingsRaw);
-      final openTimings = timingsRaw;
+      final openTimings = timingsRaw != null ? jsonEncode(timingsRaw) : null;
+      debugPrint('Restaurant: Parsed openNow: $openNow, closesAt: $closesAt, openTimings: $openTimings');
       
       final imageUrl = _getImageUrl(json, photos);
       
@@ -252,7 +256,7 @@ class Restaurant {
         id: id,
         name: name,
         address: address,
-        description: description,
+        description: finalDescription,
         cuisine: cuisine,
         rating: rating,
         openNow: openNow,
@@ -346,15 +350,23 @@ class Restaurant {
   }
 
   // Helper method to determine if restaurant is currently open (IST aware, parses open_timings JSON)
-  static bool? _determineOpenStatus(String? timingsJson) {
-    if (timingsJson == null || timingsJson.isEmpty) return null;
+  static bool? _determineOpenStatus(dynamic timingsData) {
+    if (timingsData == null) return null;
     
     try {
       final now = TimezoneUtils.getCurrentTimeIST();
       final currentDay = _getDayName(now.weekday);
       
-      // Parse the operational hours JSON
-      final Map<String, dynamic> timings = json.decode(timingsJson);
+      // Handle both Map and String inputs
+      Map<String, dynamic> timings;
+      if (timingsData is Map<String, dynamic>) {
+        timings = timingsData;
+      } else if (timingsData is String) {
+        timings = json.decode(timingsData);
+      } else {
+        return null;
+      }
+      
       final String todayTimings = timings[currentDay.toLowerCase()]?.toString() ?? '';
       
       if (todayTimings.isEmpty) return false;
@@ -367,14 +379,23 @@ class Restaurant {
   }
 
   // Helper method to extract closing time from timings
-  static String? _extractClosingTime(String? timingsJson) {
-    if (timingsJson == null || timingsJson.isEmpty) return null;
+  static String? _extractClosingTime(dynamic timingsData) {
+    if (timingsData == null) return null;
     
     try {
       final now = TimezoneUtils.getCurrentTimeIST();
       final currentDay = _getDayName(now.weekday);
       
-      final Map<String, dynamic> timings = json.decode(timingsJson);
+      // Handle both Map and String inputs
+      Map<String, dynamic> timings;
+      if (timingsData is Map<String, dynamic>) {
+        timings = timingsData;
+      } else if (timingsData is String) {
+        timings = json.decode(timingsData);
+      } else {
+        return null;
+      }
+      
       final String todayTimings = timings[currentDay.toLowerCase()]?.toString() ?? '';
       
       if (todayTimings.isEmpty) return null;

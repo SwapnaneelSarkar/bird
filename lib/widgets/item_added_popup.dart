@@ -38,6 +38,7 @@ class ItemAddedPopup extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    const double actionButtonHeight = 48.0;
     
     final itemName = item['name'] ?? 'Item';
     double itemPrice = 0.0;
@@ -231,37 +232,45 @@ class ItemAddedPopup extends StatelessWidget {
               child: Row(
                 children: [
                   // Continue Shopping button
-                 Expanded(
-  child: OutlinedButton(
-    onPressed: () {
-      Navigator.of(context).pop();
-      onContinueShopping?.call();
-    },
-    style: OutlinedButton.styleFrom(
-      backgroundColor: ColorManager.primary.withOpacity(0.8), // 🔶 Background color added
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      side: BorderSide(color: Colors.transparent), // Remove border
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-    ),
-    child: Text(
-      'Continue Shopping',
-      style: GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: Colors.white, // Text color should contrast background
-      ),
-    ),
-  ),
-),
+                  Expanded(
+                    child: SizedBox(
+                      height: actionButtonHeight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onContinueShopping?.call();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ColorManager.primary.withOpacity(0.9),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          minimumSize: const Size.fromHeight(actionButtonHeight),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: Text(
+                          'Continue Shopping',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                   
                   const SizedBox(width: 12),
                   
                   // View Cart button
                   Expanded(
-                    child: ElevatedButton(
+                    child: SizedBox(
+                      height: actionButtonHeight,
+                      child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
                         onViewCart?.call();
@@ -269,8 +278,9 @@ class ItemAddedPopup extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ColorManager.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
+                        minimumSize: const Size.fromHeight(actionButtonHeight),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -281,6 +291,7 @@ class ItemAddedPopup extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
+                      ),
                       ),
                     ),
                   ),

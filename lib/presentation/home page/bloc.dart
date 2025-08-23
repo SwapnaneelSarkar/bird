@@ -253,30 +253,37 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(optimisticState);
       debugPrint('HomeBloc: Emitted optimistic address update');
 
-      // Load saved addresses first
-      debugPrint('HomeBloc: Loading saved addresses...');
-      final addressResult = await AddressService.getAllAddresses();
+      // OPTIMIZATION: Run API calls in parallel for faster response
+      debugPrint('HomeBloc: Starting parallel API calls...');
+      
+      final futures = await Future.wait([
+        // Load saved addresses
+        AddressService.getAllAddresses(),
+        // Update address in profile
+        _updateUserService.updateUserProfileWithId(
+          token: token,
+          userId: userId,
+          address: event.address,
+          latitude: event.latitude,
+          longitude: event.longitude,
+        ),
+        // Fetch updated restaurants based on new location
+        _fetchRestaurants(event.latitude, event.longitude),
+      ]);
+      
+      final addressResult = futures[0] as Map<String, dynamic>;
+      final updateResult = futures[1] as Map<String, dynamic>;
+      final allRestaurants = futures[2] as List<Restaurant>;
+      
+      // Process saved addresses
       List<Map<String, dynamic>> savedAddresses = [];
       if (addressResult['success'] == true && addressResult['data'] != null) {
         savedAddresses = List<Map<String, dynamic>>.from(addressResult['data']);
         debugPrint('HomeBloc: Reloaded ${savedAddresses.length} saved addresses');
       }
       
-      // Update address in profile via API
-      debugPrint('HomeBloc: Updating address via Profile API...');
-      final updateResult = await _updateUserService.updateUserProfileWithId(
-        token: token,
-        userId: userId,
-        address: event.address,
-        latitude: event.latitude,
-        longitude: event.longitude,
-      );
-      
       if (updateResult['success'] == true) {
         debugPrint('HomeBloc: Address updated successfully in profile');
-        
-        // Fetch updated restaurants based on new location
-        final allRestaurants = await _fetchRestaurants(event.latitude, event.longitude);
         
         // Apply supercategory filter if set
         List<Restaurant> filteredRestaurants = allRestaurants;
@@ -293,6 +300,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           restaurants: filteredRestaurants,
           savedAddresses: savedAddresses,
         ));
+        
+        // Clear address cache to ensure fresh data
+        AddressService.clearCache();
         
       } else {
         debugPrint('HomeBloc: Failed to update address: ${updateResult['message']}');

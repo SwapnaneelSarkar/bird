@@ -7,10 +7,23 @@ import 'token_service.dart';
 
 class AddressService {
   
+  // Cache for addresses to avoid redundant API calls
+  static Map<String, dynamic> _addressCache = {};
+  static DateTime? _lastCacheTime;
+  
   // Get all saved addresses for the user
   static Future<Map<String, dynamic>> getAllAddresses() async {
     try {
       debugPrint('AddressService: Fetching all addresses...');
+      
+      // Check cache first (cache for 2 minutes)
+      if (_addressCache.isNotEmpty && _lastCacheTime != null) {
+        final cacheAge = DateTime.now().difference(_lastCacheTime!);
+        if (cacheAge.inMinutes < 2) {
+          debugPrint('AddressService: Using cached addresses');
+          return _addressCache;
+        }
+      }
       
       // Add retry logic for new users who might have timing issues
       String? token;
@@ -65,11 +78,17 @@ class AddressService {
         
         if (responseData['status'] == true) {
           debugPrint('AddressService: Addresses fetched successfully');
-          return {
+          
+          // Cache the result
+          final result = {
             'success': true,
             'message': responseData['message'],
             'data': responseData['data'] ?? [],
           };
+          _addressCache = result;
+          _lastCacheTime = DateTime.now();
+          
+          return result;
         } else {
           debugPrint('AddressService: Fetch failed: ${responseData['message']}');
           return {
@@ -372,5 +391,12 @@ class AddressService {
         'message': 'Network error occurred. Please check your connection.',
       };
     }
+  }
+  
+  // Clear cache when addresses are updated
+  static void clearCache() {
+    _addressCache.clear();
+    _lastCacheTime = null;
+    debugPrint('AddressService: Cache cleared');
   }
 }

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../constants/color/colorConstant.dart';
 import '../../../constants/font/fontManager.dart';
 import '../../../models/country_model.dart';
+import '../../../service/location_services.dart';
 import '../../widgets/custom_button_large.dart';
 import 'bloc.dart';
 import 'event.dart';
@@ -22,13 +23,23 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController phoneController = TextEditingController();
+  final LocationService _locationService = LocationService();
   Country selectedCountry = CountryData.defaultCountry;
   bool isLoading = false;
+  bool isDetectingLocation = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedCountry();
+    _initializeCountrySelection();
+  }
+
+  Future<void> _initializeCountrySelection() async {
+    // First load saved country preference
+    await _loadSavedCountry();
+    
+    // Then try to detect user's location and set country accordingly
+    await _detectUserCountryFromLocation();
   }
 
   Future<void> _loadSavedCountry() async {
@@ -42,11 +53,247 @@ class _LoginPageState extends State<LoginPage> {
           setState(() {
             selectedCountry = country;
           });
+          debugPrint('LoginPage: Loaded saved country: ${country.name} (${country.dialCode})');
         }
       }
     } catch (e) {
-      debugPrint('Error loading saved country: $e');
+      debugPrint('LoginPage: Error loading saved country: $e');
     }
+  }
+
+  Future<void> _detectUserCountryFromLocation() async {
+    try {
+      setState(() {
+        isDetectingLocation = true;
+      });
+
+      debugPrint('LoginPage: Starting location-based country detection...');
+
+      // Check location availability first
+      final availability = await _locationService.checkLocationAvailability();
+      debugPrint('LoginPage: Location availability: $availability');
+
+      if (!availability['available']!) {
+        debugPrint('LoginPage: Location services not available, using default country');
+        
+        // Show user-friendly message about location status
+        if (mounted) {
+          _showLocationPermissionDialog(availability);
+        }
+        
+        setState(() {
+          isDetectingLocation = false;
+        });
+        return;
+      }
+
+      // Detect user's country from location
+      final locationData = await _locationService.getUserLocationAndCountry();
+      
+      if (locationData != null && locationData['countryCode'] != null) {
+        final detectedCountryCode = locationData['countryCode'] as String;
+        final detectedCountry = CountryData.findByCode(detectedCountryCode);
+        
+        if (detectedCountry != null) {
+          setState(() {
+            selectedCountry = detectedCountry;
+            isDetectingLocation = false;
+          });
+          
+          // Save the detected country
+          await _saveSelectedCountry(detectedCountry);
+          
+          debugPrint('LoginPage: Country detected from location: ${detectedCountry.name} (${detectedCountry.dialCode})');
+          debugPrint('LoginPage: Location: ${locationData['address']}');
+          
+          // Show a subtle notification to the user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Detected country: ${detectedCountry.name}',
+                        style: TextStyle(
+                          fontSize: FontSize.s14,
+                          fontFamily: FontFamily.Montserrat,
+                          fontWeight: FontWeightManager.medium,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: ColorManager.primary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 3),
+                action: SnackBarAction(
+                  label: 'Change',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    _showCountryPicker();
+                  },
+                ),
+              ),
+            );
+          }
+        } else {
+          debugPrint('LoginPage: Detected country code not found in our list: $detectedCountryCode');
+          setState(() {
+            isDetectingLocation = false;
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Country not supported. Please select manually.',
+                  style: TextStyle(
+                    fontSize: FontSize.s14,
+                    fontFamily: FontFamily.Montserrat,
+                    fontWeight: FontWeightManager.medium,
+                    color: Colors.white,
+                  ),
+                ),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } else {
+        debugPrint('LoginPage: Could not detect country from location');
+        setState(() {
+          isDetectingLocation = false;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Could not detect your location. Please select country manually.',
+                style: TextStyle(
+                  fontSize: FontSize.s14,
+                  fontFamily: FontFamily.Montserrat,
+                  fontWeight: FontWeightManager.medium,
+                  color: Colors.white,
+                ),
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              margin: EdgeInsets.all(16),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('LoginPage: Error detecting country from location: $e');
+      setState(() {
+        isDetectingLocation = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error detecting location. Please select country manually.',
+              style: TextStyle(
+                fontSize: FontSize.s14,
+                fontFamily: FontFamily.Montserrat,
+                fontWeight: FontWeightManager.medium,
+                color: Colors.white,
+              ),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            margin: EdgeInsets.all(16),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showLocationPermissionDialog(Map<String, bool> availability) {
+    final message = _locationService.getLocationStatusMessage(availability);
+    final canPrompt = _locationService.canPromptForLocation(availability);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.location_on, color: ColorManager.primary),
+            SizedBox(width: 8),
+            Text(
+              'Location Access',
+              style: TextStyle(
+                fontSize: FontSize.s18,
+                fontFamily: FontFamily.Montserrat,
+                fontWeight: FontWeightManager.semiBold,
+                color: ColorManager.black,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            fontSize: FontSize.s14,
+            fontFamily: FontFamily.Montserrat,
+            fontWeight: FontWeightManager.regular,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: FontSize.s14,
+                fontFamily: FontFamily.Montserrat,
+                fontWeight: FontWeightManager.medium,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          if (canPrompt)
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _detectUserCountryFromLocation();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorManager.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Try Again',
+                style: TextStyle(
+                  fontSize: FontSize.s14,
+                  fontFamily: FontFamily.Montserrat,
+                  fontWeight: FontWeightManager.medium,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _saveSelectedCountry(Country country) async {
@@ -54,7 +301,7 @@ class _LoginPageState extends State<LoginPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('selected_country_code', country.code);
     } catch (e) {
-      debugPrint('Error saving selected country: $e');
+      debugPrint('LoginPage: Error saving selected country: $e');
     }
   }
 
@@ -156,94 +403,148 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildPhoneInput() {
-    return Container(
-      height: 60.0,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12.0),
-        color: Colors.white,
-      ),
-      child: Row(
-        children: [
-          // Country picker
-          GestureDetector(
-            onTap: isLoading ? null : _showCountryPicker,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    selectedCountry.flag,
-                    style: const TextStyle(fontSize: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Location detection status and manual button
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Phone Number',
+                style: TextStyle(
+                  fontSize: FontSize.s16,
+                  fontFamily: FontFamily.Montserrat,
+                  fontWeight: FontWeightManager.semiBold,
+                  color: ColorManager.black,
+                ),
+              ),
+            ),
+            if (!isDetectingLocation)
+              TextButton.icon(
+                onPressed: () => _detectUserCountryFromLocation(),
+                icon: Icon(Icons.location_on, size: 16, color: ColorManager.primary),
+                label: Text(
+                  'Detect',
+                  style: TextStyle(
+                    fontSize: FontSize.s12,
+                    fontFamily: FontFamily.Montserrat,
+                    fontWeight: FontWeightManager.medium,
+                    color: ColorManager.primary,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    selectedCountry.dialCode,
-                    style: TextStyle(
+                ),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Container(
+          height: 60.0,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12.0),
+            color: Colors.white,
+          ),
+          child: Row(
+            children: [
+              // Country picker with location detection indicator
+              GestureDetector(
+                onTap: (isLoading || isDetectingLocation) ? null : _showCountryPicker,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Show loading indicator if detecting location
+                      if (isDetectingLocation) ...[
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(ColorManager.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ] else ...[
+                        Text(
+                          selectedCountry.flag,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        selectedCountry.dialCode,
+                        style: TextStyle(
+                          fontSize: FontSize.s14,
+                          fontFamily: FontFamily.Montserrat,
+                          fontWeight: FontWeightManager.medium,
+                          color: isDetectingLocation ? Colors.grey.shade400 : ColorManager.black,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 20,
+                        color: (isLoading || isDetectingLocation) ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Divider
+              Container(
+                height: 30,
+                width: 1,
+                color: Colors.grey.shade300,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              
+              // Phone input
+              Expanded(
+                child: TextField(
+                  controller: phoneController,
+                  enabled: !isLoading && !isDetectingLocation,
+                  keyboardType: TextInputType.phone,
+                  maxLength: _getMaxLength(),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  style: TextStyle(
+                    fontSize: FontSize.s16,
+                    fontFamily: FontFamily.Montserrat,
+                    fontWeight: FontWeightManager.medium,
+                    color: (isLoading || isDetectingLocation) ? Colors.grey.shade600 : ColorManager.black,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: isDetectingLocation ? 'Detecting location...' : 'Enter your phone number *',
+                    hintStyle: TextStyle(
+                      color: Colors.grey.shade500,
                       fontSize: FontSize.s14,
                       fontFamily: FontFamily.Montserrat,
-                      fontWeight: FontWeightManager.medium,
-                      color: ColorManager.black,
+                      fontWeight: FontWeightManager.regular,
+                    ),
+                    border: InputBorder.none,
+                    counterText: '',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 20,
-                    color: isLoading ? Colors.grey.shade400 : Colors.grey.shade600,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Divider
-          Container(
-            height: 30,
-            width: 1,
-            color: Colors.grey.shade300,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-          
-          // Phone input
-          Expanded(
-            child: TextField(
-              controller: phoneController,
-              enabled: !isLoading,
-              keyboardType: TextInputType.phone,
-              maxLength: _getMaxLength(),
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              style: TextStyle(
-                fontSize: FontSize.s16,
-                fontFamily: FontFamily.Montserrat,
-                fontWeight: FontWeightManager.medium,
-                color: isLoading ? Colors.grey.shade600 : ColorManager.black,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Enter your phone number *',
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: FontSize.s14,
-                  fontFamily: FontFamily.Montserrat,
-                  fontWeight: FontWeightManager.regular,
-                ),
-                border: InputBorder.none,
-                counterText: '',
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
+                  onChanged: (value) {
+                    debugPrint('Phone number changed: $value');
+                  },
                 ),
               ),
-              onChanged: (value) {
-                debugPrint('Phone number changed: $value');
-              },
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -305,6 +606,46 @@ class _LoginPageState extends State<LoginPage> {
                       icon: Icon(Icons.close, color: Colors.grey.shade600),
                     ),
                   ],
+                ),
+              ),
+              
+              // Location detection button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Container(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: isDetectingLocation ? null : () async {
+                      Navigator.pop(context);
+                      await _detectUserCountryFromLocation();
+                    },
+                    icon: isDetectingLocation 
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Icon(Icons.location_on, size: 16),
+                    label: Text(
+                      isDetectingLocation ? 'Detecting...' : 'Detect from location',
+                      style: TextStyle(
+                        fontSize: FontSize.s14,
+                        fontFamily: FontFamily.Montserrat,
+                        fontWeight: FontWeightManager.medium,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ColorManager.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               
@@ -409,14 +750,14 @@ class _LoginPageState extends State<LoginPage> {
       phoneController.clear(); // Clear input when country changes
     });
     _saveSelectedCountry(country);
-    debugPrint('Country changed to: ${country.name} (${country.dialCode})');
+    debugPrint('LoginPage: Country changed to: ${country.name} (${country.dialCode})');
   }
 
   Widget _buildContinueButton(BuildContext context) {
     return CustomLargeButton(
       text: 'Continue',
-      isLoading: isLoading,
-      onPressed: isLoading ? null : () => _handleContinue(context),
+      isLoading: isLoading || isDetectingLocation,
+      onPressed: (isLoading || isDetectingLocation) ? null : () => _handleContinue(context),
     );
   }
 

@@ -93,3 +93,24 @@ class MessageReceivedOnActivePage extends ChatEvent {
 class UpdateBlueTicksForPreviousMessages extends ChatEvent {
   const UpdateBlueTicksForPreviousMessages();
 }
+
+class AppResumed extends ChatEvent {
+  const AppResumed();
+}
+
+class AppPaused extends ChatEvent {
+  const AppPaused();
+}
+
+class BackgroundMessageReceived extends ChatEvent {
+  final Map<String, dynamic> messageData;
+  
+  const BackgroundMessageReceived(this.messageData);
+  
+  @override
+  List<Object?> get props => [messageData];
+}
+
+class TestStatusUpdate extends ChatEvent {
+  const TestStatusUpdate();
+}

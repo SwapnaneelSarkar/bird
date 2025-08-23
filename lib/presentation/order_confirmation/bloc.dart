@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../constants/api_constant.dart';
 import '../../service/cart_service.dart';
+import '../../service/non_food_cart_service.dart';
 import '../../service/order_service.dart';
 import '../../service/token_service.dart';
 import '../../service/profile_get_service.dart';
@@ -78,18 +79,20 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             if (state is OrderConfirmationLoaded) {
               final currentState = state as OrderConfirmationLoaded;
               emit(PaymentMethodsLoaded(
-                methods,
-                currentState.orderSummary,
-                currentState.cartMetadata,
-                currentState.selectedPaymentMode,
+                methods: methods,
+                orderSummary: currentState.orderSummary,
+                cartMetadata: currentState.cartMetadata,
+                selectedPaymentMode: currentState.selectedPaymentMode,
+                isNonFood: currentState.isNonFood,
               ));
             } else {
               // Fallback: emit just the methods
               emit(PaymentMethodsLoaded(
-                methods,
-                OrderSummary(items: []),
-                {},
-                null,
+                methods: methods,
+                orderSummary: OrderSummary(items: []),
+                cartMetadata: {},
+                selectedPaymentMode: null,
+                isNonFood: false,
               ));
             }
           } else {
@@ -114,16 +117,14 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       debugPrint('PaymentMethods: Exception: $e');
       debugPrint('PaymentMethods: Stack trace: $stackTrace');
       
-      // Don't emit error state for payment methods loading failure
-      // Just log it and continue with default methods
+      // Emit error state for payment methods loading failure
       if (e.toString().contains('TimeoutException')) {
-        debugPrint('PaymentMethods: API timeout, continuing with default methods');
+        debugPrint('PaymentMethods: API timeout');
+        emit(const OrderConfirmationError('Payment methods loading timed out. Please try again.'));
       } else {
-        debugPrint('PaymentMethods: API error, continuing with default methods');
+        debugPrint('PaymentMethods: API error');
+        emit(const OrderConfirmationError('Failed to load payment methods. Please try again.'));
       }
-      
-      // Don't emit error state since we have default payment methods
-      // The dialog will continue to work with default methods
     }
     debugPrint('=== PAYMENT METHODS BLOC: LOAD END ===');
   }
@@ -138,8 +139,10 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       debugPrint('=== ORDER CONFIRMATION BLOC: LOAD DATA START ===');
       debugPrint('ORDER CONFIRMATION BLOC: Order ID: ${event.orderId}');
       
-      // Load cart data from CartService
-      final cart = await CartService.getCart();
+      // Load cart data from appropriate service
+      final cart = event.isNonFood 
+          ? await NonFoodCartService.getCart()
+          : await CartService.getCart();
       
       debugPrint('ORDER CONFIRMATION BLOC: Cart data loaded:');
       if (cart != null) {
@@ -162,7 +165,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       
       if (cart == null || cart['items'] == null || (cart['items'] as List).isEmpty) {
         debugPrint('ORDER CONFIRMATION BLOC: No cart data found or cart is empty');
-        emit(const OrderConfirmationEmptyCart());
+        emit(const OrderConfirmationError('No items in cart. Please add items before proceeding.'));
         return;
       }
       
@@ -214,9 +217,11 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       debugPrint('ORDER CONFIRMATION BLOC: Created ${orderItems.length} order items');
       
       // Create order summary
+      // For non-food items, set delivery fee to 0
+      final deliveryFee = event.isNonFood ? 0.0 : (cart['delivery_fees'] as num?)?.toDouble() ?? 0.0;
       final orderSummary = OrderSummary(
         items: orderItems,
-        deliveryFee: (cart['delivery_fees'] as num?)?.toDouble() ?? 0.0,
+        deliveryFee: deliveryFee,
         taxAmount: (cart['tax_amount'] as num?)?.toDouble() ?? 0.0,
         discountAmount: (cart['discount_amount'] as num?)?.toDouble() ?? 0.0,
       );
@@ -245,6 +250,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
       emit(OrderConfirmationLoaded(
         orderSummary: orderSummary,
         cartMetadata: cartMetadata,
+        isNonFood: event.isNonFood,
       ));
       
       debugPrint('ORDER CONFIRMATION BLOC: Emitted OrderConfirmationLoaded state');
@@ -277,11 +283,18 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
   ) async {
     debugPrint('=== ORDER PLACEMENT BLOC: START ===');
     debugPrint('OrderPlacement: Current state: ${state.runtimeType}');
+    debugPrint('OrderPlacement: Payment mode from event: ${event.paymentMode}');
+    debugPrint('OrderPlacement: Event type: ${event.runtimeType}');
     
     // Get the order data from the current state
     OrderConfirmationLoaded? orderData;
+    debugPrint('OrderPlacement: Checking current state type: ${state.runtimeType}');
+    
     if (state is OrderConfirmationLoaded) {
+      debugPrint('OrderPlacement: State is OrderConfirmationLoaded');
       orderData = state as OrderConfirmationLoaded;
+      debugPrint('OrderPlacement: OrderData isNonFood: ${orderData.isNonFood}');
+      debugPrint('OrderPlacement: OrderData items count: ${orderData.orderSummary.items.length}');
     } else if (state is PaymentMethodsLoaded) {
       // If we're in PaymentMethodsLoaded state, convert it to OrderConfirmationLoaded
       debugPrint('OrderPlacement: Converting PaymentMethodsLoaded to OrderConfirmationLoaded');
@@ -290,13 +303,39 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         orderSummary: paymentState.orderSummary,
         cartMetadata: paymentState.cartMetadata,
         selectedPaymentMode: event.paymentMode ?? paymentState.selectedPaymentMode,
+        isNonFood: paymentState.isNonFood,
       );
+      debugPrint('OrderPlacement: Converted OrderData isNonFood: ${orderData.isNonFood}');
     }
     
     if (orderData == null) {
       debugPrint('OrderPlacement: No order data available, reloading from cart...');
       try {
-        final cart = await CartService.getCart();
+        // Determine which cart service to use based on current state
+        bool isNonFood = false;
+        debugPrint('OrderPlacement: Determining cart service type from state: ${state.runtimeType}');
+        
+        if (state is OrderConfirmationLoaded) {
+          isNonFood = (state as OrderConfirmationLoaded).isNonFood;
+          debugPrint('OrderPlacement: Using isNonFood from OrderConfirmationLoaded: $isNonFood');
+        } else if (state is PaymentMethodsLoaded) {
+          isNonFood = (state as PaymentMethodsLoaded).isNonFood;
+          debugPrint('OrderPlacement: Using isNonFood from PaymentMethodsLoaded: $isNonFood');
+        } else {
+          debugPrint('OrderPlacement: Unknown state type, defaulting to food items');
+        }
+        
+        debugPrint('OrderPlacement: Loading cart data - isNonFood: $isNonFood');
+        final cart = isNonFood 
+            ? await NonFoodCartService.getCart()
+            : await CartService.getCart();
+        
+        debugPrint('OrderPlacement: Cart loaded - cart is null: ${cart == null}');
+        if (cart != null) {
+          debugPrint('OrderPlacement: Cart items is null: ${cart['items'] == null}');
+          debugPrint('OrderPlacement: Cart items length: ${(cart['items'] as List?)?.length ?? 0}');
+        }
+        
         if (cart != null && cart['items'] != null && (cart['items'] as List).isNotEmpty) {
           final cartItems = cart['items'] as List<dynamic>;
           final orderItems = cartItems.map((item) {
@@ -319,7 +358,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           
           final orderSummary = OrderSummary(
             items: orderItems,
-            deliveryFee: 0.0,
+            deliveryFee: isNonFood ? 0.0 : 0.0, // No delivery fees for non-food items
             taxAmount: 0.0,
             discountAmount: 0.0,
           );
@@ -335,6 +374,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             orderSummary: orderSummary,
             cartMetadata: cartMetadata,
             selectedPaymentMode: event.paymentMode,
+            isNonFood: isNonFood,
           );
         }
       } catch (e) {
@@ -465,6 +505,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         debugPrint('  - Items total: ₹$calculatedTotal');
         debugPrint('  - Delivery fees: ₹${orderData.orderSummary.deliveryFee}');
         debugPrint('  - Subtotal (total + delivery): ₹${calculatedTotal + orderData.orderSummary.deliveryFee}');
+        debugPrint('  - Is Non-Food: ${orderData.isNonFood}');
         
         // Get selected payment mode from event or order data, default to 'cash' if not selected
         final paymentMode = event.paymentMode ?? orderData.selectedPaymentMode ?? 'cash';
@@ -481,6 +522,21 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         debugPrint('  - Latitude: $latitude');
         debugPrint('  - Longitude: $longitude');
         debugPrint('  - Payment Mode: $paymentMode');
+        debugPrint('  - Is Non-Food: ${orderData.isNonFood}');
+        
+        debugPrint('OrderPlacement: About to call OrderService.placeOrder API');
+        debugPrint('OrderPlacement: Final API parameters:');
+        debugPrint('  - partnerId: $partnerId');
+        debugPrint('  - userId: $userId');
+        debugPrint('  - items count: ${orderItems.length}');
+        debugPrint('  - totalPrice: $calculatedTotal');
+        debugPrint('  - address: $address');
+        debugPrint('  - deliveryFees: ${orderData.orderSummary.deliveryFee}');
+        debugPrint('  - subtotal: ${calculatedTotal + orderData.orderSummary.deliveryFee}');
+        debugPrint('  - latitude: $latitude');
+        debugPrint('  - longitude: $longitude');
+        debugPrint('  - paymentMode: $paymentMode');
+        debugPrint('  - isNonFood: ${orderData.isNonFood}');
         
         final orderResult = await OrderService.placeOrder(
           partnerId: partnerId,
@@ -495,9 +551,13 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           paymentMode: paymentMode, // Add payment mode to API request
         );
         
+        debugPrint('OrderPlacement: OrderService.placeOrder API call completed');
+        debugPrint('OrderPlacement: API response success: ${orderResult['success']}');
+        debugPrint('OrderPlacement: API response message: ${orderResult['message']}');
+        
         if (orderResult['success'] == true) {
-          final orderData = orderResult['data'];
-          final orderId = orderData['order_id'].toString();
+          final orderResponseData = orderResult['data'];
+          final orderId = orderResponseData['order_id'].toString();
           
           debugPrint('OrderPlacement: ✅ Order placed successfully - Order ID: $orderId');
           
@@ -513,7 +573,11 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           
           // Clear cart after successful order
           debugPrint('OrderPlacement: 🛒 Clearing cart...');
-          await CartService.clearCart();
+          if (orderData.isNonFood) {
+            await NonFoodCartService.clearCart();
+          } else {
+            await CartService.clearCart();
+          }
           
           // Add delay to ensure order is properly saved in database
           debugPrint('OrderPlacement: ⏳ Waiting for order to be saved...');
@@ -525,7 +589,11 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             debugPrint('OrderPlacement: ⚠️ Chat room creation failed: ${chatResult['message']}');
             // Even if chat room creation fails, order was placed successfully
             debugPrint('OrderPlacement: 🛒 Clearing cart despite chat room failure...');
-            await CartService.clearCart();
+            if (orderData.isNonFood) {
+              await NonFoodCartService.clearCart();
+            } else {
+              await CartService.clearCart();
+            }
             
             // Add delay to ensure order is properly saved in database
             debugPrint('OrderPlacement: ⏳ Waiting for order to be saved...');
@@ -587,16 +655,26 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         final partnerId = currentState.cartMetadata['partner_id']?.toString() ?? '';
         final restaurantName = currentState.cartMetadata['restaurant_name']?.toString() ?? '';
         
-        final cartResult = await CartService.addItemToCart(
-          partnerId: partnerId,
-          restaurantName: restaurantName,
-          menuId: item.id,
-          itemName: item.name,
-          price: item.price,
-          quantity: event.newQuantity,
-          imageUrl: item.imageUrl,
-          attributes: item.attributes.isNotEmpty ? item.attributes : null,
-        );
+        final cartResult = currentState.isNonFood
+            ? await NonFoodCartService.addItemToCart(
+                partnerId: partnerId,
+                restaurantName: restaurantName,
+                menuId: item.id,
+                itemName: item.name,
+                price: item.price,
+                quantity: event.newQuantity,
+                imageUrl: item.imageUrl,
+              )
+            : await CartService.addItemToCart(
+                partnerId: partnerId,
+                restaurantName: restaurantName,
+                menuId: item.id,
+                itemName: item.name,
+                price: item.price,
+                quantity: event.newQuantity,
+                imageUrl: item.imageUrl,
+                attributes: item.attributes.isNotEmpty ? item.attributes : null,
+              );
         
         if (cartResult['success'] == true) {
           // Update local state
@@ -618,7 +696,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
           // Check if cart is now empty after removing item
           if (updatedItems.isEmpty) {
             debugPrint('OrderConfirmationBloc: Cart is now empty after removing item');
-            emit(const OrderConfirmationEmptyCart());
+            emit(const OrderConfirmationError('No items in cart. Please add items before proceeding.'));
             return;
           }
           
@@ -638,6 +716,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             orderSummary: updatedOrderSummary,
             cartMetadata: currentState.cartMetadata,
             selectedPaymentMode: currentState.selectedPaymentMode,
+            isNonFood: currentState.isNonFood,
           ));
           
           debugPrint('OrderConfirmationBloc: ✅ Quantity updated successfully in both cart and state');
@@ -674,16 +753,26 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
         final partnerId = currentState.cartMetadata['partner_id']?.toString() ?? '';
         final restaurantName = currentState.cartMetadata['restaurant_name']?.toString() ?? '';
         
-        final cartResult = await CartService.addItemToCart(
-          partnerId: partnerId,
-          restaurantName: restaurantName,
-          menuId: itemToRemove.id,
-          itemName: itemToRemove.name,
-          price: itemToRemove.price,
-          quantity: 0, // Set to 0 to remove
-          imageUrl: itemToRemove.imageUrl,
-          attributes: itemToRemove.attributes.isNotEmpty ? itemToRemove.attributes : null,
-        );
+        final cartResult = currentState.isNonFood
+            ? await NonFoodCartService.addItemToCart(
+                partnerId: partnerId,
+                restaurantName: restaurantName,
+                menuId: itemToRemove.id,
+                itemName: itemToRemove.name,
+                price: itemToRemove.price,
+                quantity: 0, // Set to 0 to remove
+                imageUrl: itemToRemove.imageUrl,
+              )
+            : await CartService.addItemToCart(
+                partnerId: partnerId,
+                restaurantName: restaurantName,
+                menuId: itemToRemove.id,
+                itemName: itemToRemove.name,
+                price: itemToRemove.price,
+                quantity: 0, // Set to 0 to remove
+                imageUrl: itemToRemove.imageUrl,
+                attributes: itemToRemove.attributes.isNotEmpty ? itemToRemove.attributes : null,
+              );
         
         if (cartResult['success'] == true) {
           // Remove the item from local state
@@ -705,6 +794,7 @@ class OrderConfirmationBloc extends Bloc<OrderConfirmationEvent, OrderConfirmati
             orderSummary: updatedOrderSummary,
             cartMetadata: currentState.cartMetadata,
             selectedPaymentMode: currentState.selectedPaymentMode,
+            isNonFood: currentState.isNonFood,
           ));
           
           debugPrint('OrderConfirmationBloc: ✅ Item removed successfully from both cart and state');

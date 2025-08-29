@@ -240,11 +240,17 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     emit(SettingsDeleting());
     
     try {
+      debugPrint('SettingsBloc: 🗑️ Starting account deletion process...');
+      
       // Get token and user ID
       final token = await TokenService.getToken();
       final userId = await TokenService.getUserId();
       
+      debugPrint('SettingsBloc: 🗑️ Token: ${token != null ? 'Found' : 'Not found'}');
+      debugPrint('SettingsBloc: 🗑️ User ID: $userId');
+      
       if (token == null || userId == null) {
+        debugPrint('SettingsBloc: 🗑️ ❌ Token or User ID is null');
         emit(SettingsError(message: 'Please login again'));
         // Restore previous state
         if (currentState is SettingsLoaded) {
@@ -253,61 +259,68 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         return;
       }
       
-      debugPrint('SettingsBloc: Verifying OTP before account deletion');
+      debugPrint('SettingsBloc: 🗑️ Proceeding with account deletion after OTP verification');
       
-      // First verify the OTP
-      final otpResult = await _verificationService.verifyPhoneOtp(
-        event.otp,
-        event.verificationId,
-      );
-      
-      if (otpResult['success'] != true) {
-        debugPrint('SettingsBloc: OTP verification failed: ${otpResult['error']}');
-        // Restore previous state
-        if (currentState is SettingsLoaded) {
-          emit(currentState);
-        }
-        emit(SettingsError(message: otpResult['error'] ?? 'OTP verification failed'));
-        return;
-      }
-      
-      debugPrint('SettingsBloc: OTP verified successfully, proceeding with account deletion');
-      
-      // Now proceed with account deletion
+      // OTP is already verified in the dialog, proceed directly with account deletion
       final url = Uri.parse('${ApiConstants.baseUrl}/api/user/delete-user');
+      debugPrint('SettingsBloc: 🗑️ Delete URL: $url');
+      
+      final requestBody = jsonEncode({
+        'user_id': userId,
+      });
+      debugPrint('SettingsBloc: 🗑️ Request body: $requestBody');
+      
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+      debugPrint('SettingsBloc: 🗑️ Request headers: $headers');
+      
+      debugPrint('SettingsBloc: 🗑️ Making DELETE request...');
       final response = await http.delete(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'user_id': userId,
-        }),
+        headers: headers,
+        body: requestBody,
       );
       
-      debugPrint('SettingsBloc: Delete account response: ${response.body}');
+      debugPrint('SettingsBloc: 🗑️ Response status code: ${response.statusCode}');
+      debugPrint('SettingsBloc: 🗑️ Response headers: ${response.headers}');
+      debugPrint('SettingsBloc: 🗑️ Response body: ${response.body}');
       
-      final result = jsonDecode(response.body);
-      
-      if (response.statusCode == 200 && (result['status'] == true || result['success'] == true)) {
-        // Clear FCM tokens before clearing other data
-        debugPrint('SettingsBloc: Clearing FCM tokens on account deletion with OTP...');
-        try {
-          await NotificationService().clearFCMTokensOnLogout();
-          debugPrint('SettingsBloc: FCM tokens cleared successfully');
-        } catch (e) {
-          debugPrint('SettingsBloc: Error clearing FCM tokens: $e');
-          // Don't fail account deletion if FCM clearing fails
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        debugPrint('SettingsBloc: 🗑️ Parsed response: $result');
+        
+        if (result['status'] == true || result['success'] == true) {
+          // Clear FCM tokens before clearing other data
+          debugPrint('SettingsBloc: 🗑️ Clearing FCM tokens on account deletion...');
+          try {
+            await NotificationService().clearFCMTokensOnLogout();
+            debugPrint('SettingsBloc: 🗑️ FCM tokens cleared successfully');
+          } catch (e) {
+            debugPrint('SettingsBloc: 🗑️ Error clearing FCM tokens: $e');
+            // Don't fail account deletion if FCM clearing fails
+          }
+          
+          // Clear all saved data
+          debugPrint('SettingsBloc: 🗑️ Clearing all saved data...');
+          await TokenService.clearAll();
+          debugPrint('SettingsBloc: 🗑️ All data cleared successfully');
+          
+          debugPrint('SettingsBloc: 🗑️ ✅ Account deleted successfully');
+          emit(SettingsAccountDeleted());
+        } else {
+          debugPrint('SettingsBloc: 🗑️ ❌ API returned success: false - ${result['message']}');
+          // Restore previous state
+          if (currentState is SettingsLoaded) {
+            emit(currentState);
+          }
+          emit(SettingsError(message: result['message'] ?? 'Failed to delete account'));
         }
-        
-        // Clear all saved data
-        await TokenService.clearAll();
-        
-        debugPrint('SettingsBloc: Account deleted successfully after OTP verification');
-        emit(SettingsAccountDeleted());
       } else {
-        debugPrint('SettingsBloc: Failed to delete account: ${result['message']}');
+        debugPrint('SettingsBloc: 🗑️ ❌ HTTP error: ${response.statusCode}');
+        final result = jsonDecode(response.body);
+        debugPrint('SettingsBloc: 🗑️ Error response: $result');
         // Restore previous state
         if (currentState is SettingsLoaded) {
           emit(currentState);
@@ -315,12 +328,13 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         emit(SettingsError(message: result['message'] ?? 'Failed to delete account'));
       }
     } catch (e) {
-      debugPrint('SettingsBloc: Error during account deletion with OTP: $e');
+      debugPrint('SettingsBloc: 🗑️ ❌ Exception during account deletion: $e');
+      debugPrint('SettingsBloc: 🗑️ Exception type: ${e.runtimeType}');
       // Restore previous state
       if (currentState is SettingsLoaded) {
         emit(currentState);
       }
-      emit(SettingsError(message: 'Account deletion failed'));
+      emit(SettingsError(message: 'Account deletion failed: ${e.toString()}'));
     }
   }
 }

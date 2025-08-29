@@ -125,8 +125,9 @@ class _CompleteProfileViewState extends State<CompleteProfileView> {
                 height: h < 700 ? 55 : 50, // Slightly taller on small screens
                 child: CustomTextField(
                   controller: _nameCtrl,
-                  hint: 'Enter your name',
+                  hint: 'Enter your name (max 30 characters)',
                   isRequired: true,
+                  maxLength: 30, // Add 30 character limit
                 ),
               ),
 

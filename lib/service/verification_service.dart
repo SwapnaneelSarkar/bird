@@ -195,28 +195,30 @@ class VerificationService {
     return '+1234567890'; // Placeholder - replace with actual implementation
   }
 
-  // Helper method to format phone number with +91 country code
+  // Helper method to format phone number with country code
   String _formatPhoneNumber(String phoneNumber) {
-    // Remove any existing country code or special characters
-    String cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
-    
-    // If it's already a 10-digit number, add +91
-    if (cleanNumber.length == 10) {
-      return '+91$cleanNumber';
-    }
-    
-    // If it already has country code (12 digits with +91), return as is
-    if (cleanNumber.length == 12 && cleanNumber.startsWith('91')) {
-      return '+$cleanNumber';
-    }
-    
-    // If it already has +91 prefix, return as is
-    if (phoneNumber.startsWith('+91')) {
+    // If the phone number already starts with +, it already has a country code
+    if (phoneNumber.startsWith('+')) {
       return phoneNumber;
     }
     
-    // For any other case, add +91 prefix
-    return '+91$cleanNumber';
+    // Remove any special characters except digits
+    String cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // If it's a 10-digit number, we need to determine the country code
+    // For now, default to +91 (India) - this should be passed from the UI
+    if (cleanNumber.length == 10) {
+      // This will be handled by the UI passing the full number with country code
+      return '+91$cleanNumber'; // Fallback to India
+    }
+    
+    // If it already has a country code pattern, return as is
+    if (cleanNumber.length > 10) {
+      return '+$cleanNumber';
+    }
+    
+    // For any other case, assume it needs a country code
+    return '+91$cleanNumber'; // Fallback to India
   }
 
   String _getUserFriendlyError(FirebaseAuthException e) {

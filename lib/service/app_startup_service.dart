@@ -50,17 +50,9 @@ class AppStartupService {
         };
       }
       
-      // OPTIMIZATION: Check if we have recent location data (less than 5 minutes old)
-      final hasRecentLocation = await _hasRecentLocationData(userData);
-      if (hasRecentLocation) {
-        debugPrint('🔄 AppStartupService: Using recent location data (less than 5 minutes old)');
-        return {
-          'success': true,
-          'message': 'Using recent location data',
-          'locationUpdated': false,
-          'recentDataUsed': true,
-        };
-      }
+      // FORCE LOCATION VALIDATION: Always validate location on app restart
+      // Removed 5-minute cache to ensure fresh validation every time
+      debugPrint('🔍 AppStartupService: Force validating location on app restart...');
       
       // OPTIMIZATION: Check location availability with timeout
       debugPrint('🔍 AppStartupService: Checking location availability with timeout...');
@@ -878,6 +870,69 @@ class AppStartupService {
       }
     } catch (e) {
       debugPrint('❌ AppStartupService: Error in background profile update: $e');
+    }
+  }
+
+  /// Force fresh location validation by calling the update API
+  static Future<Map<String, dynamic>> forceLocationValidation() async {
+    try {
+      debugPrint('🔍 AppStartupService: Force validating location...');
+      
+      final userData = await TokenService.getUserData();
+      final token = await TokenService.getToken();
+      final userId = await TokenService.getUserId();
+      
+      if (userData == null || token == null || userId == null) {
+        return {
+          'success': false,
+          'message': 'Authentication required',
+          'isServiceable': false,
+        };
+      }
+      
+      final latitude = double.tryParse(userData['latitude'].toString());
+      final longitude = double.tryParse(userData['longitude'].toString());
+      final address = userData['address'].toString();
+      
+      if (latitude == null || longitude == null) {
+        return {
+          'success': false,
+          'message': 'Invalid location coordinates',
+          'isServiceable': false,
+        };
+      }
+      
+      // Force call the update API to validate location
+      final updateResult = await _updateUserService.updateUserProfileWithId(
+        token: token,
+        userId: userId,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
+      );
+      
+      if (updateResult['success'] == true) {
+        debugPrint('✅ AppStartupService: Location validation successful');
+        return {
+          'success': true,
+          'message': 'Location is serviceable',
+          'isServiceable': true,
+        };
+      } else {
+        debugPrint('❌ AppStartupService: Location validation failed: ${updateResult['message']}');
+        return {
+          'success': false,
+          'message': updateResult['message'] ?? 'Location is not serviceable',
+          'isServiceable': false,
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ AppStartupService: Error in force location validation: $e');
+      return {
+        'success': false,
+        'message': 'Error validating location',
+        'isServiceable': false,
+      };
     }
   }
 } 

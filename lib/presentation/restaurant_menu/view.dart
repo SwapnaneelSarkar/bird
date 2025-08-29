@@ -181,6 +181,9 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
       _sortOption = option;
       _isFilterMenuOpen = false;
     });
+    
+    // Debug logging for sorting
+    debugPrint('Menu Sorting: Applied sort option: $option');
   }
   
   List<Map<String, dynamic>> _filterAndSortMenu(List<Map<String, dynamic>> menu) {
@@ -238,23 +241,68 @@ class _RestaurantDetailsContentState extends State<_RestaurantDetailsContent> {
       groupedMenu['Others'] = otherItems;
     }
     
-    // Sort categories by display order (preserve the order from API)
-    final Map<String, List<Map<String, dynamic>>> sortedGroupedMenu = {};
-    
-    // First add categories in their API order
-    for (final category in categories) {
-      final categoryName = category['name']?.toString() ?? '';
-      if (groupedMenu.containsKey(categoryName)) {
-        sortedGroupedMenu[categoryName] = groupedMenu[categoryName]!;
+    // If sorting is applied, sort categories by their average price
+    if (_sortOption == 'price_asc' || _sortOption == 'price_desc') {
+      final Map<String, List<Map<String, dynamic>>> sortedGroupedMenu = {};
+      
+      // Calculate average price for each category and sort
+      final List<MapEntry<String, List<Map<String, dynamic>>>> sortedEntries = 
+          groupedMenu.entries.toList();
+      
+      // Debug: Log category prices before sorting
+      debugPrint('Menu Sorting: Category prices before sorting:');
+      for (final entry in sortedEntries) {
+        final avgPrice = entry.value.isEmpty ? 0.0 : 
+            entry.value.map((item) => (item['price'] as num)).reduce((sum, price) => sum + price) / entry.value.length;
+        debugPrint('  ${entry.key}: ₹${avgPrice.toStringAsFixed(2)} (${entry.value.length} items)');
       }
+      
+      sortedEntries.sort((a, b) {
+        final aAvgPrice = a.value.isEmpty ? 0.0 : 
+            a.value.map((item) => (item['price'] as num)).reduce((sum, price) => sum + price) / a.value.length;
+        final bAvgPrice = b.value.isEmpty ? 0.0 : 
+            b.value.map((item) => (item['price'] as num)).reduce((sum, price) => sum + price) / b.value.length;
+        
+        if (_sortOption == 'price_asc') {
+          return aAvgPrice.compareTo(bAvgPrice);
+        } else {
+          return bAvgPrice.compareTo(aAvgPrice);
+        }
+      });
+      
+      // Debug: Log category order after sorting
+      debugPrint('Menu Sorting: Category order after sorting (${_sortOption}):');
+      for (final entry in sortedEntries) {
+        final avgPrice = entry.value.isEmpty ? 0.0 : 
+            entry.value.map((item) => (item['price'] as num)).reduce((sum, price) => sum + price) / entry.value.length;
+        debugPrint('  ${entry.key}: ₹${avgPrice.toStringAsFixed(2)}');
+      }
+      
+      // Create sorted map
+      for (final entry in sortedEntries) {
+        sortedGroupedMenu[entry.key] = entry.value;
+      }
+      
+      return sortedGroupedMenu;
+    } else {
+      // Sort categories by display order (preserve the order from API)
+      final Map<String, List<Map<String, dynamic>>> sortedGroupedMenu = {};
+      
+      // First add categories in their API order
+      for (final category in categories) {
+        final categoryName = category['name']?.toString() ?? '';
+        if (groupedMenu.containsKey(categoryName)) {
+          sortedGroupedMenu[categoryName] = groupedMenu[categoryName]!;
+        }
+      }
+      
+      // Then add "Others" at the end if it exists
+      if (groupedMenu.containsKey('Others')) {
+        sortedGroupedMenu['Others'] = groupedMenu['Others']!;
+      }
+      
+      return sortedGroupedMenu;
     }
-    
-    // Then add "Others" at the end if it exists
-    if (groupedMenu.containsKey('Others')) {
-      sortedGroupedMenu['Others'] = groupedMenu['Others']!;
-    }
-    
-    return sortedGroupedMenu;
   }
 
   // Check if item was added for the first time and show popup

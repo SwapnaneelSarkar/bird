@@ -111,7 +111,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           Image.asset(
                             'assets/logo.png', 
                             height: screenWidth * 0.15, // Responsive logo size
-                            color: ColorManager.primary
+                            // color: ColorManager.primary
                           ),
                           SizedBox(height: screenHeight * 0.05),
                           Text(

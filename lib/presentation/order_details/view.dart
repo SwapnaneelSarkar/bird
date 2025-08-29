@@ -395,7 +395,7 @@ class _OrderDetailsContent extends StatelessWidget {
 
       if (result['success']) {
         _showSnackBar(context, result['message'] ?? 'Items added to cart successfully', Colors.green);
-        Navigator.of(context).pushNamed('/cart');
+        Navigator.of(context).pushNamed('/orderConfirmation');
       } else {
         _showSnackBar(context, result['message'] ?? 'Failed to reorder', Colors.red);
       }

@@ -52,7 +52,7 @@ class MyApp extends StatelessWidget {
         ),
         // Profile Bloc provider
         BlocProvider<ProfileBloc>(
-          create: (_) => ProfileBloc()..add(LoadProfile()),
+          create: (_) => ProfileBloc(),
         ),
         // RestaurantProfileBloc provider
         BlocProvider<RestaurantProfileBloc>(

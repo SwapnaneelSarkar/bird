@@ -37,10 +37,22 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
   void initState() {
     super.initState();
     _sendVerificationCode();
+    
+    // Add listener to OTP controller to trigger UI updates
+    _otpController.addListener(_onOtpChanged);
+  }
+
+  void _onOtpChanged() {
+    if (mounted) {
+      setState(() {
+        // Trigger rebuild when OTP text changes
+      });
+    }
   }
 
   @override
   void dispose() {
+    _otpController.removeListener(_onOtpChanged);
     _otpController.dispose();
     _timer?.cancel();
     super.dispose();
@@ -58,6 +70,8 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
       if (result['success'] == true) {
         _verificationId = result['verificationId'];
         _startTimer();
+        // Clear any previous OTP input when resending
+        _otpController.clear();
         _showSnackBar('Verification code sent successfully', false);
       } else {
         setState(() {
@@ -87,6 +101,8 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
           } else {
             _canResend = true;
             timer.cancel();
+            // Clear verification ID when timer expires to prevent expired OTP usage
+            _verificationId = null;
           }
         });
       }
@@ -94,7 +110,12 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
   }
 
   Future<void> _verifyCode() async {
+    debugPrint('🔐 AccountDeletionVerificationDialog: Starting OTP verification...');
+    debugPrint('🔐 OTP length: ${_otpController.text.length}');
+    debugPrint('🔐 Verification ID: $_verificationId');
+    
     if (_otpController.text.length != 6) {
+      debugPrint('🔐 ❌ OTP length is not 6 digits');
       setState(() {
         _errorMessage = 'Please enter a 6-digit verification code';
       });
@@ -102,6 +123,7 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
     }
 
     if (_verificationId == null) {
+      debugPrint('🔐 ❌ Verification ID is null');
       setState(() {
         _errorMessage = 'Verification session expired. Please try again.';
       });
@@ -114,21 +136,29 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
     });
 
     try {
+      debugPrint('🔐 Calling verification service...');
       final result = await _verificationService.verifyPhoneOtp(
         _otpController.text,
         _verificationId!,
       );
+      
+      debugPrint('🔐 Verification result: $result');
 
       if (result['success'] == true) {
-        _showSnackBar('OTP verified successfully', false);
-        widget.onVerificationSuccess(_otpController.text, _verificationId!);
+        debugPrint('🔐 ✅ OTP verification successful');
+        // Don't show snackbar here to avoid interference with navigation
+        // Close dialog immediately and proceed with account deletion
         Navigator.of(context).pop();
+        debugPrint('🔐 Dialog closed, calling onVerificationSuccess callback');
+        widget.onVerificationSuccess(_otpController.text, _verificationId!);
       } else {
+        debugPrint('🔐 ❌ OTP verification failed: ${result['error']}');
         setState(() {
           _errorMessage = result['error'] ?? 'Verification failed';
         });
       }
     } catch (e) {
+      debugPrint('🔐 ❌ Exception during OTP verification: $e');
       setState(() {
         _errorMessage = 'An error occurred. Please try again.';
       });
@@ -185,7 +215,7 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
                     borderRadius: BorderRadius.circular(12 * responsiveTextScale),
                   ),
                   child: Icon(
-                    Icons.delete_forever,
+                    Icons.warning_amber_rounded,
                     color: Colors.red.shade600,
                     size: 24 * responsiveTextScale,
                   ),
@@ -199,14 +229,14 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
                         'Delete Account',
                         style: TextStyle(
                           fontSize: FontSize.s18 * responsiveTextScale,
-                          fontWeight: FontWeightManager.bold,
                           fontFamily: FontFamily.Montserrat,
-                          color: Colors.red.shade600,
+                          fontWeight: FontWeightManager.bold,
+                          color: Colors.red.shade700,
                         ),
                       ),
                       SizedBox(height: 4 * responsiveTextScale),
                       Text(
-                        'OTP Verification Required',
+                        'Verify your phone number to continue',
                         style: TextStyle(
                           fontSize: FontSize.s14 * responsiveTextScale,
                           fontFamily: FontFamily.Montserrat,
@@ -240,12 +270,12 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
                   Expanded(
                     child: Text(
                       'This action cannot be undone. All your data will be permanently deleted.',
-                                             style: TextStyle(
-                         fontSize: FontSize.s12 * responsiveTextScale,
-                         fontFamily: FontFamily.Montserrat,
-                         color: Colors.red.shade700,
-                         fontWeight: FontWeightManager.medium,
-                       ),
+                      style: TextStyle(
+                        fontSize: FontSize.s12 * responsiveTextScale,
+                        fontFamily: FontFamily.Montserrat,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeightManager.medium,
+                      ),
                     ),
                   ),
                 ],
@@ -382,7 +412,10 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
                   child: OutlinedButton(
                     onPressed: widget.onCancel,
                     style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 16 * responsiveTextScale),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20 * responsiveTextScale,
+                        vertical: 16 * responsiveTextScale,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12 * responsiveTextScale),
                       ),
@@ -399,7 +432,7 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
                     ),
                   ),
                 ),
-                SizedBox(width: 12 * responsiveTextScale),
+                SizedBox(width: 16 * responsiveTextScale),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _isVerifying || _otpController.text.length != 6
@@ -408,27 +441,35 @@ class _AccountDeletionVerificationDialogState extends State<AccountDeletionVerif
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade600,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16 * responsiveTextScale),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20 * responsiveTextScale,
+                        vertical: 16 * responsiveTextScale,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12 * responsiveTextScale),
                       ),
                       elevation: 0,
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      disabledForegroundColor: Colors.grey.shade500,
                     ),
                     child: _isVerifying
                         ? SizedBox(
                             width: 20 * responsiveTextScale,
                             height: 20 * responsiveTextScale,
-                                                 child: const CircularProgressIndicator(
-                       strokeWidth: 2,
-                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                     ),
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
                           )
-                        : Text(
-                            'VERIFY & DELETE',
-                            style: TextStyle(
-                              fontSize: FontSize.s14 * responsiveTextScale,
-                              fontFamily: FontFamily.Montserrat,
-                              fontWeight: FontWeightManager.semiBold,
+                        : Center(
+                            child: Text(
+                              'VERIFY & DELETE',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: FontSize.s14 * responsiveTextScale,
+                                fontFamily: FontFamily.Montserrat,
+                                fontWeight: FontWeightManager.semiBold,
+                              ),
                             ),
                           ),
                   ),

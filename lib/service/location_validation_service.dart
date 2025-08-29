@@ -107,6 +107,9 @@ class LocationValidationService {
         };
       }
       
+      debugPrint('🔍 LocationValidationService: Force checking serviceability for current location: $address');
+      debugPrint('🔍 LocationValidationService: Coordinates: ($latitude, $longitude)');
+      
       return await checkLocationServiceability(
         latitude: latitude,
         longitude: longitude,

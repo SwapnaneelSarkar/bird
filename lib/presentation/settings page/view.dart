@@ -17,6 +17,8 @@ import '../../service/address_service.dart';
 import '../../service/app_startup_service.dart';
 import '../../widgets/verification_dialog.dart';
 import '../../widgets/account_deletion_verification_dialog.dart';
+import '../../widgets/phone_number_field.dart';
+import '../../models/country_model.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({Key? key}) : super(key: key);
@@ -30,6 +32,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  
+  // Store selected country code for phone verification
+  String _selectedCountryCode = '+91';
   
   late SettingsBloc _settingsBloc;
   File? _profileImage;
@@ -90,7 +95,30 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   Future<void> _loadUserDataToControllers(Map<String, dynamic> userData) async {
     _nameController.text = userData['username'] ?? '';
     _emailController.text = userData['email'] ?? '';
-    _phoneController.text = userData['mobile'] ?? '';
+    
+    // Handle phone number with country code
+    final phoneNumber = userData['mobile'] ?? '';
+    if (phoneNumber.isNotEmpty) {
+      // Try to detect country code from existing phone number
+      for (final country in CountryData.countries) {
+        if (phoneNumber.startsWith(country.dialCode)) {
+          setState(() {
+            _selectedCountryCode = country.dialCode;
+          });
+          // Update controller text to remove country code
+          final phoneWithoutCode = phoneNumber.substring(country.dialCode.length);
+          _phoneController.text = phoneWithoutCode;
+          break;
+        }
+      }
+      // If no country code found, use default
+      if (_phoneController.text.isEmpty) {
+        _phoneController.text = phoneNumber;
+      }
+    } else {
+      _phoneController.text = '';
+    }
+    
     _addressController.text = userData['address'] ?? '';
     
     // Validate fields after loading data
@@ -227,10 +255,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     });
     
     // Now we'll update all the user settings including the profile image
+    final fullPhoneNumber = '$_selectedCountryCode${_phoneController.text}';
     _settingsBloc.add(UpdateUserSettings(
       name: _nameController.text,
       email: _emailController.text,
-      phone: _phoneController.text,
+      phone: fullPhoneNumber,
       address: _addressController.text,
       latitude: _latitude,
       longitude: _longitude,
@@ -247,7 +276,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       _showFieldError('name', 'Name is required');
       isValid = false;
     } else if (!_isValidName(_nameController.text.trim())) {
-      _showFieldError('name', 'Name can only contain alphabets and spaces');
+      if (_nameController.text.trim().length > 30) {
+        _showFieldError('name', 'Name cannot exceed 30 characters');
+      } else {
+        _showFieldError('name', 'Name can only contain alphabets and spaces');
+      }
       isValid = false;
     }
     
@@ -264,6 +297,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     if (_phoneController.text.trim().isEmpty) {
       _showFieldError('phone', 'Phone number is required');
       isValid = false;
+    } else {
+      // Validate phone number format (should be at least 10 digits)
+      final phoneDigits = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+      if (phoneDigits.length < 10) {
+        _showFieldError('phone', 'Phone number must be at least 10 digits');
+        isValid = false;
+      }
     }
     
     // Validate address field
@@ -303,10 +343,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     return emailRegex.hasMatch(email);
   }
 
-  // Validate name format - only alphabets allowed
+  // Validate name format - only alphabets allowed and max 30 characters
   bool _isValidName(String name) {
     final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
-    return nameRegex.hasMatch(name.trim());
+    return nameRegex.hasMatch(name.trim()) && name.trim().length <= 30;
   }
 
   // Validate fields after loading data
@@ -315,7 +355,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     if (_nameController.text.trim().isEmpty) {
       _showFieldError('name', 'Name is required');
     } else if (!_isValidName(_nameController.text.trim())) {
-      _showFieldError('name', 'Name can only contain alphabets and spaces');
+      if (_nameController.text.trim().length > 30) {
+        _showFieldError('name', 'Name cannot exceed 30 characters');
+      } else {
+        _showFieldError('name', 'Name can only contain alphabets and spaces');
+      }
     }
     
     // Validate email field
@@ -350,7 +394,8 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     }
     
     // Check if phone was modified and reset verification if changed
-    if (_isPhoneVerified && _phoneController.text != _originalPhone) {
+    final currentFullPhone = '$_selectedCountryCode${_phoneController.text}';
+    if (_isPhoneVerified && currentFullPhone != _originalPhone) {
       setState(() {
         _isPhoneVerified = false;
       });
@@ -492,6 +537,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       builder: (context) => AccountDeletionVerificationDialog(
         phoneNumber: phoneNumber,
         onVerificationSuccess: (otp, verificationId) {
+          debugPrint('🎯 SettingsPage: OTP verification success callback triggered');
+          debugPrint('🎯 SettingsPage: OTP: $otp');
+          debugPrint('🎯 SettingsPage: Verification ID: $verificationId');
           // Proceed with account deletion after OTP verification
           _settingsBloc.add(DeleteAccountWithOtp(otp: otp, verificationId: verificationId));
         },
@@ -608,18 +656,26 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               setState(() {
                 _isSaving = false;
               });
-              _showSnackBar(
-                message: state.message,
-                isError: true,
-              );
+              // Don't show error messages if we're in the process of deleting account
+              if (!state.message.contains('OTP') && !state.message.contains('verification')) {
+                _showSnackBar(
+                  message: state.message,
+                  isError: true,
+                );
+              }
             }
             
             // Redirect to login page when account is deleted
             if (state is SettingsAccountDeleted) {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/login',
-                (route) => false,
-              );
+              // Add a small delay to ensure all cleanup is complete
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/login',
+                    (route) => false,
+                  );
+                }
+              });
             }
             
             if (state is SettingsLoaded) {
@@ -638,34 +694,102 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Profile Photo Section
+                    // Enhanced Profile Section
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.symmetric(vertical: 28 * responsiveTextScale),
+                      margin: EdgeInsets.symmetric(horizontal: 18 * responsiveTextScale),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            ColorManager.primary,
+                            ColorManager.primary.withOpacity(0.8),
+                            ColorManager.primary.withOpacity(0.6),
+                          ],
+                          stops: const [0.0, 0.7, 1.0],
+                        ),
+                        borderRadius: BorderRadius.circular(20 * responsiveTextScale),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 6,
+                            color: const Color(0xFFE67E22).withOpacity(0.25),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 6),
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFFE67E22).withOpacity(0.1),
+                            blurRadius: 4,
                             spreadRadius: 0,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Column(
-                        children: [
-                          SizedBox(height: 12 * responsiveTextScale),
-                          Text(
-                            'Profile',
-                            style: TextStyle(
-                              fontSize: FontSize.s12 * responsiveTextScale,
-                              color: Colors.grey,
-                              letterSpacing: 0.2,
-                              fontFamily: FontFamily.Montserrat,
+                      child: Padding(
+                        padding: EdgeInsets.all(24 * responsiveTextScale),
+                        child: Column(
+                          children: [
+                            // Profile Header with Icon
+                            Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(12 * responsiveTextScale),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(12 * responsiveTextScale),
+                                  ),
+                                  child: Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 24 * responsiveTextScale,
+                                  ),
+                                ),
+                                SizedBox(width: 16 * responsiveTextScale),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Profile Settings',
+                                        style: TextStyle(
+                                          fontSize: (FontSize.s16 + 2) * responsiveTextScale,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 0.5,
+                                          fontFamily: FontFamily.Montserrat,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4 * responsiveTextScale),
+                                      Text(
+                                        'Manage your personal information',
+                                        style: TextStyle(
+                                          fontSize: FontSize.s12 * responsiveTextScale,
+                                          color: Colors.white.withOpacity(0.8),
+                                          letterSpacing: 0.3,
+                                          fontFamily: FontFamily.Montserrat,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.all(8 * responsiveTextScale),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(10 * responsiveTextScale),
+                                  ),
+                                  child: Icon(
+                                    Icons.settings_rounded,
+                                    color: Colors.white,
+                                    size: 20 * responsiveTextScale,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            
+
+                          ],
+                        ),
                       ),
                     ).animate().slideY(begin: 0.05, end: 0, duration: 600.ms, curve: Curves.easeOutQuint),
                     
@@ -720,19 +844,32 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               fieldName: 'email',
                             ),
                             
-                            // Phone Number Field with Verification
-                            _buildVerifiableField(
+                            // Phone Number Field with Country Picker
+                            PhoneNumberField(
                               label: 'Phone Number',
                               controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              icon: Icons.phone_outlined,
                               responsiveTextScale: responsiveTextScale,
                               animationDelay: 300,
                               isRequired: true,
                               isVerified: _isPhoneVerified,
                               onVerify: () => _showPhoneVerificationDialog(),
-                              fieldType: 'phone',
+                              icon: Icons.phone_outlined,
                               fieldName: 'phone',
+                              hasError: _fieldErrors.containsKey('phone'),
+                              errorMessage: _fieldErrors['phone'],
+                              onCountryChanged: (countryCode) {
+                                // Store the selected country code
+                                setState(() {
+                                  _selectedCountryCode = countryCode;
+                                });
+                                debugPrint('Country code changed to: $countryCode');
+                              },
+                              onPhoneChanged: (phoneNumber) {
+                                // Clear error when user starts typing
+                                if (_fieldErrors.containsKey('phone')) {
+                                  _clearFieldError('phone');
+                                }
+                              },
                             ),
                             
                             // Address Field with location picker
@@ -1086,6 +1223,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 child: TextField(
                   controller: controller,
                   keyboardType: keyboardType,
+                  maxLength: fieldName == 'name' ? 30 : null, // Add 30 character limit for name field
                   inputFormatters: fieldName == 'name' ? [
                     FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
                   ] : null,
@@ -1096,12 +1234,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: fieldName == 'name' ? 'Enter your full name (alphabets only)' : null,
+                    hintText: fieldName == 'name' ? 'Enter your full name (alphabets only, max 30 characters)' : null,
                     hintStyle: TextStyle(
                       color: Colors.grey[400],
                       fontSize: FontSize.s12 * responsiveTextScale,
                       fontFamily: FontFamily.Montserrat,
                     ),
+                    counterText: '', // Hide the character counter
                     focusedBorder: hasError ? UnderlineInputBorder(
                       borderSide: BorderSide(color: Colors.red, width: 1),
                     ) : UnderlineInputBorder(
@@ -1123,7 +1262,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                       } else if (fieldName == 'email' && !_isValidEmail(value.trim())) {
                         _showFieldError(fieldName, 'Please enter a valid email address');
                       } else if (fieldName == 'name' && !_isValidName(value.trim())) {
-                        _showFieldError(fieldName, 'Name can only contain alphabets and spaces');
+                        if (value.trim().length > 30) {
+                          _showFieldError(fieldName, 'Name cannot exceed 30 characters');
+                        } else {
+                          _showFieldError(fieldName, 'Name can only contain alphabets and spaces');
+                        }
                       } else {
                         _clearFieldError(fieldName);
                       }
@@ -1166,6 +1309,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   }) {
     final hasError = fieldName != null && _fieldErrors.containsKey(fieldName);
     final errorMessage = hasError ? _fieldErrors[fieldName] : null;
+    
+    // Get screen width for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    
     return Container(
       padding: EdgeInsets.symmetric(vertical: responsiveTextScale),
       child: Column(
@@ -1174,27 +1322,27 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           Text(
             isRequired ? '$label *' : label,
             style: TextStyle(
-              fontSize: FontSize.s12 * responsiveTextScale,
+              fontSize: (isSmallScreen ? FontSize.s10 : FontSize.s12) * responsiveTextScale,
               color: hasError ? Colors.red : Colors.grey,
               fontFamily: FontFamily.Montserrat,
             ),
           ),
-          SizedBox(height: 8 * responsiveTextScale),
+          SizedBox(height: (isSmallScreen ? 6 : 8) * responsiveTextScale),
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(6 * responsiveTextScale),
+                padding: EdgeInsets.all((isSmallScreen ? 4 : 6) * responsiveTextScale),
                 decoration: BoxDecoration(
                   color: hasError ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8 * responsiveTextScale),
+                  borderRadius: BorderRadius.circular((isSmallScreen ? 6 : 8) * responsiveTextScale),
                 ),
                 child: Icon(
                   icon,
                   color: hasError ? Colors.red : Colors.orange,
-                  size: 18 * responsiveTextScale,
+                  size: (isSmallScreen ? 16 : 18) * responsiveTextScale,
                 ),
               ),
-              SizedBox(width: 8 * responsiveTextScale),
+              SizedBox(width: (isSmallScreen ? 6 : 8) * responsiveTextScale),
               Expanded(
                 child: TextField(
                   controller: controller,
@@ -1202,14 +1350,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   enabled: isVerified, // Make field editable only after verification
                   style: TextStyle(
                     color: isVerified ? ColorManager.black : Colors.grey[600],
-                    fontSize: FontSize.s14 * responsiveTextScale,
+                    fontSize: (isSmallScreen ? FontSize.s12 : FontSize.s14) * responsiveTextScale,
                     fontFamily: FontFamily.Montserrat,
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintStyle: TextStyle(
                       color: Colors.grey[400],
-                      fontSize: FontSize.s12 * responsiveTextScale,
+                      fontSize: (isSmallScreen ? FontSize.s10 : FontSize.s12) * responsiveTextScale,
                       fontFamily: FontFamily.Montserrat,
                     ),
                     disabledBorder: InputBorder.none,
@@ -1248,8 +1396,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   },
                 ),
               ),
-              SizedBox(width: 8 * responsiveTextScale),
-              // Verification button
+            ],
+          ),
+          // Verification button below the input field
+          SizedBox(height: (isSmallScreen ? 8 : 10) * responsiveTextScale),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
               Container(
                 decoration: BoxDecoration(
                   color: isVerified ? Colors.green : ColorManager.primary,
@@ -1262,7 +1415,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                     onTap: isVerified ? null : onVerify, // Disable button if already verified
                     child: Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 12 * responsiveTextScale,
+                        horizontal: 16 * responsiveTextScale,
                         vertical: 8 * responsiveTextScale,
                       ),
                       child: Row(
@@ -1273,7 +1426,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             color: Colors.white,
                             size: 16 * responsiveTextScale,
                           ),
-                          SizedBox(width: 4 * responsiveTextScale),
+                          SizedBox(width: 6 * responsiveTextScale),
                           Text(
                             isVerified ? 'Verified' : 'Verify',
                             style: TextStyle(
@@ -1333,13 +1486,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
 
   // Show phone verification dialog
   void _showPhoneVerificationDialog() {
+    final fullPhoneNumber = '$_selectedCountryCode${_phoneController.text}';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => VerificationDialog(
-        title: 'Verify Phone',
-        subtitle: 'Enter the 6-digit OTP sent to\n${_phoneController.text}',
-        value: _phoneController.text,
+        title: 'verify phone number',
+        subtitle: 'Enter the 6-digit OTP sent to\n$fullPhoneNumber',
+        value: fullPhoneNumber,
         type: VerificationType.phone,
         onVerificationSuccess: () {
           setState(() {

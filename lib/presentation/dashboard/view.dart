@@ -124,10 +124,10 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
             if (state is CategorySelected) {
               debugPrint('🏠 Dashboard: Navigating with supercategory ID: ${state.categoryId}');
               
-              // Check if location is serviceable before allowing navigation
+              // Allow navigation regardless of location serviceability
+              // Users can change their address from the homepage
               if (!_isLocationServiceable) {
-                debugPrint('❌ Dashboard: Location not serviceable, blocking navigation');
-                return;
+                debugPrint('⚠️ Dashboard: Location not serviceable, but allowing navigation');
               }
               
               // Always navigate to home page with the selected category
@@ -825,13 +825,20 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
       final userData = await TokenService.getUserData();
       if (userData != null && userData['address'] != null) {
         _currentAddress = userData['address'].toString();
+      } else {
+        _currentAddress = ''; // Ensure it's empty string, not "null"
       }
 
       final result = await LocationValidationService.checkCurrentLocationServiceability();
       
       setState(() {
         _isCheckingLocation = false;
-        _isLocationServiceable = result['isServiceable'] ?? true;
+        // If no location data, don't show warning - let user set location from homepage
+        if (result['message'] == 'No location data available') {
+          _isLocationServiceable = true; // Don't block navigation
+        } else {
+          _isLocationServiceable = result['isServiceable'] ?? true;
+        }
         // _locationMessage = result['message'] ?? ''; // Removed unused field
       });
 
@@ -934,7 +941,8 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
     }
 
     // Show location serviceability warning if location is not serviceable
-    if (!_isLocationServiceable) {
+    // But only if we have location data to validate
+    if (!_isLocationServiceable && _currentAddress.isNotEmpty && _currentAddress != 'null') {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         padding: const EdgeInsets.all(16),
@@ -964,14 +972,104 @@ class _CategoryHomepageContentState extends State<_CategoryHomepageContent>
                     ),
                   ),
                 ),
+                // Add refresh button
+                GestureDetector(
+                  onTap: () async {
+                    setState(() {
+                      _isCheckingLocation = true;
+                    });
+                    
+                    try {
+                      final result = await AppStartupService.forceLocationValidation();
+                      setState(() {
+                        _isCheckingLocation = false;
+                        _isLocationServiceable = result['isServiceable'] ?? true;
+                      });
+                      
+                      if (result['isServiceable'] == true) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Location is now serviceable!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      setState(() {
+                        _isCheckingLocation = false;
+                      });
+                    }
+                  },
+                  child: Icon(
+                    Icons.refresh,
+                    color: Colors.orange[700],
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Add dismiss button
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isLocationServiceable = true; // Temporarily dismiss the warning
+                    });
+                  },
+                  child: Icon(
+                    Icons.close,
+                    color: Colors.orange[700],
+                    size: 20,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              LocationValidationService.getUnserviceableLocationMessage(_currentAddress),
+              'You can change your delivery address from the top bar to find restaurants in your area.',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: Colors.orange[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Current location: $_currentAddress',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.orange[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show helpful message if no location is set
+    if (_currentAddress.isEmpty || _currentAddress == 'null') {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_on,
+              color: Colors.blue[700],
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Set your delivery address to find restaurants near you',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.blue[700],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],

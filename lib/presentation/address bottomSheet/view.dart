@@ -936,8 +936,9 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: nameController,
+                  maxLength: 20, // Add 20 character limit for address names
                   decoration: InputDecoration(
-                    hintText: 'e.g., Home, Office, Friend\'s place',
+                    hintText: 'e.g., Home, Office, Friend\'s place (max 20 chars)',
                     hintStyle: TextStyle(color: Colors.grey[500]),
                     filled: true,
                     fillColor: ColorManager.otpField,
@@ -946,6 +947,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    counterText: '', // Hide the character counter
                     suffixIcon: nameController.text.toLowerCase() == 'home' && _isHomeNameExists()
                         ? Icon(
                             Icons.error_outline,
@@ -1361,8 +1363,9 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                 SizedBox(height: 8),
                 TextField(
                   controller: addressNameController,
+                  maxLength: 20, // Add 20 character limit for address names
                   decoration: InputDecoration(
-                    hintText: 'e.g., Home, Office',
+                    hintText: 'e.g., Home, Office (max 20 chars)',
                     filled: true,
                     fillColor: ColorManager.otpField,
                     border: OutlineInputBorder(
@@ -1370,6 +1373,7 @@ class _AddressPickerBottomSheetState extends State<AddressPickerBottomSheet> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    counterText: '', // Hide the character counter
                   ),
                 ),
                 SizedBox(height: 16),

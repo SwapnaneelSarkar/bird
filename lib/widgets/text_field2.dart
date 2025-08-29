@@ -13,6 +13,7 @@ class CustomTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final bool isRequired;
+  final int? maxLength; // Add maxLength parameter
 
   const CustomTextField({
     Key? key,
@@ -21,6 +22,7 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.isRequired = false,
+    this.maxLength, // Add maxLength to constructor
   }) : super(key: key);
 
   @override
@@ -30,6 +32,7 @@ class CustomTextField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      maxLength: maxLength, // Add maxLength to TextFormField
       decoration: InputDecoration(
         hintText: isRequired ? '$hint *' : hint,
         hintStyle: GoogleFonts.poppins(
@@ -55,6 +58,7 @@ class CustomTextField extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: ColorManager.black.withOpacity(0.2)),
         ),
+        counterText: '', // Hide the character counter
       ),
       style: GoogleFonts.poppins(
         fontSize: FontSize.s16,

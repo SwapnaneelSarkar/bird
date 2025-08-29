@@ -61,6 +61,12 @@ class CompleteProfileBloc extends Bloc<CompleteProfileEvent, CompleteProfileStat
         return;
       }
       
+      // Validate name length
+      if (event.name.length > 30) {
+        emit(const ProfileFailure('Name cannot exceed 30 characters'));
+        return;
+      }
+      
       // Email is optional, but if provided, validate it
       if (event.email != null && event.email!.isNotEmpty && !_isValidEmail(event.email!)) {
         emit(const ProfileFailure('Please enter a valid email address'));

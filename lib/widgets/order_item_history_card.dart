@@ -416,7 +416,7 @@ class OrderItemCard extends StatelessWidget {
 
       if (result['success']) {
         _showSuccessMessage(context, result['message']);
-        Navigator.of(context).pushNamed('/cart');
+        Navigator.of(context).pushNamed('/orderConfirmation');
       } else {
         _showErrorMessage(context, result['message']);
       }

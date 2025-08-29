@@ -46,6 +46,18 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
         // Tab index changed
       });
     });
+    
+    // Load profile data when the page is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Check if we're already in a logout state before loading profile
+      final currentState = context.read<ProfileBloc>().state;
+      if (currentState is! ProfileLoggingOut && currentState is! ProfileLoggedOut) {
+        // Reset the profile state first to ensure clean loading
+        context.read<ProfileBloc>().add(ResetProfileState());
+        // Then load the profile
+        context.read<ProfileBloc>().add(LoadProfile());
+      }
+    });
   }
 
   @override
@@ -112,13 +124,21 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
         ),
         body: BlocConsumer<ProfileBloc, ProfileState>(
           listener: (context, state) {
+            if (state is ProfileLoggingOut) {
+              // Show loading dialog during logout
+              _showLogoutLoadingDialog(context);
+            }
             if (state is ProfileLoggedOut) {
+              // Hide loading dialog and navigate to login
+              _hideLogoutLoadingDialog(context);
               Navigator.of(context).pushNamedAndRemoveUntil(
-                '/login',
+                Routes.login,
                 (route) => false,
               );
             }
             if (state is ProfileError) {
+              // Hide loading dialog if there's an error
+              _hideLogoutLoadingDialog(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
@@ -128,6 +148,11 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
             }
           },
           builder: (context, state) {
+            // Show logout loading view for both logging out and logged out states
+            if (state is ProfileLoggingOut || state is ProfileLoggedOut) {
+              return _buildLogoutLoadingView(w);
+            }
+            
             if (state is ProfileLoading || state is ProfileInitial) {
               return _buildLoadingView(w);
             }
@@ -136,7 +161,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
               return _buildProfileContent(context, state, w);
             }
             
-            // Error State UI
+            // Error State UI - only show if not in logout states
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -884,8 +909,9 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                 SizedBox(height: 8),
                 TextField(
                   controller: addressNameController,
+                  maxLength: 20, // Add 20 character limit for address names
                   decoration: InputDecoration(
-                    hintText: 'e.g., Home, Office',
+                    hintText: 'e.g., Home, Office (max 20 chars)',
                     filled: true,
                     fillColor: ColorManager.otpField,
                     border: OutlineInputBorder(
@@ -893,6 +919,7 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    counterText: '', // Hide the character counter
                   ),
                 ),
                 SizedBox(height: 16),
@@ -1507,6 +1534,96 @@ class _ProfileViewState extends State<ProfileView> with TickerProviderStateMixin
         ),
       ),
     );
+  }
+
+  Widget _buildLogoutLoadingView(double w) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            color: Color(0xFFE67E22),
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Logging out...',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: ColorManager.black,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please wait while we clean up your data',
+            style: TextStyle(
+              fontSize: 14,
+              color: ColorManager.cardGrey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutLoadingDialog(BuildContext context) {
+    // Check if dialog is already showing to prevent multiple dialogs
+    if (Navigator.of(context).canPop()) {
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing while logging out
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false, // Prevent back button from closing dialog
+        child: Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  color: Color(0xFFE67E22),
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Logging out...',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: ColorManager.black,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please wait while we clean up your data',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: ColorManager.cardGrey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideLogoutLoadingDialog(BuildContext context) {
+    // Only pop if there's a dialog to pop
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
